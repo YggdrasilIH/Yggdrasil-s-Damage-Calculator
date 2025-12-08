@@ -49,7 +49,7 @@
       <div>
         <label><input type="radio" name="artifact" id="none" checked> None</label>
         <label><input type="radio" name="artifact" id="antiwarrior"> Antiwarrior (×1.9)</label>
-        <label><input type="radio" name="artifact" id="antlers"> Antlers (+126% ADD)</label>
+        <label><input type="radio" name="artifact" id="antlers"> Antlers (+126% ADD, +300% SD)</label>
       </div>
     </div>
 
@@ -135,7 +135,10 @@
       const petMultiplier = 1 + (petInput / 100);
 
       // Artifacts
-      if (document.getElementById('antlers').checked) add += 1.26; // +126% ADD
+      if (document.getElementById('antlers').checked) {
+      add += 1.26;   // Antlers adds +126% ADD
+      sd += 3.0;     // Antlers adds +300% SD
+      }
       const artifactMultiplier = document.getElementById('antiwarrior').checked ? 1.9 : 1;
 
       // Base damage
