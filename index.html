@@ -4,7 +4,7 @@
   <title>Game Damage Calculator</title>
   <style>
     body { font-family: Arial; background: #f4f4f4; text-align: center; }
-    .calculator { background: white; padding: 20px; margin: 50px auto; width: 400px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
+    .calculator { background: white; padding: 20px; margin: 50px auto; width: 420px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
     input, select { width: 80%; padding: 8px; margin: 10px 0; }
     button { padding: 10px 20px; margin-top: 10px; cursor: pointer; }
     #result { font-size: 20px; margin-top: 15px; font-weight: bold; }
@@ -15,15 +15,11 @@
     <h2>Damage Calculator</h2>
     <input type="number" id="attack" placeholder="Attack"><br>
     <input type="number" id="sd" placeholder="SD"><br>
-    <input type="number" id="hd" placeholder="HD"><br>
+    <input type="number" id="precision" placeholder="Precision"><br>
     <input type="number" id="add" placeholder="ADD"><br>
     <label><input type="checkbox" id="elyvia"> Elyvia Active</label><br>
-    <input type="number" id="sqh" placeholder="SQH Stacks"><br>
-    <input type="range" id="bossHP" min="0" max="100" value="100" oninput="document.getElementById('bossHPVal').innerText=this.value+'%'">
-    <div>Boss HP %: <span id="bossHPVal">100%</span></div><br>
-    <input type="number" id="precision" placeholder="Precision"><br>
-    <input type="number" id="critChance" placeholder="Crit %"><br>
     <input type="number" id="critDamage" placeholder="Crit Damage %"><br>
+    <input type="number" id="sqh" placeholder="SQH Stacks"><br>
     <button onclick="calculateDamage()">Calculate</button>
     <div id="result">Damage: --</div>
   </div>
@@ -32,22 +28,16 @@
     function calculateDamage() {
       let attack = parseFloat(document.getElementById('attack').value) || 0;
       let sd = parseFloat(document.getElementById('sd').value) || 0;
-      let hd = parseFloat(document.getElementById('hd').value) || 0;
-      let add = parseFloat(document.getElementById('add').value) || 0;
-      let elyvia = document.getElementById('elyvia').checked ? 1.1 : 1; // example: Elyvia gives +10%
-      let sqh = parseFloat(document.getElementById('sqh').value) || 0;
-      let bossHP = parseFloat(document.getElementById('bossHP').value) || 100;
       let precision = parseFloat(document.getElementById('precision').value) || 0;
-      let critChance = (parseFloat(document.getElementById('critChance').value) || 0) / 100;
-      let critDamage = (parseFloat(document.getElementById('critDamage').value) || 0) / 100;
+      let add = parseFloat(document.getElementById('add').value) || 1; // multiplier, default 1
+      let elyvia = document.getElementById('elyvia').checked ? 1.4 : 1;
+      let critDamage = (parseFloat(document.getElementById('critDamage').value) || 0) / 100; // convert % to decimal
+      let sqh = parseFloat(document.getElementById('sqh').value) || 0;
 
-      // Base damage formula (placeholder — replace with your actual game’s equation!)
-      let baseDamage = (attack * sd + hd + add + sqh * 5) * elyvia * (precision/100 + 1) * (bossHP/100);
+      // Apply formula
+      let damage = attack * (12 + sd) * (0.3 * precision) * add * elyvia * ((1.5 + 2 * critDamage) * 0.24 * sqh);
 
-      // Expected damage with crits
-      let expectedDamage = baseDamage * (1 + critChance * critDamage);
-
-      document.getElementById('result').innerText = "Damage: " + Math.round(expectedDamage);
+      document.getElementById('result').innerText = "Damage: " + Math.round(damage);
     }
   </script>
 </body>
