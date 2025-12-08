@@ -20,6 +20,8 @@
     <label><input type="checkbox" id="elyvia"> Elyvia Active</label><br>
     <input type="number" id="critDamage" placeholder="Crit Damage %"><br>
     <input type="number" id="sqh" placeholder="SQH Stacks"><br>
+    <input type="range" id="enemyHP" min="0" max="100" value="100" oninput="document.getElementById('enemyHPVal').innerText=this.value+'%'">
+    <div>Enemy HP %: <span id="enemyHPVal">100%</span></div><br>
     <button onclick="calculateDamage()">Calculate</button>
     <div id="result">Damage: --</div>
   </div>
@@ -33,11 +35,22 @@
       let elyvia = document.getElementById('elyvia').checked ? 1.4 : 1;
       let critDamage = (parseFloat(document.getElementById('critDamage').value) || 0) / 100; // convert % to decimal
       let sqh = parseFloat(document.getElementById('sqh').value) || 0;
+      let enemyHP = parseFloat(document.getElementById('enemyHP').value) || 100;
 
-      // Apply formula
-      let damage = attack * (12 + sd) * (0.3 * precision) * add * elyvia * ((1.5 + 2 * critDamage) * 0.24 * sqh);
+      // Base formula
+      let baseDamage = attack * (12 + sd) * (0.3 * precision) * add * elyvia * ((1.5 + 2 * critDamage) * 0.24 * sqh);
 
-      document.getElementById('result').innerText = "Damage: " + Math.round(damage);
+      // Defier multiplier (only if enemy HP > 70%)
+      let defier = enemyHP > 70 ? 1.3 : 1;
+
+      // Giant Killer multiplier (always 2x)
+      let giantKiller = 2;
+
+      // Final damage
+      let damage = baseDamage * defier * giantKiller;
+
+      // Show in scientific notation
+      document.getElementById('result').innerText = "Damage: " + damage.toExponential(2);
     }
   </script>
 </body>
