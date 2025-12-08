@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>LFA SE Damage Calculator</title>
   <meta charset="utf-8" />
+  <title>LFA SE Damage Calculator</title>
   <style>
     body { font-family: Arial, Helvetica, sans-serif; background: #121212; color: #e0e0e0; text-align: center; }
-    .calculator { background: #1e1e1e; padding: 15px; margin: 20px auto; width: 720px; border-radius: 10px; box-shadow: 0 0 12px rgba(0,0,0,0.6); }
-    .section { background: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 8px; }
+    .calculator { background: #1e1e1e; padding: 16px; margin: 20px auto; width: 760px; border-radius: 12px; box-shadow: 0 0 12px rgba(0,0,0,0.6); }
+    .section { background: #2a2a2a; padding: 12px; margin: 10px 0; border-radius: 8px; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     input { width: 95%; padding: 6px; font-size: 14px; border: 1px solid #444; border-radius: 4px; background: #333; color: #e0e0e0; }
     h2 { margin: 8px 0; color: #fff; }
@@ -16,16 +16,14 @@
     .tabs { display: flex; justify-content: center; margin-top: 10px; gap: 8px; }
     .tab { padding: 8px 16px; cursor: pointer; background: #2a2a2a; border-radius: 6px 6px 0 0; }
     .tab.active { background: #4a90e2; }
-    .tab-content { background: #2a2a2a; padding: 10px; border-radius: 0 0 8px 8px; text-align: left; min-height: 140px; }
+    .tab-content { background: #2a2a2a; padding: 12px; border-radius: 0 0 8px 8px; text-align: left; min-height: 160px; }
     .crit { color: #ff4c4c; font-weight: bold; }
     .subtotal { color: #4caf50; font-weight: bold; }
     .balanced { color: #42a5f5; font-weight: bold; }
     .total { color: #ba68c8; font-weight: bold; }
     .buffs-row { display:flex; justify-content:space-between; align-items:center; }
-    .small { color:#aaa; font-size:12px; }
     .mono { font-family: Consolas, Menlo, monospace; }
-    .row { display:flex; gap:12px; flex-wrap:wrap; }
-    .row > div { flex: 1; min-width: 280px; }
+    .small { font-size: 12px; color: #aaa; }
   </style>
 </head>
 <body>
@@ -57,12 +55,12 @@
 
     <!-- Enemy HP and crits -->
     <div class="section">
-      <div class="row">
+      <div class="grid">
         <div>
           <h3>Enemy HP %</h3>
           <input type="range" id="enemyHP" min="0" max="100" value="100"
                  oninput="document.getElementById('enemyHPVal').innerText=this.value+'%'">
-          <span id="enemyHPVal">100%</span>
+          <div id="enemyHPVal">100%</div>
         </div>
         <div>
           <h3>Crits</h3>
@@ -82,7 +80,7 @@
       <div class="small mono">HD multiplier = 1 + 0.7 × (HD / 100), Pet multiplier = 1 + (Pet% / 100)</div>
     </div>
 
-    <button onclick="calculateDamage()">Calculate</button>
+    <button id="calcBtn">Calculate</button>
 
     <!-- Tabs -->
     <div class="tabs">
@@ -94,34 +92,37 @@
   </div>
 
   <script>
-    // Tab handling (no inline onclick to avoid selector issues)
+    // Tabs
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
-        const target = tab.getAttribute('data-tab');
-        document.getElementById('summary').style.display = (target === 'summary') ? 'block' : 'none';
-        document.getElementById('breakdown').style.display = (target === 'breakdown') ? 'block' : 'none';
+        const tgt = tab.getAttribute('data-tab');
+        document.getElementById('summary').style.display = (tgt === 'summary') ? 'block' : 'none';
+        document.getElementById('breakdown').style.display = (tgt === 'breakdown') ? 'block' : 'none';
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
       });
     });
 
+    // Calculate button
+    document.getElementById('calcBtn').addEventListener('click', calculateDamage);
+
     function calculateDamage() {
-      // Inputs
+      // Inputs and caps
       const attack = parseFloat(document.getElementById('attack').value) || 0;
       const sd = (parseFloat(document.getElementById('sd').value) || 0) / 100;
 
       let precisionInput = parseFloat(document.getElementById('precision').value) || 0;
-      if (precisionInput > 150) { precisionInput = 150; alert("Precision capped at 150"); }
+      if (precisionInput > 150) precisionInput = 150;
       const precision = precisionInput / 100;
 
-      const addInputRaw = parseFloat(document.getElementById('add').value);
-      let add = (!isNaN(addInputRaw) && addInputRaw > 0) ? (addInputRaw / 100) : 1; // safeguard: 1 if 0
+      const addRaw = parseFloat(document.getElementById('add').value);
+      let add = (!isNaN(addRaw) && addRaw > 0) ? (addRaw / 100) : 1; // safeguard
 
       const elyvia = document.getElementById('elyvia').checked ? 1.4 : 1;
 
-      let critDamageInput = parseFloat(document.getElementById('critDamage').value) || 0;
-      if (critDamageInput > 150) { critDamageInput = 150; alert("Crit Damage capped at 150"); }
-      const critDamage = critDamageInput / 100;
+      let cdInput = parseFloat(document.getElementById('critDamage').value) || 0;
+      if (cdInput > 150) cdInput = 150;
+      const critDamage = cdInput / 100;
 
       const sqh = parseFloat(document.getElementById('sqh').value) || 0;
       const enemyHP = parseFloat(document.getElementById('enemyHP').value) || 100;
@@ -134,9 +135,7 @@
       const petMultiplier = 1 + (petInput / 100);
 
       // Artifacts
-      if (document.getElementById('antlers').checked) {
-        add += 1.26; // adds +126% ADD
-      }
+      if (document.getElementById('antlers').checked) add += 1.26; // +126% ADD
       const artifactMultiplier = document.getElementById('antiwarrior').checked ? 1.9 : 1;
 
       // Base damage
@@ -153,29 +152,24 @@
       const giantKiller = 2;
       const hits = enemyHP > 60 ? 3 : 5;
 
-      // Crit multiplier
+      // Crit multiplier (SQH scales crit base)
       const critBase = (1.5 + 2 * critDamage);
       const critMultiplier = sqh > 0 ? (critBase * 0.24 * sqh) : critBase;
 
       // Compute hits
-      let summaryOutput = "";
+      let summaryHTML = "";
       let subtotal = 0;
       let hasNonCrit = false;
 
       for (let i = 1; i <= hits; i++) {
         let isCrit = false;
-
-        // Crit selection logic
         if (critsSelected > 0) {
           if (enemyHP > 60) {
-            // Above 60% HP: only hits 1–3 can crit
-            isCrit = (i <= Math.min(critsSelected, 3));
+            isCrit = i <= Math.min(critsSelected, 3);
           } else {
-            // 5-hit scenario: up to 5 crits allowed
-            isCrit = (i <= Math.min(critsSelected, 5));
+            isCrit = i <= Math.min(critsSelected, 5);
           }
         }
-
         if (!isCrit) hasNonCrit = true;
 
         const damagePerHit = baseDamage
@@ -184,56 +178,50 @@
           * giantKiller
           * artifactMultiplier;
 
-        summaryOutput += "<span class='" + (isCrit ? "crit" : "") + "'>"
-          + "Hit " + i + (isCrit ? " (CRIT)" : "") + ": "
-          + damagePerHit.toExponential(2)
-          + "</span><br>";
-
+        summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${damagePerHit.toExponential(2)}</span><br>`;
         subtotal += damagePerHit;
       }
 
-      summaryOutput += "<br><span class='subtotal'>Subtotal Damage: " + subtotal.toExponential(2) + "</span><br>";
+      summaryHTML += `<br><span class="subtotal">Subtotal Damage: ${subtotal.toExponential(2)}</span><br>`;
 
-      // Balanced Strike
+      // Balanced Strike (only if any non-crit)
       let total = subtotal;
-      let bsText = "";
+      let bsMultiplier = null;
       if (hasNonCrit) {
-        const bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
+        bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
         const balancedStrike = subtotal * bsMultiplier * defier * elyvia * add * giantKiller;
-        bsText = "<span class='balanced'>Balanced Strike: " + balancedStrike.toExponential(2) + "</span><br>";
+        summaryHTML += `<span class="balanced">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
         total += balancedStrike;
-        summaryOutput += bsText;
       }
-
-      summaryOutput += "<br><span class='total'>Total Damage: " + total.toExponential(2) + "</span>";
+      summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
 
       // Detailed breakdown
-      const breakdownLines = [
-        "<strong>Multipliers & Sources</strong>",
-        "Attack × (12 + SD): " + (12 + sd).toFixed(4),
-        "Precision multiplier: " + (1 + 0.3 * precision).toFixed(4),
-        "ADD multiplier" + (document.getElementById('antlers').checked ? " (Antlers +126%)" : "") + ": " + add.toFixed(4),
-        "Elyvia multiplier: " + elyvia.toFixed(4),
-        "HD multiplier: " + hdMultiplier.toFixed(4),
-        "Pet multiplier: " + petMultiplier.toFixed(4),
-        "Defier multiplier: " + defier.toFixed(4),
-        "Giant Killer multiplier: " + giantKiller.toFixed(4),
-        "Artifact multiplier: " + artifactMultiplier.toFixed(4),
-        "Crit multiplier base: " + critBase.toFixed(4),
-        "Crit multiplier applied when crit: " + critMultiplier.toFixed(4),
-        "Hits: " + hits,
-        "Subtotal: " + subtotal.toExponential(2),
-        hasNonCrit ? ("Balanced Strike multiplier: " + (enemyHP <= 50 ? 1.95 : 0.45).toFixed(2)) : "Balanced Strike: not triggered (all hits crit)",
-        "Total Damage: " + total.toExponential(2)
-      ];
-
-      const breakdownOutput = breakdownLines.map(l => "<div class='mono'>" + l + "</div>").join("");
+      const breakdownHTML = [
+        `<div class="mono"><strong>Multipliers & Sources</strong></div>`,
+        `<div class="mono">Attack × (12 + SD): ${(12 + sd).toFixed(4)}</div>`,
+        `<div class="mono">Precision multiplier: ${(1 + 0.3 * precision).toFixed(4)}</div>`,
+        `<div class="mono">ADD multiplier${document.getElementById('antlers').checked ? ' (Antlers +126%)' : ''}: ${add.toFixed(4)}</div>`,
+        `<div class="mono">Elyvia multiplier: ${elyvia.toFixed(4)}</div>`,
+        `<div class="mono">HD multiplier: ${hdMultiplier.toFixed(4)}</div>`,
+        `<div class="mono">Pet multiplier: ${petMultiplier.toFixed(4)}</div>`,
+        `<div class="mono">Defier multiplier: ${defier.toFixed(4)}</div>`,
+        `<div class="mono">Giant Killer multiplier: ${giantKiller.toFixed(4)}</div>`,
+        `<div class="mono">Artifact multiplier: ${artifactMultiplier.toFixed(4)}</div>`,
+        `<div class="mono">Crit multiplier base: ${critBase.toFixed(4)}</div>`,
+        `<div class="mono">Crit multiplier applied when crit: ${critMultiplier.toFixed(4)}</div>`,
+        `<div class="mono">Hits: ${hits}</div>`,
+        `<div class="mono">Subtotal: ${subtotal.toExponential(2)}</div>`,
+        hasNonCrit
+          ? `<div class="mono">Balanced Strike multiplier: ${bsMultiplier.toFixed(2)}</div>`
+          : `<div class="mono">Balanced Strike: not triggered (all hits crit)</div>`,
+        `<div class="mono">Total Damage: ${total.toExponential(2)}</div>`
+      ].join("");
 
       // Render
-      document.getElementById('summary').innerHTML = summaryOutput;
-      document.getElementById('breakdown').innerHTML = breakdownOutput;
+      document.getElementById('summary').innerHTML = summaryHTML;
+      document.getElementById('breakdown').innerHTML = breakdownHTML;
 
-      // Switch to Summary after calculation
+      // Auto-switch back to Summary after calculation
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelector('.tab[data-tab="summary"]').classList.add('active');
       document.getElementById('summary').style.display = 'block';
