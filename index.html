@@ -4,102 +4,93 @@
   <title>Game Damage Calculator</title>
   <style>
     body { font-family: Arial; background: #f4f4f4; text-align: center; }
-    .calculator { background: white; padding: 20px; margin: 50px auto; width: 480px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
-    input, select { width: 80%; padding: 8px; margin: 10px 0; }
-    button { padding: 10px 20px; margin-top: 10px; cursor: pointer; }
-    #result { font-size: 18px; margin-top: 15px; font-weight: bold; text-align: left; }
+    .calculator { background: white; padding: 15px; margin: 20px auto; width: 600px; border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.2); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    input, select { width: 95%; padding: 6px; font-size: 14px; }
+    h2, h3 { margin: 8px 0; }
+    button { padding: 8px 16px; margin-top: 10px; cursor: pointer; }
+    #result { font-size: 14px; margin-top: 10px; font-weight: bold; text-align: left; max-height: 180px; overflow-y: auto; }
+    .crit { color: red; font-weight: bold; }
+    .subtotal { color: green; font-weight: bold; }
+    label { font-size: 14px; margin-right: 10px; }
   </style>
 </head>
 <body>
   <div class="calculator">
     <h2>Damage Calculator</h2>
-    <input type="number" id="attack" placeholder="Attack"><br>
-    <input type="number" id="sd" placeholder="SD (%)"><br>
-    <input type="number" id="precision" placeholder="Precision (%)"><br>
-    <input type="number" id="add" placeholder="ADD (%)"><br>
-    <label><input type="checkbox" id="elyvia"> Elyvia Active</label><br>
-    <input type="number" id="critDamage" placeholder="Crit Damage %"><br>
-    <input type="number" id="sqh" placeholder="SQH Stacks"><br>
-    <input type="range" id="enemyHP" min="0" max="100" value="100" 
+
+    <!-- Stats grid -->
+    <div class="grid">
+      <input type="number" id="attack" placeholder="Attack">
+      <input type="number" id="sd" placeholder="SD (%)">
+      <input type="number" id="precision" placeholder="Precision (%) (max 150)">
+      <input type="number" id="add" placeholder="ADD (%)">
+      <input type="number" id="critDamage" placeholder="Crit Damage % (max 150)">
+      <input type="number" id="sqh" placeholder="SQH Stacks">
+    </div>
+
+    <!-- Buffs -->
+    <h3>Buffs</h3>
+    <label><input type="checkbox" id="elyvia"> Elyvia</label>
+    <label><input type="checkbox" id="antiwarrior"> Antiwarrior</label>
+    <label><input type="checkbox" id="antlers"> Antlers</label>
+
+    <!-- Enemy HP -->
+    <h3>Enemy HP %</h3>
+    <input type="range" id="enemyHP" min="0" max="100" value="100"
            oninput="document.getElementById('enemyHPVal').innerText=this.value+'%'">
-    <div>Enemy HP %: <span id="enemyHPVal">100%</span></div><br>
+    <span id="enemyHPVal">100%</span>
 
-    <!-- Artifact selection -->
-    <h3>Artifacts</h3>
-    <label><input type="checkbox" id="antiwarrior"> Antiwarrior (×1.9 damage)</label><br>
-    <label><input type="checkbox" id="antlers"> Antlers (+126% ADD)</label><br>
-
-    <!-- Crits selector -->
+    <!-- Crits -->
     <h3>Crits</h3>
-    <input type="number" id="crits" min="0" max="5" value="0"><br>
+    <input type="number" id="crits" min="0" max="5" value="0">
 
-    <button onclick="calculateDamage()">Calculate</button>
+    <br><button onclick="calculateDamage()">Calculate</button>
     <div id="result">Damage: --</div>
   </div>
 
   <script>
     function calculateDamage() {
       let attack = parseFloat(document.getElementById('attack').value) || 0;
-      let sd = (parseFloat(document.getElementById('sd').value) || 0) / 100; // convert %
-      let precision = (parseFloat(document.getElementById('precision').value) || 0) / 100; // convert %
-      let add = (parseFloat(document.getElementById('add').value) || 0) / 100; // convert %
+      let sd = (parseFloat(document.getElementById('sd').value) || 0) / 100;
+      let precisionInput = parseFloat(document.getElementById('precision').value) || 0;
+      if (precisionInput > 150) { precisionInput = 150; alert("Precision capped at 150"); }
+      let precision = precisionInput / 100;
+      let add = (parseFloat(document.getElementById('add').value) || 0) / 100;
       let elyvia = document.getElementById('elyvia').checked ? 1.4 : 1;
-      let critDamage = (parseFloat(document.getElementById('critDamage').value) || 0) / 100; // convert % to decimal
+      let critDamageInput = parseFloat(document.getElementById('critDamage').value) || 0;
+      if (critDamageInput > 150) { critDamageInput = 150; alert("Crit Damage capped at 150"); }
+      let critDamage = critDamageInput / 100;
       let sqh = parseFloat(document.getElementById('sqh').value) || 0;
       let enemyHP = parseFloat(document.getElementById('enemyHP').value) || 100;
       let critsSelected = parseInt(document.getElementById('crits').value) || 0;
 
-      // Artifact effects
-      if (document.getElementById('antlers').checked) {
-        add *= 2.26; // +126% ADD
-      }
+      if (document.getElementById('antlers').checked) { add *= 2.26; }
       let artifactMultiplier = document.getElementById('antiwarrior').checked ? 1.9 : 1;
 
-      // Base formula (without crit multiplier yet)
       let baseDamage = attack * (12 + sd) * (1 + 0.3 * precision) * add * elyvia;
-
-      // Defier multiplier (only if enemy HP > 70%)
       let defier = enemyHP > 70 ? 1.3 : 1;
-
-      // Giant Killer multiplier (always 2x)
       let giantKiller = 2;
-
-      // Number of hits based on boss HP
       let hits = enemyHP > 60 ? 3 : 5;
-
-      // Crit multiplier formula
       let critMultiplier = (1.5 + 2 * critDamage) * 0.24 * sqh;
 
-      // Build output
       let output = "";
       let subtotal = 0;
 
       for (let i = 1; i <= hits; i++) {
         let isCrit = false;
-
-        // Crit logic
         if (critsSelected > 0) {
           if (critsSelected >= hits) {
-            // All hits crit unless boss HP > 60 and critsSelected=5
             isCrit = true;
-            if (critsSelected === 5 && enemyHP > 60 && i > 3) {
-              isCrit = false; // only 3 crits above 60% HP
-            }
-          } else if (i <= critsSelected) {
-            isCrit = true;
-          }
+            if (critsSelected === 5 && enemyHP > 60 && i > 3) { isCrit = false; }
+          } else if (i <= critsSelected) { isCrit = true; }
         }
-
-        // Apply crit multiplier or 1x
         let damagePerHit = baseDamage * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
-
-        output += "Hit " + i + (isCrit ? " (CRIT)" : "") + ": " + damagePerHit.toExponential(2) + "<br>";
+        output += "<span class='" + (isCrit ? "crit" : "") + "'>Hit " + i + (isCrit ? " (CRIT)" : "") + ": " + damagePerHit.toExponential(2) + "</span><br>";
         subtotal += damagePerHit;
       }
 
-      // Add subtotal line
-      output += "<br><strong>Subtotal Damage: " + subtotal.toExponential(2) + "</strong>";
-
+      output += "<br><span class='subtotal'>Subtotal Damage: " + subtotal.toExponential(2) + "</span>";
       document.getElementById('result').innerHTML = output;
     }
   </script>
