@@ -141,4 +141,9 @@
       let subtotal = 0;
       let hasNonCrit = false;
 
-      for (let i
+      for (let i = 1; i <= hits; i++) {
+        let isCrit = false;
+        if (critsSelected > 0) {
+          if (critsSelected >= hits) {
+            isCrit = true;
+            if (
