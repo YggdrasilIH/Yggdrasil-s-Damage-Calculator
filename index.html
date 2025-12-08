@@ -4,8 +4,8 @@
   <title>Game Damage Calculator</title>
   <style>
     body { font-family: Arial; background: #f4f4f4; text-align: center; }
-    .calculator { background: white; padding: 20px; margin: 50px auto; width: 300px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
-    input { width: 80%; padding: 8px; margin: 10px 0; }
+    .calculator { background: white; padding: 20px; margin: 50px auto; width: 400px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
+    input, select { width: 80%; padding: 8px; margin: 10px 0; }
     button { padding: 10px 20px; margin-top: 10px; cursor: pointer; }
     #result { font-size: 20px; margin-top: 15px; font-weight: bold; }
   </style>
@@ -14,8 +14,14 @@
   <div class="calculator">
     <h2>Damage Calculator</h2>
     <input type="number" id="attack" placeholder="Attack"><br>
-    <input type="number" id="multiplier" placeholder="Skill Multiplier"><br>
-    <input type="number" id="defense" placeholder="Defense"><br>
+    <input type="number" id="sd" placeholder="SD"><br>
+    <input type="number" id="hd" placeholder="HD"><br>
+    <input type="number" id="add" placeholder="ADD"><br>
+    <label><input type="checkbox" id="elyvia"> Elyvia Active</label><br>
+    <input type="number" id="sqh" placeholder="SQH Stacks"><br>
+    <input type="range" id="bossHP" min="0" max="100" value="100" oninput="document.getElementById('bossHPVal').innerText=this.value+'%'">
+    <div>Boss HP %: <span id="bossHPVal">100%</span></div><br>
+    <input type="number" id="precision" placeholder="Precision"><br>
     <button onclick="calculateDamage()">Calculate</button>
     <div id="result">Damage: --</div>
   </div>
@@ -23,10 +29,18 @@
   <script>
     function calculateDamage() {
       let attack = parseFloat(document.getElementById('attack').value) || 0;
-      let multiplier = parseFloat(document.getElementById('multiplier').value) || 0;
-      let defense = parseFloat(document.getElementById('defense').value) || 0;
-      let damage = (attack * multiplier) - defense;
-      document.getElementById('result').innerText = "Damage: " + damage;
+      let sd = parseFloat(document.getElementById('sd').value) || 0;
+      let hd = parseFloat(document.getElementById('hd').value) || 0;
+      let add = parseFloat(document.getElementById('add').value) || 0;
+      let elyvia = document.getElementById('elyvia').checked ? 1.1 : 1; // example: Elyvia gives +10%
+      let sqh = parseFloat(document.getElementById('sqh').value) || 0;
+      let bossHP = parseFloat(document.getElementById('bossHP').value) || 100;
+      let precision = parseFloat(document.getElementById('precision').value) || 0;
+
+      // Example formula (replace with your actual game’s damage equation!)
+      let damage = (attack * sd + hd + add + sqh * 5) * elyvia * (precision/100 + 1) * (bossHP/100);
+
+      document.getElementById('result').innerText = "Damage: " + Math.round(damage);
     }
   </script>
 </body>
