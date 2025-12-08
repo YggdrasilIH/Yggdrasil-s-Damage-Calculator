@@ -136,22 +136,10 @@
       const petInput = parseFloat(document.getElementById('pet').value) || 0;
       const petMultiplier = 1 + (petInput / 100);
       
-      // Artifact constants
-      const ARTIFACT_NONE = 1;
-      const ARTIFACT_ANTI_WARRIOR = 1.9;
-      const ANTLERS_ADD_BONUS = 1.26;   // +126% ADD
-      const ANTLERS_SD_BONUS  = 3.0;    // +300% SD
+ // Artifacts
+      if (document.getElementById('antlers').checked) add += 1.26; // +126% ADD
+      const artifactMultiplier = document.getElementById('antiwarrior').checked ? 1.9 : 1;
       
-      // Apply artifacts
-      let artifactMultiplier = ARTIFACT_NONE;
-      
-      if (document.getElementById('antiwarrior').checked) {
-        artifactMultiplier = ARTIFACT_ANTI_WARRIOR;
-      } else if (document.getElementById('antlers').checked) {
-        add = add + ANTLERS_ADD_BONUS;
-        sd  = sd + ANTLERS_SD_BONUS;
-      }
-
       // Base damage
       const baseDamage = attack
         * (12 + sd)
