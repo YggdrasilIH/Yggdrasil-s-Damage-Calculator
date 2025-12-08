@@ -9,9 +9,11 @@
     input, select { width: 95%; padding: 6px; font-size: 14px; }
     h2, h3 { margin: 8px 0; }
     button { padding: 8px 16px; margin-top: 10px; cursor: pointer; }
-    #result { font-size: 14px; margin-top: 10px; font-weight: bold; text-align: left; max-height: 180px; overflow-y: auto; }
+    #result { font-size: 14px; margin-top: 10px; font-weight: bold; text-align: left; max-height: 200px; overflow-y: auto; }
     .crit { color: red; font-weight: bold; }
     .subtotal { color: green; font-weight: bold; }
+    .balanced { color: blue; font-weight: bold; }
+    .total { color: purple; font-weight: bold; }
     label { font-size: 14px; margin-right: 10px; }
   </style>
 </head>
@@ -72,10 +74,18 @@
       let defier = enemyHP > 70 ? 1.3 : 1;
       let giantKiller = 2;
       let hits = enemyHP > 60 ? 3 : 5;
-      let critMultiplier = (1.5 + 2 * critDamage) * 0.24 * sqh;
+
+      // Crit multiplier fix
+      let critMultiplier;
+      if (sqh > 0) {
+        critMultiplier = (1.5 + 2 * critDamage) * (0.24 * sqh);
+      } else {
+        critMultiplier = (1.5 + 2 * critDamage);
+      }
 
       let output = "";
       let subtotal = 0;
+      let hasNonCrit = false;
 
       for (let i = 1; i <= hits; i++) {
         let isCrit = false;
@@ -85,12 +95,26 @@
             if (critsSelected === 5 && enemyHP > 60 && i > 3) { isCrit = false; }
           } else if (i <= critsSelected) { isCrit = true; }
         }
+        if (!isCrit) hasNonCrit = true;
+
         let damagePerHit = baseDamage * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
         output += "<span class='" + (isCrit ? "crit" : "") + "'>Hit " + i + (isCrit ? " (CRIT)" : "") + ": " + damagePerHit.toExponential(2) + "</span><br>";
         subtotal += damagePerHit;
       }
 
-      output += "<br><span class='subtotal'>Subtotal Damage: " + subtotal.toExponential(2) + "</span>";
+      output += "<br><span class='subtotal'>Subtotal Damage: " + subtotal.toExponential(2) + "</span><br>";
+
+      // Balanced Strike if at least one non-crit
+      if (hasNonCrit) {
+        let bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
+        let balancedStrike = subtotal * bsMultiplier * defier * elyvia * add * giantKiller;
+        output += "<span class='balanced'>Balanced Strike: " + balancedStrike.toExponential(2) + "</span><br>";
+        let total = subtotal + balancedStrike;
+        output += "<br><span class='total'>Total Damage: " + total.toExponential(2) + "</span>";
+      } else {
+        output += "<br><span class='total'>Total Damage: " + subtotal.toExponential(2) + "</span>";
+      }
+
       document.getElementById('result').innerHTML = output;
     }
   </script>
