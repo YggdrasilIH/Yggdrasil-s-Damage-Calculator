@@ -70,7 +70,7 @@
       <input type="number" id="pet" placeholder="Pet % (e.g. 80)">
     </div>
 
-    <button id="calcBtn" onclick="calculateDamage()">Calculate</button>
+    <button onclick="calculateDamage()">Calculate</button>
     <div id="result">Damage: --</div>
   </div>
 
@@ -107,9 +107,9 @@
       const petInput = parseFloat(document.getElementById('pet').value) || 0;
       const petMultiplier = 1 + (petInput / 100);
 
-      // Artifact effects (mutually exclusive radios already enforce one selection)
+      // Artifact effects
       if (document.getElementById('antlers').checked) {
-        add *= 2.26; // Antlers adds +126% ADD (×2.26 on ADD multiplier)
+        add += 1.26; // Antlers adds +126% ADD
       }
       const artifactMultiplier = document.getElementById('antiwarrior').checked ? 1.9 : 1;
 
@@ -159,35 +159,4 @@
           * artifactMultiplier;
 
         output += "<span class='" + (isCrit ? "crit" : "") + "'>"
-               + "Hit " + i + (isCrit ? " (CRIT)" : "") + ": "
-               + damagePerHit.toExponential(2)
-               + "</span><br>";
-
-        subtotal += damagePerHit;
-      }
-
-      output += "<br><span class='subtotal'>Subtotal Damage: " + subtotal.toExponential(2) + "</span><br>";
-
-      // Balanced Strike: if at least one non-crit, add an extra hit that multiplies subtotal
-      if (hasNonCrit) {
-        const bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
-        const balancedStrike = subtotal
-          * bsMultiplier
-          * defier
-          * elyvia
-          * add
-          * giantKiller;
-
-        output += "<span class='balanced'>Balanced Strike: " + balancedStrike.toExponential(2) + "</span><br>";
-
-        const total = subtotal + balancedStrike;
-        output += "<br><span class='total'>Total Damage: " + total.toExponential(2) + "</span>";
-      } else {
-        output += "<br><span class='total'>Total Damage: " + subtotal.toExponential(2) + "</span>";
-      }
-
-      document.getElementById('result').innerHTML = output;
-    }
-  </script>
-</body>
-</html>
+               + "Hit
