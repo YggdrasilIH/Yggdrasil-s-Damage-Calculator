@@ -4,22 +4,22 @@
   <title>LFA SE Damage Calculator</title>
   <style>
     body { font-family: Arial; background: #121212; color: #e0e0e0; text-align: center; }
-    .calculator { background: #1e1e1e; padding: 15px; margin: 20px auto; width: 600px; border-radius: 10px; box-shadow: 0 0 12px rgba(0,0,0,0.6); }
+    .calculator { background: #1e1e1e; padding: 15px; margin: 20px auto; width: 650px; border-radius: 10px; box-shadow: 0 0 12px rgba(0,0,0,0.6); }
     .section { background: #2a2a2a; padding: 10px; margin: 10px 0; border-radius: 8px; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    input, select { width: 95%; padding: 6px; font-size: 14px; border: 1px solid #444; border-radius: 4px; background: #333; color: #e0e0e0; transition: all 0.2s ease; }
-    input:hover { border-color: #4a90e2; box-shadow: 0 0 5px rgba(74,144,226,0.6); }
-    h2 { margin: 8px 0; color: #ffffff; }
-    h3 { margin: 6px 0; color: #cccccc; }
-    button { padding: 8px 16px; margin-top: 10px; cursor: pointer; border-radius: 6px; border: none; background: #4a90e2; color: white; font-weight: bold; transition: background 0.3s ease; }
+    input { width: 95%; padding: 6px; font-size: 14px; border: 1px solid #444; border-radius: 4px; background: #333; color: #e0e0e0; }
+    h2 { margin: 8px 0; color: #fff; }
+    h3 { margin: 6px 0; color: #ccc; }
+    button { padding: 8px 16px; margin-top: 10px; cursor: pointer; border-radius: 6px; border: none; background: #4a90e2; color: white; font-weight: bold; }
     button:hover { background: #357ABD; }
-    #result { font-size: 14px; margin-top: 10px; font-weight: bold; text-align: left; max-height: 220px; overflow-y: auto; background: #2a2a2a; padding: 10px; border-radius: 8px; }
+    .tabs { display: flex; justify-content: center; margin-top: 10px; }
+    .tab { padding: 8px 16px; cursor: pointer; background: #2a2a2a; border-radius: 6px 6px 0 0; margin: 0 5px; }
+    .tab.active { background: #4a90e2; }
+    .tab-content { background: #2a2a2a; padding: 10px; border-radius: 0 0 8px 8px; text-align: left; }
     .crit { color: #ff4c4c; font-weight: bold; }
     .subtotal { color: #4caf50; font-weight: bold; }
     .balanced { color: #42a5f5; font-weight: bold; }
     .total { color: #ba68c8; font-weight: bold; }
-    label { font-size: 14px; margin-right: 10px; }
-    .buffs-row { display:flex; justify-content:space-between; align-items:center; }
   </style>
 </head>
 <body>
@@ -40,7 +40,7 @@
     </div>
 
     <!-- Buffs & Artifacts -->
-    <div class="section buffs-row">
+    <div class="section" style="display:flex; justify-content:space-between; align-items:center;">
       <label><input type="checkbox" id="elyvia"> Elyvia</label>
       <div>
         <label><input type="radio" name="artifact" id="none" checked> None</label>
@@ -71,26 +71,37 @@
     </div>
 
     <button onclick="calculateDamage()">Calculate</button>
-    <div id="result">Damage: --</div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('summary')">Summary</div>
+      <div class="tab" onclick="showTab('breakdown')">Detailed Breakdown</div>
+    </div>
+    <div id="summary" class="tab-content">Damage: --</div>
+    <div id="breakdown" class="tab-content" style="display:none;">Breakdown: --</div>
   </div>
 
   <script>
+    function showTab(tab) {
+      document.getElementById('summary').style.display = (tab === 'summary') ? 'block' : 'none';
+      document.getElementById('breakdown').style.display = (tab === 'breakdown') ? 'block' : 'none';
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('.tab[onclick="showTab(\''+tab+'\')"]').classList.add('active');
+    }
+
     function calculateDamage() {
       const attack = parseFloat(document.getElementById('attack').value) || 0;
       const sd = (parseFloat(document.getElementById('sd').value) || 0) / 100;
 
-      // Precision capped at 150
       let precisionInput = parseFloat(document.getElementById('precision').value) || 0;
       if (precisionInput > 150) { precisionInput = 150; alert("Precision capped at 150"); }
       const precision = precisionInput / 100;
 
-      // ADD safeguard (defaults to 1 if 0)
       const addInputRaw = parseFloat(document.getElementById('add').value);
       let add = (!isNaN(addInputRaw) && addInputRaw > 0) ? (addInputRaw / 100) : 1;
 
       const elyvia = document.getElementById('elyvia').checked ? 1.4 : 1;
 
-      // Crit Damage capped at 150
       let critDamageInput = parseFloat(document.getElementById('critDamage').value) || 0;
       if (critDamageInput > 150) { critDamageInput = 150; alert("Crit Damage capped at 150"); }
       const critDamage = critDamageInput / 100;
@@ -99,21 +110,17 @@
       const enemyHP = parseFloat(document.getElementById('enemyHP').value) || 100;
       const critsSelected = parseInt(document.getElementById('crits').value) || 0;
 
-      // HD multiplier (70% per 100 HD)
       const hdInput = parseFloat(document.getElementById('hd').value) || 0;
       const hdMultiplier = 1 + 0.7 * (hdInput / 100);
 
-      // Pet multiplier (percentage to 1 + %/100)
       const petInput = parseFloat(document.getElementById('pet').value) || 0;
       const petMultiplier = 1 + (petInput / 100);
 
-      // Artifact effects
       if (document.getElementById('antlers').checked) {
         add += 1.26; // Antlers adds +126% ADD
       }
       const artifactMultiplier = document.getElementById('antiwarrior').checked ? 1.9 : 1;
 
-      // Base damage
       const baseDamage = attack
         * (12 + sd)
         * (1 + 0.3 * precision)
@@ -122,41 +129,16 @@
         * hdMultiplier
         * petMultiplier;
 
-      // Other multipliers
       const defier = enemyHP > 70 ? 1.3 : 1;
       const giantKiller = 2;
       const hits = enemyHP > 60 ? 3 : 5;
 
-      // Crit multiplier (SQH = 0 -> base multiplier)
       const critBase = (1.5 + 2 * critDamage);
       const critMultiplier = sqh > 0 ? (critBase * 0.24 * sqh) : critBase;
 
-      let output = "";
+      let summaryOutput = "";
+      let breakdownOutput = "";
       let subtotal = 0;
       let hasNonCrit = false;
 
-      for (let i = 1; i <= hits; i++) {
-        let isCrit = false;
-
-        // Crit selection logic with 5-crit cap above 60% HP
-        if (critsSelected > 0) {
-          if (critsSelected >= hits) {
-            isCrit = true;
-            if (critsSelected === 5 && enemyHP > 60 && i > 3) {
-              isCrit = false;
-            }
-          } else if (i <= critsSelected) {
-            isCrit = true;
-          }
-        }
-
-        if (!isCrit) hasNonCrit = true;
-
-        const damagePerHit = baseDamage
-          * (isCrit ? critMultiplier : 1)
-          * defier
-          * giantKiller
-          * artifactMultiplier;
-
-        output += "<span class='" + (isCrit ? "crit" : "") + "'>"
-               + "Hit
+      for (let i
