@@ -22,6 +22,8 @@
     <input type="range" id="bossHP" min="0" max="100" value="100" oninput="document.getElementById('bossHPVal').innerText=this.value+'%'">
     <div>Boss HP %: <span id="bossHPVal">100%</span></div><br>
     <input type="number" id="precision" placeholder="Precision"><br>
+    <input type="number" id="critChance" placeholder="Crit %"><br>
+    <input type="number" id="critDamage" placeholder="Crit Damage %"><br>
     <button onclick="calculateDamage()">Calculate</button>
     <div id="result">Damage: --</div>
   </div>
@@ -36,11 +38,16 @@
       let sqh = parseFloat(document.getElementById('sqh').value) || 0;
       let bossHP = parseFloat(document.getElementById('bossHP').value) || 100;
       let precision = parseFloat(document.getElementById('precision').value) || 0;
+      let critChance = (parseFloat(document.getElementById('critChance').value) || 0) / 100;
+      let critDamage = (parseFloat(document.getElementById('critDamage').value) || 0) / 100;
 
-      // Example formula (replace with your actual game’s damage equation!)
-      let damage = (attack * sd + hd + add + sqh * 5) * elyvia * (precision/100 + 1) * (bossHP/100);
+      // Base damage formula (placeholder — replace with your actual game’s equation!)
+      let baseDamage = (attack * sd + hd + add + sqh * 5) * elyvia * (precision/100 + 1) * (bossHP/100);
 
-      document.getElementById('result').innerText = "Damage: " + Math.round(damage);
+      // Expected damage with crits
+      let expectedDamage = baseDamage * (1 + critChance * critDamage);
+
+      document.getElementById('result').innerText = "Damage: " + Math.round(expectedDamage);
     }
   </script>
 </body>
