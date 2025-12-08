@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Game Damage Calculator</title>
+  <title>LFA SE Damage Calculator</title>
   <style>
-    body { font-family: Arial; background: #f4f4f4; text-align: center; }
-    .calculator { background: white; padding: 15px; margin: 20px auto; width: 600px; border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.2); }
+    body { font-family: Arial; background: #f0f0f0; text-align: center; }
+    .calculator { background: #ffffff; padding: 15px; margin: 20px auto; width: 600px; border-radius: 10px; box-shadow: 0 0 12px rgba(0,0,0,0.15); }
+    .section { background: #fafafa; padding: 10px; margin: 10px 0; border-radius: 8px; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    input, select { width: 95%; padding: 6px; font-size: 14px; }
-    h2, h3 { margin: 8px 0; }
-    button { padding: 8px 16px; margin-top: 10px; cursor: pointer; }
-    #result { font-size: 14px; margin-top: 10px; font-weight: bold; text-align: left; max-height: 200px; overflow-y: auto; }
+    input, select { width: 95%; padding: 6px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; transition: all 0.2s ease; }
+    input:hover { border-color: #4a90e2; box-shadow: 0 0 5px rgba(74,144,226,0.4); }
+    h2 { margin: 8px 0; color: #333; }
+    h3 { margin: 6px 0; color: #555; }
+    button { padding: 8px 16px; margin-top: 10px; cursor: pointer; border-radius: 6px; border: none; background: #4a90e2; color: white; font-weight: bold; transition: background 0.3s ease; }
+    button:hover { background: #357ABD; }
+    #result { font-size: 14px; margin-top: 10px; font-weight: bold; text-align: left; max-height: 200px; overflow-y: auto; background: #fafafa; padding: 10px; border-radius: 8px; }
     .crit { color: red; font-weight: bold; }
     .subtotal { color: green; font-weight: bold; }
     .balanced { color: blue; font-weight: bold; }
@@ -19,35 +23,46 @@
 </head>
 <body>
   <div class="calculator">
-    <h2>Damage Calculator</h2>
+    <h2>LFA SE Damage Calculator</h2>
 
-    <!-- Stats grid -->
-    <div class="grid">
-      <input type="number" id="attack" placeholder="Attack">
-      <input type="number" id="sd" placeholder="SD (%)">
-      <input type="number" id="precision" placeholder="Precision (%) (max 150)">
-      <input type="number" id="add" placeholder="ADD (%)">
-      <input type="number" id="critDamage" placeholder="Crit Damage % (max 150)">
-      <input type="number" id="sqh" placeholder="SQH Stacks">
+    <!-- Stats -->
+    <div class="section">
+      <h3>Stats</h3>
+      <div class="grid">
+        <input type="number" id="attack" placeholder="Attack">
+        <input type="number" id="sd" placeholder="SD (%)">
+        <input type="number" id="precision" placeholder="Precision (%) (max 150)">
+        <input type="number" id="add" placeholder="ADD (%)">
+        <input type="number" id="critDamage" placeholder="Crit Damage % (max 150)">
+        <input type="number" id="sqh" placeholder="SQH Stacks">
+      </div>
     </div>
 
-    <!-- Buffs -->
-    <h3>Buffs</h3>
-    <label><input type="checkbox" id="elyvia"> Elyvia</label>
-    <label><input type="checkbox" id="antiwarrior"> Antiwarrior</label>
-    <label><input type="checkbox" id="antlers"> Antlers</label>
+    <!-- Buffs & Artifacts -->
+    <div class="section" style="display:flex; justify-content:space-between; align-items:center;">
+      <label><input type="checkbox" id="elyvia"> Elyvia</label>
+      <div>
+        <label><input type="radio" name="artifact" id="none" checked> None</label>
+        <label><input type="radio" name="artifact" id="antiwarrior"> Antiwarrior (×1.9)</label>
+        <label><input type="radio" name="artifact" id="antlers"> Antlers (+126% ADD)</label>
+      </div>
+    </div>
 
     <!-- Enemy HP -->
-    <h3>Enemy HP %</h3>
-    <input type="range" id="enemyHP" min="0" max="100" value="100"
-           oninput="document.getElementById('enemyHPVal').innerText=this.value+'%'">
-    <span id="enemyHPVal">100%</span>
+    <div class="section">
+      <h3>Enemy HP %</h3>
+      <input type="range" id="enemyHP" min="0" max="100" value="100"
+             oninput="document.getElementById('enemyHPVal').innerText=this.value+'%'">
+      <span id="enemyHPVal">100%</span>
+    </div>
 
     <!-- Crits -->
-    <h3>Crits</h3>
-    <input type="number" id="crits" min="0" max="5" value="0">
+    <div class="section">
+      <h3>Crits</h3>
+      <input type="number" id="crits" min="0" max="5" value="0">
+    </div>
 
-    <br><button onclick="calculateDamage()">Calculate</button>
+    <button onclick="calculateDamage()">Calculate</button>
     <div id="result">Damage: --</div>
   </div>
 
