@@ -19,6 +19,7 @@
     .balanced { color: #42a5f5; font-weight: bold; }
     .total { color: #ba68c8; font-weight: bold; }
     label { font-size: 14px; margin-right: 10px; }
+    .buffs-row { display:flex; justify-content:space-between; align-items:center; }
   </style>
 </head>
 <body>
@@ -39,7 +40,7 @@
     </div>
 
     <!-- Buffs & Artifacts -->
-    <div class="section" style="display:flex; justify-content:space-between; align-items:center;">
+    <div class="section buffs-row">
       <label><input type="checkbox" id="elyvia"> Elyvia</label>
       <div>
         <label><input type="radio" name="artifact" id="none" checked> None</label>
@@ -69,62 +70,66 @@
       <input type="number" id="pet" placeholder="Pet % (e.g. 80)">
     </div>
 
-    <button onclick="calculateDamage()">Calculate</button>
+    <button id="calcBtn" onclick="calculateDamage()">Calculate</button>
     <div id="result">Damage: --</div>
   </div>
 
   <script>
     function calculateDamage() {
-      let attack = parseFloat(document.getElementById('attack').value) || 0;
-      let sd = (parseFloat(document.getElementById('sd').value) || 0) / 100;
+      const attack = parseFloat(document.getElementById('attack').value) || 0;
+      const sd = (parseFloat(document.getElementById('sd').value) || 0) / 100;
 
       // Precision capped at 150
       let precisionInput = parseFloat(document.getElementById('precision').value) || 0;
       if (precisionInput > 150) { precisionInput = 150; alert("Precision capped at 150"); }
-      let precision = precisionInput / 100;
+      const precision = precisionInput / 100;
 
-      // ADD safeguard
-      let addInput = parseFloat(document.getElementById('add').value) || 0;
-      let add = addInput > 0 ? addInput / 100 : 1;
+      // ADD safeguard (defaults to 1 if 0)
+      const addInputRaw = parseFloat(document.getElementById('add').value);
+      let add = (!isNaN(addInputRaw) && addInputRaw > 0) ? (addInputRaw / 100) : 1;
 
-      let elyvia = document.getElementById('elyvia').checked ? 1.4 : 1;
+      const elyvia = document.getElementById('elyvia').checked ? 1.4 : 1;
 
       // Crit Damage capped at 150
       let critDamageInput = parseFloat(document.getElementById('critDamage').value) || 0;
       if (critDamageInput > 150) { critDamageInput = 150; alert("Crit Damage capped at 150"); }
-      let critDamage = critDamageInput / 100;
+      const critDamage = critDamageInput / 100;
 
-      let sqh = parseFloat(document.getElementById('sqh').value) || 0;
-      let enemyHP = parseFloat(document.getElementById('enemyHP').value) || 100;
-      let critsSelected = parseInt(document.getElementById('crits').value) || 0;
+      const sqh = parseFloat(document.getElementById('sqh').value) || 0;
+      const enemyHP = parseFloat(document.getElementById('enemyHP').value) || 100;
+      const critsSelected = parseInt(document.getElementById('crits').value) || 0;
 
-      // HD multiplier
-      let hdInput = parseFloat(document.getElementById('hd').value) || 0;
-      let hdMultiplier = 1 + 0.7 * (hdInput / 100);
+      // HD multiplier (70% per 100 HD)
+      const hdInput = parseFloat(document.getElementById('hd').value) || 0;
+      const hdMultiplier = 1 + 0.7 * (hdInput / 100);
 
-      // Pet multiplier
-      let petInput = parseFloat(document.getElementById('pet').value) || 0;
-      let petMultiplier = 1 + (petInput / 100);
+      // Pet multiplier (percentage to 1 + %/100)
+      const petInput = parseFloat(document.getElementById('pet').value) || 0;
+      const petMultiplier = 1 + (petInput / 100);
 
-      // Artifact effects
-      if (document.getElementById('antlers').checked) { add *= 2.26; }
-      let artifactMultiplier = document.getElementById('antiwarrior').checked ? 1.9 : 1;
+      // Artifact effects (mutually exclusive radios already enforce one selection)
+      if (document.getElementById('antlers').checked) {
+        add *= 2.26; // Antlers adds +126% ADD (×2.26 on ADD multiplier)
+      }
+      const artifactMultiplier = document.getElementById('antiwarrior').checked ? 1.9 : 1;
 
       // Base damage
-      let baseDamage = attack * (12 + sd) * (1 + 0.3 * precision) * add * elyvia * hdMultiplier * petMultiplier;
+      const baseDamage = attack
+        * (12 + sd)
+        * (1 + 0.3 * precision)
+        * add
+        * elyvia
+        * hdMultiplier
+        * petMultiplier;
 
       // Other multipliers
-      let defier = enemyHP > 70 ? 1.3 : 1;
-      let giantKiller = 2;
-      let hits = enemyHP > 60 ? 3 : 5;
+      const defier = enemyHP > 70 ? 1.3 : 1;
+      const giantKiller = 2;
+      const hits = enemyHP > 60 ? 3 : 5;
 
-      // Crit multiplier fix
-      let critMultiplier;
-      if (sqh > 0) {
-        critMultiplier = (1.5 + 2 * critDamage) * (0.24 * sqh);
-      } else {
-        critMultiplier = (1.5 + 2 * critDamage);
-      }
+      // Crit multiplier (SQH = 0 -> base multiplier)
+      const critBase = (1.5 + 2 * critDamage);
+      const critMultiplier = sqh > 0 ? (critBase * 0.24 * sqh) : critBase;
 
       let output = "";
       let subtotal = 0;
@@ -132,13 +137,57 @@
 
       for (let i = 1; i <= hits; i++) {
         let isCrit = false;
+
+        // Crit selection logic with 5-crit cap above 60% HP
         if (critsSelected > 0) {
           if (critsSelected >= hits) {
             isCrit = true;
-            if (critsSelected === 5 && enemyHP > 60 && i > 3) { isCrit = false; }
-          } else if (i <= critsSelected) { isCrit = true; }
+            if (critsSelected === 5 && enemyHP > 60 && i > 3) {
+              isCrit = false;
+            }
+          } else if (i <= critsSelected) {
+            isCrit = true;
+          }
         }
+
         if (!isCrit) hasNonCrit = true;
 
-        let damagePerHit = baseDamage * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
-        output += "<span class='" + (isCrit ? "crit" : "") + "'>Hit " + i + (isCrit ? " (CRIT)" : "") + ": "
+        const damagePerHit = baseDamage
+          * (isCrit ? critMultiplier : 1)
+          * defier
+          * giantKiller
+          * artifactMultiplier;
+
+        output += "<span class='" + (isCrit ? "crit" : "") + "'>"
+               + "Hit " + i + (isCrit ? " (CRIT)" : "") + ": "
+               + damagePerHit.toExponential(2)
+               + "</span><br>";
+
+        subtotal += damagePerHit;
+      }
+
+      output += "<br><span class='subtotal'>Subtotal Damage: " + subtotal.toExponential(2) + "</span><br>";
+
+      // Balanced Strike: if at least one non-crit, add an extra hit that multiplies subtotal
+      if (hasNonCrit) {
+        const bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
+        const balancedStrike = subtotal
+          * bsMultiplier
+          * defier
+          * elyvia
+          * add
+          * giantKiller;
+
+        output += "<span class='balanced'>Balanced Strike: " + balancedStrike.toExponential(2) + "</span><br>";
+
+        const total = subtotal + balancedStrike;
+        output += "<br><span class='total'>Total Damage: " + total.toExponential(2) + "</span>";
+      } else {
+        output += "<br><span class='total'>Total Damage: " + subtotal.toExponential(2) + "</span>";
+      }
+
+      document.getElementById('result').innerHTML = output;
+    }
+  </script>
+</body>
+</html>
