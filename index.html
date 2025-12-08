@@ -21,7 +21,6 @@
     .subtotal { color: #4caf50; font-weight: bold; }
     .balanced { color: #42a5f5; font-weight: bold; }
     .total { color: #ba68c8; font-weight: bold; }
-    .buffs-row { display:flex; justify-content:space-between; align-items:center; }
     .mono { font-family: Consolas, Menlo, monospace; }
     .small { font-size: 12px; color: #aaa; }
   </style>
@@ -44,7 +43,7 @@
     </div>
 
     <!-- Buffs & Artifacts -->
-    <div class="section buffs-row">
+    <div class="section" style="display:flex; justify-content:space-between; align-items:center;">
       <label><input type="checkbox" id="elyvia"> Elyvia</label>
       <div>
         <label><input type="radio" name="artifact" id="none" checked> None</label>
@@ -53,7 +52,7 @@
       </div>
     </div>
 
-    <!-- Enemy HP and crits -->
+    <!-- Enemy HP and Crits -->
     <div class="section">
       <div class="grid">
         <div>
@@ -103,22 +102,22 @@
       });
     });
 
-    // Calculate button
+    // Calculate
     document.getElementById('calcBtn').addEventListener('click', calculateDamage);
 
     function calculateDamage() {
-      // Inputs and caps
+      // Inputs
       const attack = parseFloat(document.getElementById('attack').value) || 0;
-      const sd = (parseFloat(document.getElementById('sd').value) || 0) / 100;
-      let sdInput = parseFloat(document.getElementById('sd').value);
-      let sd = (!isNaN(sdInput) ? sdInput : 0) / 100;  // safe default
+
+      const sdInput = parseFloat(document.getElementById('sd').value);
+      let sd = (!isNaN(sdInput) ? sdInput : 0) / 100;
 
       let precisionInput = parseFloat(document.getElementById('precision').value) || 0;
       if (precisionInput > 150) precisionInput = 150;
       const precision = precisionInput / 100;
 
       const addRaw = parseFloat(document.getElementById('add').value);
-      let add = (!isNaN(addRaw) && addRaw > 0) ? (addRaw / 100) : 1; // safeguard
+      let add = (!isNaN(addRaw) && addRaw > 0) ? (addRaw / 100) : 1;
 
       const elyvia = document.getElementById('elyvia').checked ? 1.4 : 1;
 
@@ -135,12 +134,23 @@
 
       const petInput = parseFloat(document.getElementById('pet').value) || 0;
       const petMultiplier = 1 + (petInput / 100);
-      
- // Artifacts
-      if (document.getElementById('antlers').checked) add += 1.26; // +126% ADD
-      const artifactMultiplier = document.getElementById('antiwarrior').checked ? 1.9 : 1;
-      
-      // Base damage
+
+      // Artifact constants
+      const ARTIFACT_NONE = 1;
+      const ARTIFACT_ANTI_WARRIOR = 1.9;
+      const ANTLERS_ADD_BONUS = 1.26;  // +126% ADD
+      const ANTLERS_SD_BONUS  = 3.0;   // +300% SD
+
+      // Apply artifacts
+      let artifactMultiplier = ARTIFACT_NONE;
+      if (document.getElementById('antiwarrior').checked) {
+        artifactMultiplier = ARTIFACT_ANTI_WARRIOR;
+      } else if (document.getElementById('antlers').checked) {
+        add = add + ANTLERS_ADD_BONUS;
+        sd  = sd + ANTLERS_SD_BONUS;
+      }
+
+      // Base damage (shared components)
       const baseDamage = attack
         * (12 + sd)
         * (1 + 0.3 * precision)
@@ -149,13 +159,13 @@
         * hdMultiplier
         * petMultiplier;
 
-      // Other multipliers
+      // Other multipliers and hit count
       const defier = enemyHP > 70 ? 1.3 : 1;
       const giantKiller = 2;
       const hits = enemyHP > 60 ? 3 : 5;
 
-      // Crit multiplier (SQH scales crit base)
-      const critBase = (1.5 + 2 * critDamage);
+      // Crit setup
+      const critBase = 1.5 + 2 * critDamage;           // base crit scaling
       const critMultiplier = sqh > 0 ? (critBase * 0.24 * sqh) : critBase;
 
       // Compute hits
@@ -186,7 +196,7 @@
 
       summaryHTML += `<br><span class="subtotal">Subtotal Damage: ${subtotal.toExponential(2)}</span><br>`;
 
-      // Balanced Strike (only if any non-crit)
+      // Balanced Strike (triggered if any non-crit)
       let total = subtotal;
       let bsMultiplier = null;
       if (hasNonCrit) {
@@ -195,6 +205,7 @@
         summaryHTML += `<span class="balanced">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
         total += balancedStrike;
       }
+
       summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
 
       // Detailed breakdown
@@ -209,8 +220,8 @@
         `<div class="mono">Defier multiplier: ${defier.toFixed(4)}</div>`,
         `<div class="mono">Giant Killer multiplier: ${giantKiller.toFixed(4)}</div>`,
         `<div class="mono">Artifact multiplier: ${artifactMultiplier.toFixed(4)}</div>`,
-        `<div class="mono">Crit multiplier base: ${critBase.toFixed(4)}</div>`,
-        `<div class="mono">Crit multiplier applied when crit: ${critMultiplier.toFixed(4)}</div>`,
+        `<div class="mono">Crit base: ${critBase.toFixed(4)}</div>`,
+        `<div class="mono">Crit multiplier applied: ${critMultiplier.toFixed(4)}</div>`,
         `<div class="mono">Hits: ${hits}</div>`,
         `<div class="mono">Subtotal: ${subtotal.toExponential(2)}</div>`,
         hasNonCrit
@@ -223,7 +234,7 @@
       document.getElementById('summary').innerHTML = summaryHTML;
       document.getElementById('breakdown').innerHTML = breakdownHTML;
 
-      // Auto-switch back to Summary after calculation
+      // Auto-switch to Summary
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelector('.tab[data-tab="summary"]').classList.add('active');
       document.getElementById('summary').style.display = 'block';
