@@ -110,6 +110,8 @@
       // Inputs and caps
       const attack = parseFloat(document.getElementById('attack').value) || 0;
       const sd = (parseFloat(document.getElementById('sd').value) || 0) / 100;
+      let sdInput = parseFloat(document.getElementById('sd').value);
+      let sd = (!isNaN(sdInput) ? sdInput : 0) / 100;  // safe default
 
       let precisionInput = parseFloat(document.getElementById('precision').value) || 0;
       if (precisionInput > 150) precisionInput = 150;
