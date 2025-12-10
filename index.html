@@ -102,8 +102,7 @@
     });
   });
 
-  document.getElementById('calcBtn').addEventListener('click', calculateDamage);
-function calculateDamage() {
+  document.getElementById('calcBtn').addEventListener('click', calculateDamage);function calculateDamage() {
   // Inputs (same as before)
   const attack = parseFloat(document.getElementById('attack').value) || 0;
   const sdInput = parseFloat(document.getElementById('sd').value);
@@ -189,13 +188,13 @@ function calculateDamage() {
       * giantKiller
       * artifactMultiplier;
 
-    // Add the first 2 or 4 hits to Demon King's Might (before temple)
-    if (i <= (enemyHP > 60 ? 2 : 4)) {
-      demonKingsMight += damagePerHit;
-    }
-
-    // Temple adds +150% after each hit is totaled
+    // Apply temple bonus
     const totalHitDamage = damagePerHit * 2.5; // 1.0 base + 1.5 Temple
+
+    // For Demon King's Might, sum the first 2 or 4 temple-adjusted hits
+    if (i <= (enemyHP > 60 ? 2 : 4)) {
+      demonKingsMight += totalHitDamage; // Sum temple-adjusted hits
+    }
 
     // Add this hit damage to the subtotal and total
     subtotal += damagePerHit;
@@ -205,7 +204,7 @@ function calculateDamage() {
     summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
   }
 
-  // Calculate and apply Demon King's Might (after summing hits)
+  // Calculate and apply Demon King's Might (after summing temple-adjusted hits)
   if (demonKingsMight > 0) {
     const demonKingsMightBonus = demonKingsMight * 1.2;
     summaryHTML += `<span class="total">Demon King's Might: ${demonKingsMightBonus.toExponential(2)}</span><br>`;
