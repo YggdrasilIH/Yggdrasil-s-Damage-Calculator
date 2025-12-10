@@ -26,69 +26,69 @@
   </style>
 </head>
 <body>
-<div class="calculator">
-  <h2>LFA SE Damage Calculator</h2>
+  <div class="calculator">
+    <h2>LFA SE Damage Calculator</h2>
 
-  <!-- Stats -->
-  <div class="section">
-    <h3>Stats</h3>
-    <div class="grid">
-      <input type="number" id="attack" placeholder="Attack">
-      <input type="number" id="sd" placeholder="SD (%)">
-      <input type="number" id="precision" placeholder="Precision (%) (max 150)">
-      <input type="number" id="add" placeholder="ADD (%)">
-      <input type="number" id="critDamage" placeholder="Crit Damage % (max 150)">
-      <input type="number" id="sqh" placeholder="SQH Stacks">
-    </div>
-  </div>
-
-  <!-- Buffs & Artifacts -->
-  <div class="section" style="display:flex; justify-content:space-between; align-items:center;">
-    <label><input type="checkbox" id="elyvia"> Elyvia</label>
-    <div>
-      <label><input type="radio" name="artifact" id="none" checked> None</label>
-      <label><input type="radio" name="artifact" id="antiwarrior"> Antiwarrior (×1.9)</label>
-      <label><input type="radio" name="artifact" id="antlers"> Antlers (+126% ADD, +300% SD)</label>
-    </div>
-  </div>
-
-  <!-- Enemy HP and Crits -->
-  <div class="section">
-    <div class="grid">
-      <div>
-        <h3>Enemy HP %</h3>
-        <input type="range" id="enemyHP" min="0" max="100" value="100"
-               oninput="document.getElementById('enemyHPVal').innerText=this.value+'%'">
-        <div id="enemyHPVal">100%</div>
-      </div>
-      <div>
-        <h3>Crits</h3>
-        <input type="number" id="crits" min="0" max="5" value="0">
-        <div class="small">At HP > 60%, only first 3 hits can crit.</div>
+    <!-- Stats -->
+    <div class="section">
+      <h3>Stats</h3>
+      <div class="grid">
+        <input type="number" id="attack" placeholder="Attack">
+        <input type="number" id="sd" placeholder="SD (%)">
+        <input type="number" id="precision" placeholder="Precision (%) (max 150)">
+        <input type="number" id="add" placeholder="ADD (%)">
+        <input type="number" id="critDamage" placeholder="Crit Damage % (max 150)">
+        <input type="number" id="sqh" placeholder="SQH Stacks">
       </div>
     </div>
-  </div>
 
-  <!-- Extra Multipliers -->
-  <div class="section">
-    <h3>Extra multipliers</h3>
-    <div class="grid">
-      <input type="number" id="hd" placeholder="HD (e.g. 200)">
-      <input type="number" id="pet" placeholder="Pet % (e.g. 80)">
+    <!-- Buffs & Artifacts -->
+    <div class="section" style="display:flex; justify-content:space-between; align-items:center;">
+      <label><input type="checkbox" id="elyvia"> Elyvia</label>
+      <div>
+        <label><input type="radio" name="artifact" id="none" checked> None</label>
+        <label><input type="radio" name="artifact" id="antiwarrior"> Antiwarrior (×1.9)</label>
+        <label><input type="radio" name="artifact" id="antlers"> Antlers (+126% ADD, +300% SD)</label>
+      </div>
     </div>
-    <div class="small mono">HD multiplier = 1 + 0.7 × (HD / 100), Pet multiplier = 1 + (Pet% / 100)</div>
-  </div>
 
-  <button id="calcBtn">Calculate</button>
+    <!-- Enemy HP and Crits -->
+    <div class="section">
+      <div class="grid">
+        <div>
+          <h3>Enemy HP %</h3>
+          <input type="range" id="enemyHP" min="0" max="100" value="100"
+                 oninput="document.getElementById('enemyHPVal').innerText=this.value+'%'">
+          <div id="enemyHPVal">100%</div>
+        </div>
+        <div>
+          <h3>Crits</h3>
+          <input type="number" id="crits" min="0" max="5" value="0">
+          <div class="small">At HP > 60%, only first 3 hits can crit.</div>
+        </div>
+      </div>
+    </div>
 
-  <!-- Tabs -->
-  <div class="tabs">
-    <div class="tab active" data-tab="summary">Summary</div>
-    <div class="tab" data-tab="breakdown">Detailed Breakdown</div>
+    <!-- Extra Multipliers -->
+    <div class="section">
+      <h3>Extra multipliers</h3>
+      <div class="grid">
+        <input type="number" id="hd" placeholder="HD (e.g. 200)">
+        <input type="number" id="pet" placeholder="Pet % (e.g. 80)">
+      </div>
+      <div class="small mono">HD multiplier = 1 + 0.7 × (HD / 100), Pet multiplier = 1 + (Pet% / 100)</div>
+    </div>
+
+    <button id="calcBtn">Calculate</button>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active" data-tab="summary">Summary</div>
+      <div class="tab" data-tab="breakdown">Detailed Breakdown</div>
+    </div>
+    <div id="summary" class="tab-content">Damage: --</div>
+    <div id="breakdown" class="tab-content" style="display:none;">Breakdown: --</div>
   </div>
-  <div id="summary" class="tab-content">Damage: --</div>
-  <div id="breakdown" class="tab-content" style="display:none;">Breakdown: --</div>
-</div>
 
 <script>
 document.querySelectorAll('.tab').forEach(tab => {
@@ -136,56 +136,56 @@ function calculateDamage() {
   const defier = enemyHP > 70 ? 1.3 : 1;
   const giantKiller = 2;
   const hits = enemyHP > 60 ? 3 : 5;
+
   const critBase = 1.5 + 2 * critDamage;
   const critMultiplier = sqh > 0 ? (critBase * 0.24 * sqh) : critBase;
 
   let summaryHTML = "";
-  let hitTotals = [];
+  let subtotal = 0;
+  let total = 0;
   let hasNonCrit = false;
 
-  // Compute hits
+  let dkmEligible = [];
+  const dkmHits = enemyHP > 60 ? 2 : 4;
+
   for (let i = 1; i <= hits; i++) {
     let isCrit = false;
     if (critsSelected > 0) {
-      if (enemyHP > 60) isCrit = i <= Math.min(critsSelected, 3);
-      else isCrit = i <= Math.min(critsSelected, 5);
+      if (enemyHP > 60) {
+        isCrit = i <= Math.min(critsSelected, 3);
+      } else {
+        isCrit = i <= Math.min(critsSelected, 5);
+      }
     }
     if (!isCrit) hasNonCrit = true;
 
-    let damagePerHit = baseDamage * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
-    let totalHitDamage = damagePerHit * 2.5; // Temple included
-    hitTotals.push(totalHitDamage);
+    const damagePerHit = baseDamage * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
+    const totalHitDamage = damagePerHit * 2.5;
 
     summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
+
+    subtotal += damagePerHit;
+    total += totalHitDamage;
+
+    if (i <= dkmHits) {
+      subtotal += damagePerHit * 1.2; // DKM added to subtotal
+    }
   }
 
-  // ============ DEMON KING'S MIGHT =============
-  const dkmHits = enemyHP > 60 ? 2 : 4;
-  let dkmFinal = 0;
-  for (let i = 0; i < Math.min(dkmHits, hitTotals.length); i++) {
-    dkmFinal += hitTotals[i] * 0.2; // 20% extra damage on top of each hit
-  }
+  summaryHTML += `<span class="subtotal">Subtotal Damage (raw hits + DKM): ${subtotal.toExponential(2)}</span><br>`;
 
-  // Show DKM before subtotal
-  summaryHTML += `<span class="balanced">Demon King's Might: ${dkmFinal.toExponential(2)}</span><br>`;
-
-  // Subtotal includes raw hits + DKM
-  let subtotal = hitTotals.reduce((a,b) => a+b, 0) + dkmFinal;
-  let total = subtotal;
-  summaryHTML += `<br><span class="subtotal">Subtotal Damage (raw hits + DKM): ${subtotal.toExponential(2)}</span><br>`;
-  // ============================================
-
-  // Balanced Strike
+  let bsText = '';
   let bsProc = false;
+
   if (hasNonCrit) {
     const bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
     const balancedStrike = subtotal * bsMultiplier * defier * elyvia * add * giantKiller;
-    summaryHTML += `<span class="balanced">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
+    bsText = `<span class="balanced">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
     total += balancedStrike;
+    summaryHTML += bsText;
     bsProc = true;
   }
 
-  // Lethal Fightback
   const lfbMultiplierIfBs = bsProc ? 1.3 : 1.0;
   const lethalFightback = subtotal * 0.18 * defier * giantKiller * add * lfbMultiplierIfBs * elyvia;
   summaryHTML += `<span class="balanced">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
@@ -193,7 +193,6 @@ function calculateDamage() {
 
   summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
 
-  // Breakdown
   const breakdownLines = [
     `<div class="mono"><strong>Multipliers & Sources</strong></div>`,
     `<div class="mono">Attack × (12 + SD): ${(12 + sd).toFixed(4)}</div>`,
@@ -207,9 +206,11 @@ function calculateDamage() {
     `<div class="mono">Artifact multiplier: ${artifactMultiplier.toFixed(4)}</div>`,
     `<div class="mono">Crit base: ${critBase.toFixed(4)}</div>`,
     `<div class="mono">Crit multiplier: ${critMultiplier.toFixed(4)}</div>`,
-    `<div class="mono">Demon King's Might contribution: ${dkmFinal.toExponential(2)}</div>`,
-    `<div class="mono">Subtotal (raw hits + DKM): ${subtotal.toExponential(2)}</div>`,
-    hasNonCrit ? `<div class="mono">Balanced Strike applied</div>` : `<div class="mono">Balanced Strike: not triggered (all hits crit)</div>`,
+    `<div class="mono">Subtotal (raw hits): ${subtotal.toExponential(2)}</div>`,
+    `<div class="mono">Demon King's Might contribution: ${(dkmHits <= 2 ? subtotal * 1.2 : 0).toExponential(2)}</div>`,
+    hasNonCrit
+      ? `<div class="mono">Balanced Strike applied</div>`
+      : `<div class="mono">Balanced Strike: not triggered (all hits crit)</div>`,
     `<div class="mono">Lethal Fightback: ${lethalFightback.toExponential(2)}</div>`,
     `<div class="mono"><strong>Total Damage: ${total.toExponential(2)}</strong></div>`
   ];
