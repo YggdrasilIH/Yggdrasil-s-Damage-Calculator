@@ -169,7 +169,7 @@
 
         dkmEligible.push(damagePerHit);  // Collect eligible hits for DKM
       }
- 
+
       // Calculate Demon King's Might (DKM)
       const dkmSum = dkmEligible.slice(0, dkmHits).reduce((sum, hit) => sum + hit, 0);
       const dkmFinal = dkmSum * 1.2;
