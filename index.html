@@ -102,7 +102,9 @@
     });
   });
 
-  document.getElementById('calcBtn').addEventListener('click', calculateDamage);function calculateDamage() {
+  document.getElementById('calcBtn').addEventListener('click', calculateDamage);
+  
+ function calculateDamage() {
   // Inputs
   const attack = parseFloat(document.getElementById('attack').value) || 0;
 
@@ -218,11 +220,11 @@
   // Balanced Strike only if any non-crit
   let bsText = '';
   let bsProc = false;
+  let balancedStrike = 0;
   if (hasNonCrit) {
     const bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
-    const balancedStrike = subtotal * bsMultiplier * defier * elyvia * add * giantKiller;
+    balancedStrike = subtotal * bsMultiplier * defier * elyvia * add * giantKiller;
     bsText = `<span class="balanced">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
-    subtotal += balancedStrike;  // Add Balanced Strike to subtotal
     summaryHTML += bsText;  // Add Balanced Strike to summary
     bsProc = true;
   }
@@ -231,9 +233,11 @@
   const lfbMultiplierIfBs = bsProc ? 1.3 : 1.0;
   const lethalFightback = subtotal * 0.18 * defier * giantKiller * add * lfbMultiplierIfBs * elyvia;
   summaryHTML += `<span class="balanced">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
-  subtotal += lethalFightback;  // Add Lethal Fightback to subtotal
 
-  summaryHTML += `<br><span class="total">Total Damage: ${subtotal.toExponential(2)}</span>`;
+  // Total should now be the subtotal with Balanced Strike and Lethal Fightback applied
+  total = subtotal + balancedStrike + lethalFightback;
+
+  summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
 
   // Detailed breakdown (visible when the Breakdown tab is active)
   const breakdownLines = [
@@ -255,7 +259,7 @@
       ? `<div class="mono">Balanced Strike applied</div>`
       : `<div class="mono">Balanced Strike: not triggered (all hits crit)</div>`,
     `<div class="mono">Lethal Fightback: ${lethalFightback.toExponential(2)}</div>`,
-    `<div class="mono">Total Damage: ${subtotal.toExponential(2)}</div>`
+    `<div class="mono">Total Damage: ${total.toExponential(2)}</div>`
   ];
 
   // Render
