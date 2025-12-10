@@ -103,7 +103,6 @@
   });
 
   document.getElementById('calcBtn').addEventListener('click', calculateDamage);
-
 function calculateDamage() {
   // Inputs (same as before)
   const attack = parseFloat(document.getElementById('attack').value) || 0;
@@ -164,14 +163,14 @@ function calculateDamage() {
   const critBase = 1.5 + 2 * critDamage;
   const critMultiplier = sqh > 0 ? (critBase * 0.24 * sqh) : critBase;
 
-  // Compute per-hit damage (Temple baked into display and total)
+  // Initialize variables
   let summaryHTML = "";
-  let subtotal = 0;      // raw hits only (no Temple)
-  let total = 0;         // includes Temple hits + BS + LFB
+  let subtotal = 0;      // Raw hits (no temple bonus)
+  let total = 0;         // Total damage (includes temple bonus, BS, and LFB)
   let hasNonCrit = false;
-
   let demonKingsMight = 0; // Initialize Demon King's Might
 
+  // Loop through hits and calculate damage
   for (let i = 1; i <= hits; i++) {
     let isCrit = false;
     if (critsSelected > 0) {
@@ -190,25 +189,23 @@ function calculateDamage() {
       * giantKiller
       * artifactMultiplier;
 
+    // Add the first 2 or 4 hits to Demon King's Might (before temple)
+    if (i <= (enemyHP > 60 ? 2 : 4)) {
+      demonKingsMight += damagePerHit;
+    }
+
     // Temple adds +150% after each hit is totaled
     const totalHitDamage = damagePerHit * 2.5; // 1.0 base + 1.5 Temple
 
-    // Summary shows temple-inclusive hit damage
-    summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
-
-    // Subtotal accumulates raw hits only
+    // Add this hit damage to the subtotal and total
     subtotal += damagePerHit;
-
-    // Total accumulates temple-inclusive hits
     total += totalHitDamage;
 
-    // Store first 2 or 4 hits for Demon King's Might calculation
-    if (i <= (enemyHP > 60 ? 2 : 4)) {
-      demonKingsMight += damagePerHit; // Sum the first 2 or 4 hits
-    }
+    // Add the hit damage to the summary
+    summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
   }
 
-  // Apply Demon King's Might
+  // Calculate and apply Demon King's Might (after summing hits)
   if (demonKingsMight > 0) {
     const demonKingsMightBonus = demonKingsMight * 1.2;
     summaryHTML += `<span class="total">Demon King's Might: ${demonKingsMightBonus.toExponential(2)}</span><br>`;
@@ -216,6 +213,7 @@ function calculateDamage() {
     total += demonKingsMightBonus;  // Add Demon King's Might to total
   }
 
+  // Show subtotal and total damage
   summaryHTML += `<br><span class="subtotal">Subtotal Damage (raw hits): ${subtotal.toExponential(2)}</span><br>`;
 
   // Balanced Strike only if any non-crit
@@ -236,9 +234,10 @@ function calculateDamage() {
   summaryHTML += `<span class="balanced">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
   total += lethalFightback;
 
+  // Final total damage
   summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
 
-  // Detailed breakdown (visible when the Breakdown tab is active)
+  // Detailed breakdown
   const breakdownLines = [
     `<div class="mono"><strong>Multipliers & Sources</strong></div>`,
     `<div class="mono">Attack × (12 + SD): ${(12 + sd).toFixed(4)}</div>`,
@@ -261,10 +260,11 @@ function calculateDamage() {
     `<div class="mono">Total Damage: ${total.toExponential(2)}</div>`
   ];
 
-  // Render
+  // Render summary and breakdown
   document.getElementById('summary').innerHTML = summaryHTML;
   document.getElementById('breakdown').innerHTML = breakdownLines.join("");
 }
+
 
 </script>
 
