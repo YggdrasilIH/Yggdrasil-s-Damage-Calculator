@@ -91,6 +91,17 @@
   </div>
 
 <script>
+  // Tab switching
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const selected = tab.getAttribute('data-tab');
+      document.getElementById('summary').style.display = selected === 'summary' ? 'block' : 'none';
+      document.getElementById('breakdown').style.display = selected === 'breakdown' ? 'block' : 'none';
+    });
+  });
+
   document.getElementById('calcBtn').addEventListener('click', calculateDamage);
 
   function calculateDamage() {
@@ -104,8 +115,9 @@
     if (precisionInput > 150) precisionInput = 150;
     const precision = precisionInput / 100;
 
+    // ADD normalized so 0% -> 1.0, 100% -> 2.0
     const addRaw = parseFloat(document.getElementById('add').value);
-    let add = (!isNaN(addRaw) && addRaw > 0) ? (addRaw / 100) : 1;
+    let add = (!isNaN(addRaw)) ? (1 + addRaw / 100) : 1;
 
     const elyvia = document.getElementById('elyvia').checked ? 1.4 : 1;
 
@@ -156,9 +168,10 @@
     const critBase = 1.5 + 2 * critDamage;
     const critMultiplier = sqh > 0 ? (critBase * 0.24 * sqh) : critBase;
 
-    // Compute per-hit damage
+    // Compute per-hit damage (Temple baked into display and total)
     let summaryHTML = "";
-    let subtotal = 0;
+    let subtotal = 0;      // raw hits only (no Temple)
+    let total = 0;         // includes Temple on hits, plus BS and LFB
     let hasNonCrit = false;
 
     for (let i = 1; i <= hits; i++) {
@@ -172,32 +185,49 @@
       }
       if (!isCrit) hasNonCrit = true;
 
+      // Raw hit damage
       const damagePerHit = baseDamage
         * (isCrit ? critMultiplier : 1)
         * defier
         * giantKiller
         * artifactMultiplier;
 
-      summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${damagePerHit.toExponential(2)}</span><br>`;
+      // Temple adds +150% after each hit is totaled
+      const totalHitDamage = damagePerHit * 2.5; // 1.0 base + 1.5 Temple
+
+      // Summary shows temple-inclusive hit damage
+      summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
+
+      // Subtotal accumulates raw hits only
       subtotal += damagePerHit;
+
+      // Total accumulates temple-inclusive hits
+      total += totalHitDamage;
     }
 
-    summaryHTML += `<br><span class="subtotal">Subtotal Damage: ${subtotal.toExponential(2)}</span><br>`;
+    summaryHTML += `<br><span class="subtotal">Subtotal Damage (raw hits): ${subtotal.toExponential(2)}</span><br>`;
 
     // Balanced Strike only if any non-crit
-    let total = subtotal;
     let bsText = '';
+    let bsProc = false;
     if (hasNonCrit) {
       const bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
       const balancedStrike = subtotal * bsMultiplier * defier * elyvia * add * giantKiller;
       bsText = `<span class="balanced">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
       total += balancedStrike;
       summaryHTML += bsText;
+      bsProc = true;
     }
+
+    // Lethal Fightback (based on subtotal, includes BS proc bonus if applicable)
+    const lfbMultiplierIfBs = bsProc ? 1.3 : 1.0;
+    const lethalFightback = subtotal * 0.18 * defier * giantKiller * add * lfbMultiplierIfBs * elyvia;
+    summaryHTML += `<span class="balanced">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
+    total += lethalFightback;
 
     summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
 
-    // Detailed breakdown (safe formatting; no calls on undefined values)
+    // Detailed breakdown
     const breakdownLines = [
       `<div class="mono"><strong>Multipliers & Sources</strong></div>`,
       `<div class="mono">Attack × (12 + SD): ${(12 + sd).toFixed(4)}</div>`,
@@ -211,11 +241,12 @@
       `<div class="mono">Artifact multiplier: ${artifactMultiplier.toFixed(4)}</div>`,
       `<div class="mono">Crit base: ${critBase.toFixed(4)}</div>`,
       `<div class="mono">Crit multiplier applied: ${critMultiplier.toFixed(4)}</div>`,
-      `<div class="mono">Hits: ${hits}</div>`,
-      `<div class="mono">Subtotal: ${subtotal.toExponential(2)}</div>`,
+      `<div class="mono">Hits: ${hits} (summary values include Temple bonus)</div>`,
+      `<div class="mono">Subtotal (raw hits): ${subtotal.toExponential(2)}</div>`,
       hasNonCrit
         ? `<div class="mono">Balanced Strike applied</div>`
         : `<div class="mono">Balanced Strike: not triggered (all hits crit)</div>`,
+      `<div class="mono">Lethal Fightback: ${lethalFightback.toExponential(2)}</div>`,
       `<div class="mono">Total Damage: ${total.toExponential(2)}</div>`
     ];
 
@@ -223,12 +254,10 @@
     document.getElementById('summary').innerHTML = summaryHTML;
     document.getElementById('breakdown').innerHTML = breakdownLines.join("");
 
-    // Ensure tab state
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    const summaryTab = document.querySelector('.tab[data-tab="summary"]');
-    if (summaryTab) summaryTab.classList.add('active');
-    document.getElementById('summary').style.display = 'block';
-    document.getElementById('breakdown').style.display = 'none';
+    // Keep current tab view
+    const activeTab = document.querySelector('.tab.active')?.getAttribute('data-tab') || 'summary';
+    document.getElementById('summary').style.display = activeTab === 'summary' ? 'block' : 'none';
+    document.getElementById('breakdown').style.display = activeTab === 'breakdown' ? 'block' : 'none';
   }
 </script>
 
