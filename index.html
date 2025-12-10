@@ -91,7 +91,7 @@
   </div>
 
 <script>
-  // Tab switching
+  // Tab switching (only tabs control visibility)
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -171,7 +171,7 @@
     // Compute per-hit damage (Temple baked into display and total)
     let summaryHTML = "";
     let subtotal = 0;      // raw hits only (no Temple)
-    let total = 0;         // includes Temple on hits, plus BS and LFB
+    let total = 0;         // includes Temple hits + BS + LFB
     let hasNonCrit = false;
 
     for (let i = 1; i <= hits; i++) {
@@ -227,7 +227,7 @@
 
     summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
 
-    // Detailed breakdown
+    // Detailed breakdown (visible when the Breakdown tab is active)
     const breakdownLines = [
       `<div class="mono"><strong>Multipliers & Sources</strong></div>`,
       `<div class="mono">Attack × (12 + SD): ${(12 + sd).toFixed(4)}</div>`,
@@ -253,11 +253,6 @@
     // Render
     document.getElementById('summary').innerHTML = summaryHTML;
     document.getElementById('breakdown').innerHTML = breakdownLines.join("");
-
-    // Keep current tab view
-    const activeTab = document.querySelector('.tab.active')?.getAttribute('data-tab') || 'summary';
-    document.getElementById('summary').style.display = activeTab === 'summary' ? 'block' : 'none';
-    document.getElementById('breakdown').style.display = activeTab === 'breakdown' ? 'block' : 'none';
   }
 </script>
 
