@@ -144,7 +144,6 @@ function calculateDamage() {
   let subtotal = 0;
   let total = 0;
   let hasNonCrit = false;
-
   let dkmEligible = [];
   const dkmHits = enemyHP > 60 ? 2 : 4;
 
@@ -167,12 +166,16 @@ function calculateDamage() {
     subtotal += damagePerHit;
     total += totalHitDamage;
 
-    if (i <= dkmHits) {
-      subtotal += damagePerHit * 1.2; // DKM added to subtotal
-    }
+    dkmEligible.push(damagePerHit);  // Collect eligible hits for DKM
   }
 
-  summaryHTML += `<span class="subtotal">Subtotal Damage (raw hits + DKM): ${subtotal.toExponential(2)}</span><br>`;
+  // Calculate Demon King's Might
+  const dkmSum = dkmEligible.slice(0, dkmHits).reduce((sum, hit) => sum + hit, 0);
+  const dkmFinal = dkmSum * 1.2;
+
+  summaryHTML += `<span class="subtotal">Subtotal Damage (raw hits + DKM): ${(subtotal + dkmFinal).toExponential(2)}</span><br>`;
+  summaryHTML += `<span class="balanced">Demon King's Might: ${dkmFinal.toExponential(2)}</span><br>`;
+  total += dkmFinal;
 
   let bsText = '';
   let bsProc = false;
@@ -207,7 +210,7 @@ function calculateDamage() {
     `<div class="mono">Crit base: ${critBase.toFixed(4)}</div>`,
     `<div class="mono">Crit multiplier: ${critMultiplier.toFixed(4)}</div>`,
     `<div class="mono">Subtotal (raw hits): ${subtotal.toExponential(2)}</div>`,
-    `<div class="mono">Demon King's Might contribution: ${(dkmHits <= 2 ? subtotal * 1.2 : 0).toExponential(2)}</div>`,
+    `<div class="mono">Demon King's Might contribution: ${dkmFinal.toExponential(2)}</div>`,
     hasNonCrit
       ? `<div class="mono">Balanced Strike applied</div>`
       : `<div class="mono">Balanced Strike: not triggered (all hits crit)</div>`,
