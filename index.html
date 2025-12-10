@@ -200,7 +200,7 @@
     // Summary shows temple-inclusive hit damage
     summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
 
-    // Subtotal accumulates raw hits only
+    // Subtotal accumulates raw hits only (no Temple damage)
     subtotal += damagePerHit;
 
     // Total accumulates temple-inclusive hits
@@ -215,7 +215,7 @@
   // Add Demon King's Might only to the subtotal (not to total)
   summaryHTML += `<span class="balanced">Demon King's Might: ${demonKingsMightTempleAdjusted.toExponential(2)}</span><br>`;
 
-  subtotal += demonKingsMightTempleAdjusted;  // Add to subtotal
+  subtotal += demonKingsMightTempleAdjusted;  // Add DKM to subtotal
 
   // Balanced Strike only if any non-crit
   let bsText = '';
@@ -234,7 +234,7 @@
   const lethalFightback = subtotal * 0.18 * defier * giantKiller * add * lfbMultiplierIfBs * elyvia;
   summaryHTML += `<span class="balanced">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
 
-  // Total should now be the subtotal with Balanced Strike and Lethal Fightback applied
+  // Total damage: includes subtotal, Balanced Strike, and Lethal Fightback
   total = subtotal + balancedStrike + lethalFightback;
 
   summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
@@ -266,6 +266,7 @@
   document.getElementById('summary').innerHTML = summaryHTML;
   document.getElementById('breakdown').innerHTML = breakdownLines.join("");
 }
+
 
 </script>
 
