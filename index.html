@@ -99,7 +99,6 @@ document.querySelectorAll('.tab').forEach(tab => {
 document.getElementById('calcBtn').addEventListener('click', calculateDamage);
 
 function calculateDamage() {
-
   const attack = parseFloat(document.getElementById('attack').value) || 0;
   const sdInput = parseFloat(document.getElementById('sd').value);
   let sd = (!isNaN(sdInput) ? sdInput : 0) / 100;
@@ -164,7 +163,6 @@ function calculateDamage() {
   let hitTotals = []; // includes Temple
 
   for (let i = 1; i <= hits; i++) {
-
     let isCrit = false;
     if (critsSelected > 0) {
       if (enemyHP > 60) {
@@ -182,31 +180,22 @@ function calculateDamage() {
       * artifactMultiplier;
 
     const totalHitDamage = damagePerHit * 2.5;  // TEMPLE
-
-    summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
-
-    subtotal += damagePerHit;
-    total += totalHitDamage;
-
     hitTotals.push(totalHitDamage);
+    summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
+    subtotal += totalHitDamage;  // include Temple in subtotal now
+    total += totalHitDamage;
   }
 
-  summaryHTML += `<br><span class="subtotal">Subtotal Damage (raw hits): ${subtotal.toExponential(2)}</span><br>`;
-
-  // ==========================
-  // DEMON KING'S MIGHT
-  // ==========================
-  const dkmStartIndex = (enemyHP > 60 ? 2 : 4); // index starts at 1, array at 0
+  // DEMON KING'S MIGHT included in subtotal
+  const dkmStartIndex = (enemyHP > 60 ? 2 : 4);
   let dkmRaw = 0;
-
   for (let i = dkmStartIndex; i < hitTotals.length; i++) {
     dkmRaw += hitTotals[i];
   }
-
   const dkmFinal = dkmRaw * 1.2;
-
-  summaryHTML += `<span class="balanced">Demon King's Might: ${dkmFinal.toExponential(2)}</span><br>`;
+  subtotal += dkmFinal;  // add to subtotal
   total += dkmFinal;
+  summaryHTML += `<span class="balanced">Demon King's Might: ${dkmFinal.toExponential(2)}</span><br>`;
 
   // BALANCED STRIKE
   let bsProc = false;
@@ -239,8 +228,7 @@ function calculateDamage() {
     `<div class="mono">Artifact multiplier: ${artifactMultiplier.toFixed(4)}</div>`,
     `<div class="mono">Crit base: ${critBase.toFixed(4)}</div>`,
     `<div class="mono">Crit multiplier: ${critMultiplier.toFixed(4)}</div>`,
-    `<div class="mono">Subtotal (raw hits): ${subtotal.toExponential(2)}</div>`,
-    `<div class="mono">Demon King's Might: ${dkmFinal.toExponential(2)}</div>`,
+    `<div class="mono">Subtotal (including Demon King's Might): ${subtotal.toExponential(2)}</div>`,
     hasNonCrit
       ? `<div class="mono">Balanced Strike applied</div>`
       : `<div class="mono">Balanced Strike: not triggered (all hits crit)</div>`,
@@ -252,6 +240,5 @@ function calculateDamage() {
   document.getElementById('breakdown').innerHTML = breakdownLines.join("");
 }
 </script>
-
 </body>
 </html>
