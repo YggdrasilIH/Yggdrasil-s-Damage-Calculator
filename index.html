@@ -140,11 +140,10 @@ function calculateDamage() {
   const critMultiplier = sqh > 0 ? (critBase * 0.24 * sqh) : critBase;
 
   let summaryHTML = "";
-  let total = 0;
   let hitTotals = [];
   let hasNonCrit = false;
 
-  // Calculate each hit
+  // Compute hits
   for (let i = 1; i <= hits; i++) {
     let isCrit = false;
     if (critsSelected > 0) {
@@ -154,22 +153,22 @@ function calculateDamage() {
     if (!isCrit) hasNonCrit = true;
 
     let damagePerHit = baseDamage * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
-    let totalHitDamage = damagePerHit * 2.5; // Temple
+    let totalHitDamage = damagePerHit * 2.5; // Temple included
     hitTotals.push(totalHitDamage);
 
     summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
   }
 
-  // Demon King's Might
-  const dkmStartIndex = enemyHP > 60 ? 2 : 4;
+  // Demon King's Might = 120% of first N hits
+  const dkmHits = enemyHP > 60 ? 2 : 4;
   let dkmFinal = 0;
-  for (let i = dkmStartIndex; i < hitTotals.length; i++) {
+  for (let i = 0; i < Math.min(dkmHits, hitTotals.length); i++) {
     dkmFinal += hitTotals[i] * 1.2;
   }
 
   // Subtotal now includes DKM
   let subtotal = hitTotals.reduce((a,b) => a+b, 0) + dkmFinal;
-  total = subtotal;
+  let total = subtotal;
 
   summaryHTML += `<br><span class="subtotal">Subtotal Damage (raw hits + DKM): ${subtotal.toExponential(2)}</span><br>`;
   summaryHTML += `<span class="balanced">Demon King's Might: ${dkmFinal.toExponential(2)}</span><br>`;
