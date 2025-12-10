@@ -89,18 +89,7 @@
     <div id="summary" class="tab-content">Damage: --</div>
     <div id="breakdown" class="tab-content" style="display:none;">Breakdown: --</div>
   </div>
-
-  <script>
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        const selected = tab.getAttribute('data-tab');
-        document.getElementById('summary').style.display = selected === 'summary' ? 'block' : 'none';
-        document.getElementById('breakdown').style.display = selected === 'breakdown' ? 'block' : 'none';
-      });
-    });
-
+<script>
     document.getElementById('calcBtn').addEventListener('click', calculateDamage);
 
     function calculateDamage() {
@@ -170,13 +159,15 @@
         dkmEligible.push(damagePerHit);  // Collect eligible hits for DKM
       }
 
-      // Calculate Demon King's Might (DKM)
-      const dkmSum = dkmEligible.slice(0, dkmHits).reduce((sum, hit) => sum + hit, 0);
+      // Calculate Demon King's Might (DKM) correctly
+      const dkmSum = dkmEligible.slice(0, 2).reduce((sum, hit) => sum + hit, 0); // Only the first 2 hits
       const dkmFinal = dkmSum * 1.2;
 
       // Add DKM to the subtotal before Balanced Strike and Lethal Fightback
-      subtotal += dkmFinal;
       summaryHTML += `<span class="balanced">Demon King's Might: ${dkmFinal.toExponential(2)}</span><br>`;
+
+      // **Add DKM to the subtotal** now!
+      subtotal += dkmFinal;
       summaryHTML += `<span class="subtotal">Subtotal Damage (raw hits + DKM): ${subtotal.toExponential(2)}</span><br>`;
       total += dkmFinal;
 
@@ -226,6 +217,7 @@
       document.getElementById('summary').innerHTML = summaryHTML;
       document.getElementById('breakdown').innerHTML = breakdownLines.join("");
     }
-  </script>
+</script>
+
 </body>
 </html>
