@@ -103,7 +103,7 @@
   });
 
   document.getElementById('calcBtn').addEventListener('click', calculateDamage);
-  function calculateDamage() {
+function calculateDamage() {
   // Inputs
   const attack = parseFloat(document.getElementById('attack').value) || 0;
 
@@ -206,37 +206,35 @@
     total += totalHitDamage;
   }
 
-  summaryHTML += `<br><span class="subtotal">Subtotal Damage (temple-adjusted hits): ${total.toExponential(2)}</span><br>`;
-
-  // Calculate Demon King's Might
+  // Add Demon King's Might (DKM)
   const firstTwoOrFourHits = hitDamage.slice(0, enemyHP > 60 ? 2 : 4).reduce((acc, curr) => acc + curr, 0);
   const demonKingsMight = firstTwoOrFourHits * defier * elyvia * add * giantKiller * 1.2;  // Apply multipliers
   const demonKingsMightTempleAdjusted = demonKingsMight * 2.5;  // Apply temple multiplier
 
-  // Add Demon King's Might to the subtotal (along with hit damage)
+  // Add Demon King's Might only to the subtotal (not to total)
   summaryHTML += `<span class="balanced">Demon King's Might: ${demonKingsMightTempleAdjusted.toExponential(2)}</span><br>`;
-  total += demonKingsMightTempleAdjusted;  // Add to total damage
-  subtotal += demonKingsMightTempleAdjusted;  // Add to subtotal too
+
+  subtotal += demonKingsMightTempleAdjusted;  // Add to subtotal
 
   // Balanced Strike only if any non-crit
   let bsText = '';
   let bsProc = false;
   if (hasNonCrit) {
     const bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
-    const balancedStrike = total * bsMultiplier * defier * elyvia * add * giantKiller;
+    const balancedStrike = subtotal * bsMultiplier * defier * elyvia * add * giantKiller;
     bsText = `<span class="balanced">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
-    total += balancedStrike;  // Add Balanced Strike to total
+    subtotal += balancedStrike;  // Add Balanced Strike to subtotal
     summaryHTML += bsText;  // Add Balanced Strike to summary
     bsProc = true;
   }
 
   // Lethal Fightback (based on subtotal, includes BS proc bonus if applicable)
   const lfbMultiplierIfBs = bsProc ? 1.3 : 1.0;
-  const lethalFightback = total * 0.18 * defier * giantKiller * add * lfbMultiplierIfBs * elyvia;
+  const lethalFightback = subtotal * 0.18 * defier * giantKiller * add * lfbMultiplierIfBs * elyvia;
   summaryHTML += `<span class="balanced">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
-  total += lethalFightback;  // Add Lethal Fightback to total
+  subtotal += lethalFightback;  // Add Lethal Fightback to subtotal
 
-  summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
+  summaryHTML += `<br><span class="total">Total Damage: ${subtotal.toExponential(2)}</span>`;
 
   // Detailed breakdown (visible when the Breakdown tab is active)
   const breakdownLines = [
@@ -253,12 +251,12 @@
     `<div class="mono">Crit base: ${critBase.toFixed(4)}</div>`,
     `<div class="mono">Crit multiplier applied: ${critMultiplier.toFixed(4)}</div>`,
     `<div class="mono">Hits: ${hits} (summary values include Temple bonus)</div>`,
-    `<div class="mono">Subtotal (temple-adjusted hits): ${total.toExponential(2)}</div>`,
+    `<div class="mono">Subtotal (temple-adjusted hits): ${subtotal.toExponential(2)}</div>`,
     hasNonCrit
       ? `<div class="mono">Balanced Strike applied</div>`
       : `<div class="mono">Balanced Strike: not triggered (all hits crit)</div>`,
     `<div class="mono">Lethal Fightback: ${lethalFightback.toExponential(2)}</div>`,
-    `<div class="mono">Total Damage: ${total.toExponential(2)}</div>`
+    `<div class="mono">Total Damage: ${subtotal.toExponential(2)}</div>`
   ];
 
   // Render
