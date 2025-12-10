@@ -102,8 +102,7 @@
     });
   });
 
-  document.getElementById('calcBtn').addEventListener('click', calculateDamage);
-  function calculateDamage() {
+  document.getElementById('calcBtn').addEventListener('click', calculateDamage);function calculateDamage() {
   // Inputs (same as before)
   const attack = parseFloat(document.getElementById('attack').value) || 0;
   const sdInput = parseFloat(document.getElementById('sd').value);
@@ -165,7 +164,7 @@
 
   // Initialize variables
   let summaryHTML = "";
-  let subtotal = 0;      // Raw hits (no temple bonus)
+  let subtotal = 0;      // Subtotal with temple-adjusted hits
   let total = 0;         // Total damage (includes temple bonus, BS, and LFB)
   let hasNonCrit = false;
   let demonKingsMight = 0; // Initialize Demon King's Might
@@ -189,7 +188,7 @@
       * giantKiller
       * artifactMultiplier;
 
-    // Apply temple bonus
+    // Apply temple bonus (2.5x multiplier)
     const totalHitDamage = damagePerHit * 2.5; // 1.0 base + 1.5 Temple
 
     // For Demon King's Might, sum the first 2 or 4 temple-adjusted hits
@@ -197,10 +196,10 @@
       demonKingsMight += totalHitDamage; // Sum temple-adjusted hits
     }
 
-    // Add the hit damage to the subtotal (raw hits)
-    subtotal += damagePerHit;
+    // Add the temple-adjusted hit damage to the subtotal
+    subtotal += totalHitDamage;
 
-    // Add the hit damage to the total (temple-adjusted damage)
+    // Add the temple-adjusted hit damage to the total
     total += totalHitDamage;
 
     // Add the hit damage to the summary
@@ -216,7 +215,7 @@
   }
 
   // Show subtotal and total damage
-  summaryHTML += `<br><span class="subtotal">Subtotal Damage (raw hits): ${subtotal.toExponential(2)}</span><br>`;
+  summaryHTML += `<br><span class="subtotal">Subtotal Damage (temple-adjusted hits): ${subtotal.toExponential(2)}</span><br>`;
 
   // Balanced Strike only if any non-crit
   let bsText = '';
@@ -254,7 +253,7 @@
     `<div class="mono">Crit base: ${critBase.toFixed(4)}</div>`,
     `<div class="mono">Crit multiplier applied: ${critMultiplier.toFixed(4)}</div>`,
     `<div class="mono">Hits: ${hits} (summary values include Temple bonus)</div>`,
-    `<div class="mono">Subtotal (raw hits): ${subtotal.toExponential(2)}</div>`,
+    `<div class="mono">Subtotal (temple-adjusted hits): ${subtotal.toExponential(2)}</div>`,
     hasNonCrit
       ? `<div class="mono">Balanced Strike applied</div>`
       : `<div class="mono">Balanced Strike: not triggered (all hits crit)</div>`,
@@ -266,6 +265,7 @@
   document.getElementById('summary').innerHTML = summaryHTML;
   document.getElementById('breakdown').innerHTML = breakdownLines.join("");
 }
+
 
 
 </script>
