@@ -102,7 +102,10 @@
     });
   });
 
-  document.getElementById('calcBtn').addEventListener('click', calculateDamage);function calculateDamage() {
+  document.getElementById('calcBtn').addEventListener('click', calculateDamage);
+  
+  
+  function calculateDamage() {
   // Inputs (same as before)
   const attack = parseFloat(document.getElementById('attack').value) || 0;
   const sdInput = parseFloat(document.getElementById('sd').value);
@@ -196,7 +199,7 @@
       demonKingsMight += totalHitDamage; // Sum temple-adjusted hits
     }
 
-    // Add the temple-adjusted hit damage to the subtotal
+    // Add the temple-adjusted hit damage to the subtotal (this is now the temple-adjusted subtotal)
     subtotal += totalHitDamage;
 
     // Add the temple-adjusted hit damage to the total
@@ -265,8 +268,6 @@
   document.getElementById('summary').innerHTML = summaryHTML;
   document.getElementById('breakdown').innerHTML = breakdownLines.join("");
 }
-
-
 
 </script>
 
