@@ -174,11 +174,9 @@
       const dkmSum = dkmEligible.slice(0, dkmHits).reduce((sum, hit) => sum + hit, 0);
       const dkmFinal = dkmSum * 1.2;
 
-      // DKM should be included in the subtotal now
-      summaryHTML += `<span class="balanced">Demon King's Might: ${dkmFinal.toExponential(2)}</span><br>`;
-
-      // Add DKM to the subtotal
+      // Add DKM to the subtotal before Balanced Strike and Lethal Fightback
       subtotal += dkmFinal;
+      summaryHTML += `<span class="balanced">Demon King's Might: ${dkmFinal.toExponential(2)}</span><br>`;
       summaryHTML += `<span class="subtotal">Subtotal Damage (raw hits + DKM): ${subtotal.toExponential(2)}</span><br>`;
       total += dkmFinal;
 
