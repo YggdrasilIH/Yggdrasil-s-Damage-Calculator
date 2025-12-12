@@ -206,11 +206,13 @@ function calculateDamage() {
     total += totalHitDamage;
   }
 
-  // --- Demon King's Might ---
-  const dkmRaw = rawHitDamage.reduce((a, b) => a + b, 0) * 1.2;
-  const dkmTemple = dkmRaw * 2.5;
-  summaryHTML += `<span class="balanced">Demon King's Might: ${dkmTemple.toExponential(2)}</span><br>`;
-  subtotal += dkmTemple;
+// Calculate DKM
+const sumAllRawHits = rawHitDamage.reduce((a, b) => a + b, 0);
+const demonKingsMightRaw = sumAllRawHits * 1.2;  // DKM multiplier
+const demonKingsMightTemple = demonKingsMightRaw * 2.5;  // DKM Temple bonus
+
+// Add DKM to subtotal
+subtotal += demonKingsMightTemple;
 
   // --- Balanced Strike ---
   let bsProc = false;
