@@ -252,8 +252,8 @@
     }
 
     // --- Lethal Fightback ---
-    const lfbMultiplierIfBs = bsProc ? 1.3 : 1.0;
-
+    const lfbMultiplier = bsProc ? bsMultiplier : 1.0;
+    
     const lethalFightback =
       subtotal
       * 0.18
@@ -261,10 +261,12 @@
       * giantKiller
       * add
       * elyvia
-      * lfbMultiplierIfBs
+      * lfbMultiplier
       * 2.5;
-
+    
     summaryHTML += `<span class="balanced">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
+    
+
 
     // Final total
     total = subtotal + balancedStrike + lethalFightback;
