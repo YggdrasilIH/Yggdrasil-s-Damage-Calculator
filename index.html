@@ -75,8 +75,16 @@
       <div class="grid">
         <input type="number" id="hd" placeholder="HD (e.g. 200)">
         <input type="number" id="pet" placeholder="Pet % (e.g. 80)">
+
+        <!-- NEW DoT BONUS INPUTS -->
+        <input type="number" id="dot1" placeholder="Dot Bonus 1 (%)">
+        <input type="number" id="dot2" placeholder="Dot Bonus 2 (%)">
       </div>
-      <div class="small mono">HD multiplier = 1 + 0.7 × (HD / 100), Pet multiplier = 1 + (Pet% / 100)</div>
+      <div class="small mono">
+        HD multiplier = 1 + 0.7 × (HD / 100),
+        Pet multiplier = 1 + (Pet% / 100),
+        DoT bonuses apply to LFA hits only.
+      </div>
     </div>
 
     <button id="calcBtn">Calculate</button>
@@ -89,8 +97,9 @@
     <div id="summary" class="tab-content">Damage: --</div>
     <div id="breakdown" class="tab-content" style="display:none;">Breakdown: --</div>
   </div>
+
 <script>
-  // Tab switching (only tabs control visibility)
+  // Tab switching
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -133,6 +142,13 @@
     const petInput = parseFloat(document.getElementById('pet').value) || 0;
     const petMultiplier = 1 + (petInput / 100);
 
+    // NEW dot multipliers (as percentages -> normalized)
+    const dot1 = (parseFloat(document.getElementById('dot1').value) / 100) || 0;
+    const dot2 = (parseFloat(document.getElementById('dot2').value) / 100) || 0;
+
+    // Placeholder: maim
+    const maim = 1.0;
+
     // Artifact constants
     const ARTIFACT_NONE = 1;
     const ARTIFACT_ANTI_WARRIOR = 1.9;
@@ -155,7 +171,7 @@
       * add
       * elyvia
       * hdMultiplier
-      * petMultiplier;
+      * petMultiplier; // PET APPLIES HERE
 
     // Multipliers & hit count
     const defier = enemyHP > 70 ? 1.3 : 1;
@@ -166,45 +182,47 @@
     const critBase = 1.5 + 2 * critDamage;
     const critMultiplier = sqh > 0 ? (critBase * 0.24 * sqh) : critBase;
 
-    // --- Hit calculation arrays ---
     let rawHitDamage = [];
     let templeHitDamage = [];
 
     let summaryHTML = "";
-    let subtotal = 0;  // raw hits only
-    let total = 0;     // temple hits + procs
+    let subtotal = 0;
+    let total = 0;
     let hasNonCrit = false;
 
     // --- LFA hits ---
     for (let i = 1; i <= hits; i++) {
       let isCrit = false;
       if (critsSelected > 0) {
-        if (enemyHP > 60) {
-          isCrit = i <= Math.min(critsSelected, 3);
-        } else {
-          isCrit = i <= Math.min(critsSelected, 5);
-        }
+        if (enemyHP > 60) isCrit = i <= Math.min(critsSelected, 3);
+        else isCrit = i <= Math.min(critsSelected, 5);
       }
       if (!isCrit) hasNonCrit = true;
 
-      const damagePerHit = baseDamage
+      // Apply dot bonuses multiplicatively (separate from pet)
+      const damagePerHit =
+        baseDamage
+        * (1 + dot1)         // dot bonus 1 (multiplicative)
+        * (1 + dot2)         // dot bonus 2 (multiplicative)
+        * maim               // PLACEHOLDER
         * (isCrit ? critMultiplier : 1)
         * defier
         * giantKiller
         * artifactMultiplier;
 
-      const totalHitDamage = damagePerHit * 2.5; // Temple
+      const totalHitDamage = damagePerHit * 2.5;
 
       rawHitDamage.push(damagePerHit);
       templeHitDamage.push(totalHitDamage);
 
-      summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
+      summaryHTML += `<span class="${isCrit ? 'crit' : ''}">
+        Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
 
       subtotal += damagePerHit;
       total += totalHitDamage;
     }
 
-    // --- Demon King's Might (corrected) ---
+    // --- Demon King's Might ---
     const sumAllRawHits = rawHitDamage.reduce((a, b) => a + b, 0);
     const demonKingsMightRaw = sumAllRawHits * 1.2;
     const demonKingsMightTemple = demonKingsMightRaw * 2.5;
@@ -220,13 +238,14 @@
     if (hasNonCrit) {
       const bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
 
-      balancedStrike = subtotal
+      balancedStrike =
+        subtotal
         * bsMultiplier
         * defier
         * elyvia
         * add
         * giantKiller
-        * 2.5; // Temple
+        * 2.5;
 
       summaryHTML += `<span class="balanced">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
       bsProc = true;
@@ -235,23 +254,24 @@
     // --- Lethal Fightback ---
     const lfbMultiplierIfBs = bsProc ? 1.3 : 1.0;
 
-    const lethalFightback = subtotal
+    const lethalFightback =
+      subtotal
       * 0.18
       * defier
       * giantKiller
       * add
       * elyvia
       * lfbMultiplierIfBs
-      * 2.5; // Temple
+      * 2.5;
 
     summaryHTML += `<span class="balanced">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
 
-    // --- Final total ---
+    // Final total
     total = subtotal + balancedStrike + lethalFightback;
 
     summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
 
-    // --- Breakdown panel ---
+    // Breakdown
     const breakdownLines = [
       `<div class="mono"><strong>Multipliers & Sources</strong></div>`,
       `<div class="mono">Attack × (12 + SD): ${(12 + sd).toFixed(4)}</div>`,
@@ -260,6 +280,8 @@
       `<div class="mono">Elyvia: ${elyvia.toFixed(4)}</div>`,
       `<div class="mono">HD: ${hdMultiplier.toFixed(4)}</div>`,
       `<div class="mono">Pet: ${petMultiplier.toFixed(4)}</div>`,
+      `<div class="mono">DoT1: ${(1 + dot1).toFixed(4)}</div>`,
+      `<div class="mono">DoT2: ${(1 + dot2).toFixed(4)}</div>`,
       `<div class="mono">Defier: ${defier.toFixed(4)}</div>`,
       `<div class="mono">Giant Killer: ${giantKiller.toFixed(4)}</div>`,
       `<div class="mono">Artifact: ${artifactMultiplier.toFixed(4)}</div>`,
@@ -267,9 +289,7 @@
       `<div class="mono">Crit multiplier: ${critMultiplier.toFixed(4)}</div>`,
       `<div class="mono">Hits: ${hits}</div>`,
       `<div class="mono">Subtotal (raw hits + temple DKM): ${subtotal.toExponential(2)}</div>`,
-      hasNonCrit
-        ? `<div class="mono">Balanced Strike: triggered</div>`
-        : `<div class="mono">Balanced Strike: not triggered</div>`,
+      hasNonCrit ? `<div class="mono">Balanced Strike: triggered</div>` : `<div class="mono">Balanced Strike: not triggered</div>`,
       `<div class="mono">Lethal Fightback: ${lethalFightback.toExponential(2)}</div>`,
       `<div class="mono">Total Damage: ${total.toExponential(2)}</div>`
     ];
