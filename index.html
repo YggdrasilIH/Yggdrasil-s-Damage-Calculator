@@ -75,8 +75,6 @@
       <div class="grid">
         <input type="number" id="hd" placeholder="HD (e.g. 200)">
         <input type="number" id="pet" placeholder="Pet % (e.g. 80)">
-
-        <!-- NEW DoT BONUS INPUTS -->
         <input type="number" id="dot1" placeholder="Dot Bonus 1 (%)">
         <input type="number" id="dot2" placeholder="Dot Bonus 2 (%)">
       </div>
@@ -206,13 +204,13 @@ function calculateDamage() {
     total += totalHitDamage;
   }
 
-// Calculate DKM
-const sumAllRawHits = rawHitDamage.reduce((a, b) => a + b, 0);
-const demonKingsMightRaw = sumAllRawHits * 1.2;  // DKM multiplier
-const demonKingsMightTemple = demonKingsMightRaw * 2.5;  // DKM Temple bonus
+  // Calculate DKM
+  const sumAllRawHits = rawHitDamage.reduce((a, b) => a + b, 0);
+  const demonKingsMightRaw = sumAllRawHits * 1.2;  // DKM multiplier
+  const demonKingsMightTemple = demonKingsMightRaw * 2.5;  // DKM Temple bonus
 
-// Add DKM to subtotal
-subtotal += demonKingsMightTemple;
+  // Add DKM to subtotal
+  subtotal += demonKingsMightTemple;
 
   // --- Balanced Strike ---
   let bsProc = false;
@@ -251,7 +249,7 @@ subtotal += demonKingsMightTemple;
     `<div class="mono">Crit multiplier: ${critMultiplier.toFixed(4)}</div>`,
     `<div class="mono">Hits: ${hits}</div>`,
     `<div class="mono"><strong>LFA Subtotal (raw hits + temple DKM)</strong>: ${subtotal.toExponential(2)}</div>`,
-    `<div class="mono"><strong>Demon King's Might</strong>: Sum(LFA hits) × 1.2 × Temple(2.5) = ${dkmTemple.toExponential(2)}</div>`,
+    `<div class="mono"><strong>Demon King's Might</strong>: Sum(LFA hits) × 1.2 × Temple(2.5) = ${demonKingsMightTemple.toExponential(2)}</div>`,
     hasNonCrit ? `<div class="mono"><strong>Balanced Strike</strong>: Subtotal × BS Multiplier(${bsMultiplier}) × Defier × Elyvia × ADD × GiantKiller × Temple(2.5) = ${balancedStrike.toExponential(2)}</div>` :
       `<div class="mono">Balanced Strike: not triggered</div>`,
     `<div class="mono"><strong>Lethal Fightback</strong>: Subtotal × 0.18 × Defier × GiantKiller × ADD × Elyvia × BS Bonus(${lfbMultiplier}) × Temple(2.5) = ${lethalFightback.toExponential(2)}</div>`,
@@ -262,7 +260,6 @@ subtotal += demonKingsMightTemple;
   document.getElementById('breakdown').innerHTML = breakdownLines.join("");
 }
 </script>
-
 
 </body>
 </html>
