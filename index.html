@@ -170,14 +170,15 @@
 
     const critBase = 1.5 + 2 * critDamage;
     const critMultiplier = sqh > 0 ? critBase * 0.24 * sqh : critBase;
-
+    
+    // --- LFA Hits ---
     let rawHitDamage = [];
     let templeHitDamage = [];
     let summaryHTML = "";
     let subtotal = 0;
     let total = 0;
     let hasNonCrit = false;
-
+    
     // --- LFA Hits ---
     for (let i = 1; i <= hits; i++) {
       let isCrit = false;
@@ -186,7 +187,7 @@
         else isCrit = i <= Math.min(critsSelected, 5);
       }
       if (!isCrit) hasNonCrit = true;
-
+    
       const damagePerHit = baseDamage
         * (1 + dot1)
         * (1 + dot2)
@@ -195,23 +196,26 @@
         * defier
         * giantKiller
         * artifactMultiplier;
-
-      const totalHitDamage = damagePerHit * 2.5;
-
+    
+      const totalHitDamage = damagePerHit * 2.5;  // Apply temple multiplier (2.5)
+    
       rawHitDamage.push(damagePerHit);
       templeHitDamage.push(totalHitDamage);
-
+    
       summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
-
-      subtotal += damagePerHit;
-      total += totalHitDamage;
+    
+      subtotal += damagePerHit;  // Add raw hit damage to subtotal
+      total += totalHitDamage;   // Add total damage to final total
     }
-
-    // Calculate DKM
-    const sumAllRawHits = rawHitDamage.reduce((a, b) => a + b, 0);
-    const demonKingsMightRaw = sumAllRawHits * 1.2;  // DKM multiplier
-    const demonKingsMightTemple = demonKingsMightRaw * 2.5;  // DKM Temple bonus
-
+    
+    // --- Calculate DKM ---
+    // Calculate the sum of all temple-hit damage first (already multiplied by 2.5)
+    const sumTempleHitDamage = templeHitDamage.reduce((a, b) => a + b, 0);
+    
+    // Now apply DKM to the sum of temple-hit damage
+    const demonKingsMightRaw = sumTempleHitDamage * 1.2;  // Apply DKM multiplier (1.2)
+    const demonKingsMightTemple = demonKingsMightRaw * 2.5;  // Apply temple multiplier (2.5)
+    
     // Add DKM to subtotal
     subtotal += demonKingsMightTemple;
 
