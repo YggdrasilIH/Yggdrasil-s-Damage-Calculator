@@ -274,10 +274,11 @@ function calculateDamage() {
   breakdownLines.push(`<br><div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`);
   document.getElementById('breakdown').innerHTML = breakdownLines.join("");
 
+// --- Contributions (based on TOTAL damage) ---
 const multipliers = [
-  { name: 'Attack*(12+SD+SD Extra)', getValue: () => attack*(12+sd+sdExtra) },
-  { name: 'Precision', getValue: () => 1+0.3*precision },
-  { name: 'ADD', getValue: () => add+addExtra },
+  { name: 'Attack*(12+SD)', getValue: () => attack*(12+sd+sdExtra) },
+  { name: 'Precision', getValue: () => 1 + 0.3*precision },
+  { name: 'ADD', getValue: () => add + addExtra },
   { name: 'MAIM', getValue: () => maimMultiplier },
   { name: 'Elyvia', getValue: () => elyvia },
   { name: 'HD', getValue: () => hdMultiplier },
@@ -289,42 +290,73 @@ const multipliers = [
   { name: 'Artifact', getValue: () => artifactMultiplier }
 ];
 
-const totalDamageOriginal = total; // total damage from your current calculation
+// Store original total damage
+const totalOriginal = total;
 
 const impacts = multipliers.map(m => {
-  const original = m.getValue();  // store original
-  m.getValue = () => 1;           // neutralize
+  const originalValue = m.getValue();
+  
+  // Temporarily set this multiplier to neutral 1
+  m.getValue = () => 1;
 
-  // Recompute total damage with this multiplier neutralized
-  let baseDamage = attack*(12+sd+sdExtra) *
-                   (1+0.3*precision) *
-                   (add+addExtra) *
-                   maimMultiplier *
-                   elyvia *
-                   hdMultiplier *
-                   petMultiplier *
-                   (1+dot1) *
-                   (1+dot2) *
-                   (critsSelected>0?critMultiplier:1) *
-                   defier *
-                   giantKiller *
-                   artifactMultiplier;
+  // Recalculate total damage with this multiplier neutralized
+  let subtotalTemp = 0;
+  let tempHits = [];
+  for (let i = 1; i <= hits; i++) {
+    let isCrit = false;
+    if (critsSelected > 0) {
+      isCrit = enemyHP > 60 ? i <= Math.min(critsSelected, 3) : i <= Math.min(critsSelected, 5);
+    }
+    const base = 
+      multipliers.find(x=>x.name==='Attack*(12+SD)').getValue() *
+      multipliers.find(x=>x.name==='Precision').getValue() *
+      multipliers.find(x=>x.name==='ADD').getValue() *
+      multipliers.find(x=>x.name==='MAIM').getValue() *
+      multipliers.find(x=>x.name==='Elyvia').getValue() *
+      multipliers.find(x=>x.name==='HD').getValue() *
+      multipliers.find(x=>x.name==='Pet').getValue() *
+      multipliers.find(x=>x.name==='DoT1').getValue() *
+      multipliers.find(x=>x.name==='DoT2').getValue() *
+      (isCrit ? critMultiplier : 1) *
+      multipliers.find(x=>x.name==='Defier').getValue() *
+      multipliers.find(x=>x.name==='Giant Killer').getValue() *
+      multipliers.find(x=>x.name==='Artifact').getValue();
 
-  // Multiply by hits
-  const hits = enemyHP>60?3:5;
-  let subtotal = baseDamage*2.5*hits;
+    const totalHitDamage = base * 2.5;
+    tempHits.push(totalHitDamage);
+    subtotalTemp += totalHitDamage;
+  }
 
-  // Restore original
-  m.getValue = () => original;
+  const sumTempHits = tempHits.reduce((a,b)=>a+b,0);
+  const demonKingsTemp = sumTempHits*1.2*2.5;
+  subtotalTemp += demonKingsTemp;
 
-  return { name: m.name, impact: Math.abs(totalDamageOriginal - subtotal) };
+  let balancedStrikeTemp = 0;
+  if(hasNonCrit){
+    balancedStrikeTemp = subtotalTemp * bsMultiplier * defier * elyvia * (add + addExtra) * maimMultiplier * giantKiller * 2.5;
+  }
+
+  let lfbMultiplierTemp = 1.0;
+  if(hasNonCrit) lfbMultiplierTemp += bsMultiplier;
+  const lethalFightbackTemp = subtotalTemp * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplierTemp * 2.5;
+
+  const totalTemp = subtotalTemp + balancedStrikeTemp + lethalFightbackTemp;
+
+  // Impact is how much total damage changes if multiplier is neutralized
+  const impact = totalOriginal - totalTemp;
+
+  // Restore multiplier function
+  m.getValue = () => originalValue;
+
+  return { name: m.name, impact };
 });
 
-// Normalize to 100%
-const sumImpacts = impacts.reduce((a,b)=>a+b.impact,0);
-const contribHTML = impacts.map(c => 
-  `<div class="mono">${c.name}: ${(c.impact/sumImpacts*100).toFixed(2)}%</div>`
-).join("");
+// Convert to percentages of total impact
+const sumImpact = impacts.reduce((a,b)=>a+b.impact,0);
+const contribHTML = impacts.map(c=>{
+  const pct = ((c.impact / sumImpact)*100).toFixed(2);
+  return `<div class="mono">${c.name}: ${pct}%</div>`;
+}).join("");
 
 document.getElementById('contributions').innerHTML = contribHTML;
 
