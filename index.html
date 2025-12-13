@@ -174,31 +174,7 @@ function calculateDamage() {
     sdExtra = ANTLERS_SD_BONUS;
   }
 
-  // --- Transition Point ---
-  const transitionPoint = parseInt(document.getElementById('transitionPoint').value) || 0;
-
-  if (transitionPoint === 12) {
-    const isBelow50HP = enemyHP < 50;
-
-    // Base multipliers that apply to each hit
-    const baseMultiplier = giantKiller * defier * elyvia * (1 + precision) * hdMultiplier * petMultiplier * (1 + dot1) * (1 + dot2) * (add + addExtra) * maimMultiplier * artifactMultiplier;
-
-    // First hit: 1500% × Attack, applied 2 times
-    let hit1 = 1500 * attack * 2;
-    hit1 *= baseMultiplier;
-
-    // Second hit: 1000% × Attack
-    let hit2 = 1000 * attack;
-    hit2 *= baseMultiplier;
-
-    // Third hit: 800% or 1200% based on enemy HP
-    let hit3 = (isBelow50HP ? 800 : 1200) * attack;
-    hit3 *= baseMultiplier;
-
-    // Sum all transition damage hits
-    additionalDamage = hit1 + hit2 + hit3;
-  }
-
+ 
   // --- Base Damage ---
   const baseDamage = attack * (12 + sd + sdExtra) * (1 + 0.3 * precision) * (add + addExtra) * maimMultiplier * elyvia * hdMultiplier * petMultiplier;
 
@@ -241,6 +217,31 @@ function calculateDamage() {
   if (bsProc) lfbMultiplier += bsMultiplier;
 
   const lethalFightback = subtotal * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplier * 2.5;
+
+   // --- Transition Point ---
+  const transitionPoint = parseInt(document.getElementById('transitionPoint').value) || 0;
+
+  if (transitionPoint === 12) {
+    const isBelow50HP = enemyHP < 50;
+
+    // Base multipliers that apply to each hit
+    const baseMultiplier = giantKiller * defier * elyvia * (1 + precision) * hdMultiplier * petMultiplier * (1 + dot1) * (1 + dot2) * (add + addExtra) * maimMultiplier * artifactMultiplier;
+
+    // First hit: 1500% × Attack, applied 2 times
+    let hit1 = 1500 * attack * 2;
+    hit1 *= baseMultiplier;
+
+    // Second hit: 1000% × Attack
+    let hit2 = 1000 * attack;
+    hit2 *= baseMultiplier;
+
+    // Third hit: 800% or 1200% based on enemy HP
+    let hit3 = (isBelow50HP ? 800 : 1200) * attack;
+    hit3 *= baseMultiplier;
+
+    // Sum all transition damage hits
+    additionalDamage = hit1 + hit2 + hit3;
+  }
 
   total = subtotal + balancedStrike + lethalFightback + additionalDamage; // Add the transition bonus
 
