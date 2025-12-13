@@ -240,7 +240,7 @@
     }
 
     // --- Lethal Fightback ---
-    const lfbMultiplier = bsProc ? bsMultiplier : 1.0;
+    const lfbMultiplier = bsProc ? (1 + bsMultiplier) : 1.0;
     const lethalFightback = subtotal
       * 0.18
       * defier
