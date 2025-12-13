@@ -113,6 +113,12 @@
   function calculateDamage() {
     console.log('Calculate Damage button clicked');  // Debugging: check if this triggers
 
+        // --- Initialize variables --- 
+    let rawHitDamage = [];  // Declare the rawHitDamage array
+    let templeHitDamage = [];  // Declare the templeHitDamage array
+    let hasNonCrit = false;  // Declare hasNonCrit
+    let subtotal = 0;  // Declare subtotal to accumulate the total damage
+    
     // --- Inputs ---
     const attack = parseFloat(document.getElementById('attack').value) || 0;
     const sdInput = parseFloat(document.getElementById('sd').value);
