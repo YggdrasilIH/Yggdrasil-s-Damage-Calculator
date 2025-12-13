@@ -358,7 +358,21 @@ const contribHTML = impacts.map(c=>{
   return `<div class="mono">${c.name}: ${pct}%</div>`;
 }).join("");
 
-document.getElementById('contributions').innerHTML = contribHTML;
+// After computing contributions
+const contribHTML = absImpacts.map(c => `<div class="mono">${c.name}: ${(c.impact/sumImpacts*100).toFixed(2)}%</div>`).join("");
+
+// Add the disclaimer at the bottom
+const disclaimerHTML = `
+<div class="small mono" style="margin-top:10px;">
+<strong>Contribution Equation:</strong><br>
+C<sub>i</sub> = 100 × | D<sub>total</sub> - D<sub>total</sub>(m<sub>i</sub>=1) | ÷ Σ<sub>j</sub> | D<sub>total</sub> - D<sub>total</sub>(m<sub>j</sub>=1) |<br>
+where D<sub>total</sub> is the total damage with all multipliers active, and D<sub>total</sub>(m<sub>i</sub>=1) is the total damage with multiplier i set to neutral. Percentages are normalized so that Σ<sub>i</sub> C<sub>i</sub> = 100%.
+</div>
+`;
+
+// Combine contributions and disclaimer
+document.getElementById('contributions').innerHTML = contribHTML + disclaimerHTML;
+
 
 
 }
