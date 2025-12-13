@@ -122,6 +122,7 @@ function calculateDamage() {
   let subtotal = 0;
   let total = 0;
   let hasNonCrit = false;
+  let additionalDamage = 0;
 
   // --- Inputs ---
   const attack = parseFloat(document.getElementById('attack').value) || 0;
@@ -157,6 +158,13 @@ function calculateDamage() {
   const maimInput = parseFloat(document.getElementById('maim').value) || 0;
   const maimMultiplier = 1 + (1 - enemyHP / 100) * (maimInput / 100);
 
+    // --- Transition Point Logic ---
+  const transitionPoint = parseInt(document.getElementById('transitionPoint').value) || 0;
+  if (transitionPoint === 12) {
+    // Apply bonus damage for transition point = 12
+    const transitionBonus = (enemyHP <= 50) ? 1.5 : 1.0;
+    additionalDamage = attack * transitionBonus * (1 + 0.3 * precision) * (add + 0.26);  // Using the existing scaling multipliers
+  }
   // --- Artifacts ---
   const ARTIFACT_NONE = 1;
   const ARTIFACT_ANTI_WARRIOR = 1.9;
@@ -216,7 +224,8 @@ function calculateDamage() {
 
   const lethalFightback = subtotal * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplier * 2.5;
 
-  total = subtotal + balancedStrike + lethalFightback;
+  total = subtotal + balancedStrike + lethalFightback + additionalDamage; // Add the transition bonus
+
 
   // --- Summary Tab ---
   let summaryHTML = "";
@@ -233,6 +242,9 @@ function calculateDamage() {
   summaryHTML += hasNonCrit
     ? `<span class="subtotal">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`
     : `<span class="subtotal">Balanced Strike: not triggered</span><br>`;
+  summaryHTML += additionalDamage > 0 
+    ? `<span class="subtotal">Transition Bonus Damage: ${additionalDamage.toExponential(2)}</span><br>` 
+    : '';
   summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
   document.getElementById('summary').innerHTML = summaryHTML;
 
@@ -273,6 +285,13 @@ function calculateDamage() {
   breakdownLines.push(`<div class="mono">Subtotal × 0.18 × Defier × GiantKiller × ADD × MAIM × Elyvia × BS Bonus(${lfbMultiplier.toFixed(4)}) × Temple(2.5) = ${lethalFightback.toExponential(2)}</div>`);
   breakdownLines.push(`<br><div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`);
   document.getElementById('breakdown').innerHTML = breakdownLines.join("");
+
+  breakdownLines.push(`<br><div class="mono"><strong>Additional Damage (Transition Point = 12)</strong></div>`);
+breakdownLines.push(`<div class="mono">1500% × Attack × 2 (×2 hits) = ${1500 * attack * 2}</div>`);
+breakdownLines.push(`<div class="mono">1000% × Attack (×1 hit) = ${1000 * attack}</div>`);
+breakdownLines.push(`<div class="mono">${enemyHP < 50 ? '800%' : '1200%'} × Attack (×1 hit) = ${enemyHP < 50 ? 800 * attack : 1200 * attack}</div>`);
+breakdownLines.push(`<div class="mono">Total Additional Damage: ${additionalDamage.toExponential(2)}</div>`);
+
   
   // --- Contributions (based on TOTAL damage) ---
   const multipliers = [
