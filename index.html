@@ -167,9 +167,9 @@
     const defier = enemyHP > 70 ? 1.3 : 1;
     const giantKiller = 2;
     const hits = enemyHP > 60 ? 3 : 5;
-
-const critBase = 1.5 + 2 * critDamage;  // Base crit damage (1.5 + 2 * critDamage)
-const critMultiplier = sqh > 0 ? critBase * (1 + 0.24 * sqh) : critBase;
+    
+    const critBase = 1.5 + 2 * critDamage;  // Base crit damage (1.5 + 2 * critDamage)
+    const critMultiplier = sqh > 0 ? critBase * (1 + 0.24 * sqh) : critBase;
     
 // --- LFA Hits ---
 for (let i = 1; i <= hits; i++) {
