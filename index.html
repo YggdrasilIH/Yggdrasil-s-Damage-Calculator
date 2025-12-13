@@ -25,6 +25,7 @@
     .small { font-size: 12px; color: #aaa; }
   </style>
 </head>
+
 <body>
   <div class="calculator">
     <h2>LFA SE Damage Calculator</h2>
@@ -58,7 +59,7 @@
         <div>
           <h3>Enemy HP %</h3>
           <input type="range" id="enemyHP" min="0" max="100" value="100"
-                 oninput="document.getElementById('enemyHPVal').innerText=this.value+'%'">
+            oninput="document.getElementById('enemyHPVal').innerText=this.value+'%'">
           <div id="enemyHPVal">100%</div>
         </div>
         <div>
@@ -77,6 +78,7 @@
         <input type="number" id="pet" placeholder="Pet % (e.g. 80)">
         <input type="number" id="dot1" placeholder="Dot Bonus 1 (%)">
         <input type="number" id="dot2" placeholder="Dot Bonus 2 (%)">
+        <input type="number" id="maim" placeholder="Maim (%)">
       </div>
       <div class="small mono">
         HD multiplier = 1 + 0.7 × (HD / 100),
@@ -95,6 +97,7 @@
     <div id="summary" class="tab-content">Damage: --</div>
     <div id="breakdown" class="tab-content" style="display:none;">Breakdown: --</div>
   </div>
+
 <script>
   // Handle Tab Switching
   document.querySelectorAll('.tab').forEach(tab => {
@@ -107,22 +110,20 @@
     });
   });
 
-  // Add click event listener for the Calculate button
   document.getElementById('calcBtn').addEventListener('click', calculateDamage);
 
   function calculateDamage() {
-    console.log('Calculate Damage button clicked');  // Debugging: check if this triggers
 
-        // --- Initialize variables --- 
-
+    // --- Initialize variables ---
     let templeHitDamage = [];
     let summaryHTML = "";
     let subtotal = 0;
     let total = 0;
     let hasNonCrit = false;
-    
+
     // --- Inputs ---
     const attack = parseFloat(document.getElementById('attack').value) || 0;
+
     const sdInput = parseFloat(document.getElementById('sd').value);
     let sd = (!isNaN(sdInput) ? sdInput : 0) / 100;
 
@@ -152,7 +153,9 @@
     const dot1 = (parseFloat(document.getElementById('dot1').value) / 100) || 0;
     const dot2 = (parseFloat(document.getElementById('dot2').value) / 100) || 0;
 
-    const maim = 1.0;
+    // --- MAIM (independent ADD-like multiplier) ---
+    const maimInput = parseFloat(document.getElementById('maim').value) || 0;
+    const maimMultiplier = 1 + (1 - enemyHP / 100) * (maimInput / 100);
 
     // --- Artifacts ---
     const ARTIFACT_NONE = 1;
@@ -169,84 +172,97 @@
     }
 
     // --- Base Damage ---
-    const baseDamage = attack * (12 + sd) * (1 + 0.3 * precision) * add * elyvia * hdMultiplier * petMultiplier;
+    const baseDamage = attack
+      * (12 + sd)
+      * (1 + 0.3 * precision)
+      * add
+      * maimMultiplier
+      * elyvia
+      * hdMultiplier
+      * petMultiplier;
 
     // --- Multipliers & Hits ---
     const defier = enemyHP > 70 ? 1.3 : 1;
     const giantKiller = 2;
     const hits = enemyHP > 60 ? 3 : 5;
-    
-    const critBase = 1.5 + 2 * critDamage;  // Base crit damage (1.5 + 2 * critDamage)
+
+    const critBase = 1.5 + 2 * critDamage;
     const critMultiplier = sqh > 0 ? critBase * (1 + 0.24 * sqh) : critBase;
-    
-// --- LFA Hits ---
-for (let i = 1; i <= hits; i++) {
-  let isCrit = false;
-  if (critsSelected > 0) {
-    if (enemyHP > 60) isCrit = i <= Math.min(critsSelected, 3);
-    else isCrit = i <= Math.min(critsSelected, 5);
-  }
-  if (!isCrit) hasNonCrit = true;
 
-  const damagePerHit = baseDamage
-    * (1 + dot1)
-    * (1 + dot2)
-    * maim
-    * (isCrit ? critMultiplier : 1)
-    * defier
-    * giantKiller
-    * artifactMultiplier;
+    // --- LFA Hits ---
+    for (let i = 1; i <= hits; i++) {
+      let isCrit = false;
+      if (critsSelected > 0) {
+        if (enemyHP > 60) isCrit = i <= Math.min(critsSelected, 3);
+        else isCrit = i <= Math.min(critsSelected, 5);
+      }
+      if (!isCrit) hasNonCrit = true;
 
-  const totalHitDamage = damagePerHit * 2.5;  // Apply temple multiplier (2.5)
+      const damagePerHit = baseDamage
+        * (1 + dot1)
+        * (1 + dot2)
+        * (isCrit ? critMultiplier : 1)
+        * defier
+        * giantKiller
+        * artifactMultiplier;
 
+      const totalHitDamage = damagePerHit * 2.5;
 
-  templeHitDamage.push(totalHitDamage);
+      templeHitDamage.push(totalHitDamage);
+      subtotal += totalHitDamage;
 
-  summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
+      summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
+    }
 
-  subtotal += totalHitDamage;  // Add total hit damage (with temple multiplier) to subtotal (for DKM and later use)
-}
+    // --- Demon King's Might ---
+    const sumTempleHitDamage = templeHitDamage.reduce((a, b) => a + b, 0);
+    const demonKingsMightRaw = sumTempleHitDamage * 1.2;
+    const demonKingsMightTemple = demonKingsMightRaw * 2.5;
+    subtotal += demonKingsMightTemple;
 
-// --- Calculate DKM ---
-// Calculate the sum of all temple-hit damage first (already multiplied by 2.5)
-const sumTempleHitDamage = templeHitDamage.reduce((a, b) => a + b, 0);
+    // --- Balanced Strike ---
+    let bsProc = false;
+    let balancedStrike = 0;
+    let bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
 
-// Now apply DKM to the sum of temple-hit damage
-const demonKingsMightRaw = sumTempleHitDamage * 1.2;  // Apply DKM multiplier (1.2)
-const demonKingsMightTemple = demonKingsMightRaw * 2.5;  // Apply temple multiplier (2.5)
+    if (hasNonCrit) {
+      balancedStrike = subtotal
+        * bsMultiplier
+        * defier
+        * elyvia
+        * add
+        * maimMultiplier
+        * giantKiller
+        * 2.5;
 
-// Add DKM to subtotal
-subtotal += demonKingsMightTemple;  // Now add DKM to subtotal (corrected)
+      summaryHTML += `<span class="balanced">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
+      bsProc = true;
+    }
 
-// --- Balanced Strike ---
-// Use the new subtotal for Balanced Strike calculation
-let bsProc = false;
-let balancedStrike = 0;
-let bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
+    // --- Lethal Fightback ---
+    const lfbMultiplier = bsProc ? bsMultiplier : 1.0;
+    const lethalFightback = subtotal
+      * 0.18
+      * defier
+      * giantKiller
+      * add
+      * maimMultiplier
+      * elyvia
+      * (1 + lfbMultiplier)
+      * 2.5;
 
-if (hasNonCrit) {
-  balancedStrike = subtotal * bsMultiplier * defier * elyvia * add * giantKiller * 2.5;
-  summaryHTML += `<span class="balanced">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
-  bsProc = true;
-}
+    summaryHTML += `<span class="balanced">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
 
-// --- Lethal Fightback ---
-// Use the new subtotal for Lethal Fightback calculation
-const lfbMultiplier = bsProc ? bsMultiplier : 1.0;
-const lethalFightback = subtotal * 0.18 * defier * giantKiller * add * elyvia * (1+lfbMultiplier) * 2.5;
-summaryHTML += `<span class="balanced">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
-
-// Final total damage (with balanced strike and lethal fightback added)
-total = subtotal + balancedStrike + lethalFightback;
-
-// --- Display the result ---
-summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
+    // --- Final Total ---
+    total = subtotal + balancedStrike + lethalFightback;
+    summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
 
     const breakdownLines = [
       `<div class="mono"><strong>Multipliers & Sources</strong></div>`,
-      `<div class="mono">Attack × (12 + SD): ${attack.toFixed(4)} × ${(12 + sd).toFixed(4)} = ${(attack * (12 + sd)).toExponential(2)}</div>`,
-      `<div class="mono">Precision multiplier: ${precision.toFixed(4)} = ${(1 + 0.3 * precision).toFixed(4)}</div>`,
-      `<div class="mono">ADD multiplier: ${add.toFixed(4)}</div>`,
+      `<div class="mono">Attack × (12 + SD): ${attack.toFixed(4)} × ${(12 + sd).toFixed(4)}</div>`,
+      `<div class="mono">Precision multiplier: ${(1 + 0.3 * precision).toFixed(4)}</div>`,
+      `<div class="mono">ADD: ${add.toFixed(4)}</div>`,
+      `<div class="mono">Maim: ${maimMultiplier.toFixed(4)}</div>`,
       `<div class="mono">Elyvia: ${elyvia.toFixed(4)}</div>`,
       `<div class="mono">HD: ${hdMultiplier.toFixed(4)}</div>`,
       `<div class="mono">Pet: ${petMultiplier.toFixed(4)}</div>`,
@@ -258,21 +274,14 @@ summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}<
       `<div class="mono">Crit base: ${critBase.toFixed(4)}</div>`,
       `<div class="mono">Crit multiplier: ${critMultiplier.toFixed(4)}</div>`,
       `<div class="mono">Hits: ${hits}</div>`,
-      `<div class="mono"><strong>LFA Subtotal (raw hits + temple DKM)</strong>: ${subtotal.toExponential(2)}</div>`,
-      `<div class="mono"><strong>Demon King's Might</strong>: Sum(LFA hits) × 1.2 × Temple(2.5) = ${(sumTempleHitDamage).toExponential(2)} × 1.2 × 2.5 = ${demonKingsMightTemple.toExponential(2)}</div>`,
-      hasNonCrit ? `<div class="mono"><strong>Balanced Strike</strong>: Subtotal × BS Multiplier(${bsMultiplier}) × Defier × Elyvia × ADD × GiantKiller × Temple(2.5) = ${subtotal.toExponential(2)} × ${bsMultiplier.toFixed(4)} × ${defier.toFixed(4)} × ${elyvia.toFixed(4)} × ${add.toFixed(4)} × ${giantKiller.toFixed(4)} × 2.5 = ${balancedStrike.toExponential(2)}</div>` :
-        `<div class="mono">Balanced Strike: not triggered</div>`,
-      `<div class="mono"><strong>Lethal Fightback</strong>: Subtotal × 0.18 × Defier × GiantKiller × ADD × Elyvia × BS Bonus(${lfbMultiplier}) × Temple(2.5) = ${subtotal.toExponential(2)} × 0.18 × ${defier.toFixed(4)} × ${giantKiller.toFixed(4)} × ${add.toFixed(4)} × ${elyvia.toFixed(4)} × ${lfbMultiplier.toFixed(4)} × 2.5 = ${lethalFightback.toExponential(2)}</div>`,
+      `<div class="mono"><strong>Demon King's Might</strong>: ${demonKingsMightTemple.toExponential(2)}</div>`,
       `<div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`
     ];
 
-    // Update the breakdown tab with the detailed calculations
     document.getElementById('summary').innerHTML = summaryHTML;
     document.getElementById('breakdown').innerHTML = breakdownLines.join("");
   }
 </script>
-
-
 
 </body>
 </html>
