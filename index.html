@@ -257,26 +257,69 @@
     total = subtotal + balancedStrike + lethalFightback;
     summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
 
-    const breakdownLines = [
-      `<div class="mono"><strong>Multipliers & Sources</strong></div>`,
-      `<div class="mono">Attack × (12 + SD): ${attack.toFixed(4)} × ${(12 + sd).toFixed(4)}</div>`,
-      `<div class="mono">Precision multiplier: ${(1 + 0.3 * precision).toFixed(4)}</div>`,
-      `<div class="mono">ADD: ${add.toFixed(4)}</div>`,
-      `<div class="mono">Maim: ${maimMultiplier.toFixed(4)}</div>`,
-      `<div class="mono">Elyvia: ${elyvia.toFixed(4)}</div>`,
-      `<div class="mono">HD: ${hdMultiplier.toFixed(4)}</div>`,
-      `<div class="mono">Pet: ${petMultiplier.toFixed(4)}</div>`,
-      `<div class="mono">DoT1: ${(1 + dot1).toFixed(4)}</div>`,
-      `<div class="mono">DoT2: ${(1 + dot2).toFixed(4)}</div>`,
-      `<div class="mono">Defier: ${defier.toFixed(4)}</div>`,
-      `<div class="mono">Giant Killer: ${giantKiller.toFixed(4)}</div>`,
-      `<div class="mono">Artifact: ${artifactMultiplier.toFixed(4)}</div>`,
-      `<div class="mono">Crit base: ${critBase.toFixed(4)}</div>`,
-      `<div class="mono">Crit multiplier: ${critMultiplier.toFixed(4)}</div>`,
-      `<div class="mono">Hits: ${hits}</div>`,
-      `<div class="mono"><strong>Demon King's Might</strong>: ${demonKingsMightTemple.toExponential(2)}</div>`,
-      `<div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`
-    ];
+const breakdownLines = [
+  `<div class="mono"><strong>Multipliers & Sources</strong></div>`,
+
+  `<div class="mono">Attack × (12 + SD): ${attack.toFixed(4)} × ${(12 + sd).toFixed(4)} = ${(attack * (12 + sd)).toExponential(2)}</div>`,
+
+  `<div class="mono">Precision multiplier: ${precision.toFixed(4)} → ${(1 + 0.3 * precision).toFixed(4)}</div>`,
+
+  `<div class="mono">ADD multiplier: ${add.toFixed(4)}</div>`,
+
+  `<div class="mono">Maim multiplier: ${maimMultiplier.toFixed(4)} (scaled by missing HP)</div>`,
+
+  `<div class="mono">Elyvia: ${elyvia.toFixed(4)}</div>`,
+
+  `<div class="mono">HD: ${hdMultiplier.toFixed(4)}</div>`,
+
+  `<div class="mono">Pet: ${petMultiplier.toFixed(4)}</div>`,
+
+  `<div class="mono">DoT1: ${(1 + dot1).toFixed(4)}</div>`,
+
+  `<div class="mono">DoT2: ${(1 + dot2).toFixed(4)}</div>`,
+
+  `<div class="mono">Defier: ${defier.toFixed(4)}</div>`,
+
+  `<div class="mono">Giant Killer: ${giantKiller.toFixed(4)}</div>`,
+
+  `<div class="mono">Artifact: ${artifactMultiplier.toFixed(4)}</div>`,
+
+  `<div class="mono">Crit base: ${critBase.toFixed(4)}</div>`,
+
+  `<div class="mono">Crit multiplier: ${critMultiplier.toFixed(4)}</div>`,
+
+  `<div class="mono">Hits: ${hits}</div>`,
+
+  `<br>`,
+
+  `<div class="mono"><strong>LFA Subtotal (Hits × Temple)</strong>: ${subtotal.toExponential(2)}</div>`,
+
+  `<div class="mono"><strong>Demon King's Might</strong>: Sum(LFA hits) × 1.2 × Temple(2.5)</div>`,
+
+  `<div class="mono">${sumTempleHitDamage.toExponential(2)} × 1.2 × 2.5 = ${demonKingsMightTemple.toExponential(2)}</div>`,
+
+  hasNonCrit
+    ? `<div class="mono"><strong>Balanced Strike</strong>: Subtotal × BS Multiplier(${bsMultiplier.toFixed(4)}) × Defier × Elyvia × ADD × Maim × GiantKiller × Temple(2.5)</div>
+       <div class="mono">
+       ${subtotal.toExponential(2)} × ${bsMultiplier.toFixed(4)} × ${defier.toFixed(4)} × ${elyvia.toFixed(4)} × ${add.toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${giantKiller.toFixed(4)} × 2.5
+       = ${balancedStrike.toExponential(2)}
+       </div>`
+    : `<div class="mono">Balanced Strike: not triggered</div>`,
+
+  `<br>`,
+
+  `<div class="mono"><strong>Lethal Fightback</strong>: Subtotal × 0.18 × Defier × GiantKiller × ADD × Maim × Elyvia × BS Bonus(${lfbMultiplier.toFixed(4)}) × Temple(2.5)</div>`,
+
+  `<div class="mono">
+    ${subtotal.toExponential(2)} × 0.18 × ${defier.toFixed(4)} × ${giantKiller.toFixed(4)} × ${add.toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${elyvia.toFixed(4)} × ${lfbMultiplier.toFixed(4)} × 2.5
+    = ${lethalFightback.toExponential(2)}
+   </div>`,
+
+  `<br>`,
+
+  `<div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`
+];
+
 
     document.getElementById('summary').innerHTML = summaryHTML;
     document.getElementById('breakdown').innerHTML = breakdownLines.join("");
