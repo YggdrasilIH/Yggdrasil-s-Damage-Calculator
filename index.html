@@ -114,10 +114,12 @@
     console.log('Calculate Damage button clicked');  // Debugging: check if this triggers
 
         // --- Initialize variables --- 
-    let summaryHTML = ''; 
-    let templeHitDamage = [];  // Declare the templeHitDamage array
-    let hasNonCrit = false;  // Declare hasNonCrit
-    let subtotal = 0;  // Declare subtotal to accumulate the total damage
+
+    let templeHitDamage = [];
+    let summaryHTML = "";
+    let subtotal = 0;
+    let total = 0;
+    let hasNonCrit = false;
     
     // --- Inputs ---
     const attack = parseFloat(document.getElementById('attack').value) || 0;
