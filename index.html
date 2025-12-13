@@ -223,33 +223,37 @@
     // --- Balanced Strike ---
     let bsProc = false;
     let balancedStrike = 0;
-    let bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
+// Determine Balanced Strike multiplier for subtotal
+let bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
 
-    if (hasNonCrit) {
-      balancedStrike = subtotal
-        * bsMultiplier
-        * defier
-        * elyvia
-        * add
-        * maimMultiplier
-        * giantKiller
-        * 2.5;
+// Only calculate balancedStrike if there are non-crit hits
+let balancedStrike = 0;
+let bsProc = false;
 
-      summaryHTML += `<span class="balanced">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
-      bsProc = true;
-    }
+if (hasNonCrit) {
+  balancedStrike = subtotal
+    * bsMultiplier
+    * defier
+    * elyvia
+    * add
+    * maimMultiplier
+    * giantKiller
+    * 2.5;
+  bsProc = true;
+}
 
-    // --- Lethal Fightback ---
-    const lfbMultiplier = bsProc ? (1 + bsMultiplier) : 1.0;
-    const lethalFightback = subtotal
-      * 0.18
-      * defier
-      * giantKiller
-      * add
-      * maimMultiplier
-      * elyvia
-      * lfbMultiplier
-      * 2.5;
+// Lethal Fightback: scale by BS bonus if BS triggered
+const lfbBonus = bsProc ? (1 + bsMultiplier) : 1.0;
+
+const lethalFightback = subtotal
+  * 0.18
+  * defier
+  * giantKiller
+  * add
+  * maimMultiplier
+  * elyvia
+  * lfbBonus
+  * 2.5;
 summaryHTML += `<span class="balanced">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
 
 // --- Final Total ---
