@@ -171,77 +171,68 @@
     const critBase = 1.5 + 2 * critDamage;
     const critMultiplier = sqh > 1 ? critBase * 0.24 * sqh : critBase;
     
-    // --- LFA Hits ---
-    let rawHitDamage = [];
-    let templeHitDamage = [];
-    let summaryHTML = "";
-    let subtotal = 0;
-    let total = 0;
-    let hasNonCrit = false;
+// --- LFA Hits ---
+for (let i = 1; i <= hits; i++) {
+  let isCrit = false;
+  if (critsSelected > 0) {
+    if (enemyHP > 60) isCrit = i <= Math.min(critsSelected, 3);
+    else isCrit = i <= Math.min(critsSelected, 5);
+  }
+  if (!isCrit) hasNonCrit = true;
 
-    // --- LFA Hits ---
-    for (let i = 1; i <= hits; i++) {
-      let isCrit = false;
-      if (critsSelected > 0) {
-        if (enemyHP > 60) isCrit = i <= Math.min(critsSelected, 3);
-        else isCrit = i <= Math.min(critsSelected, 5);
-      }
-      if (!isCrit) hasNonCrit = true;
+  const damagePerHit = baseDamage
+    * (1 + dot1)
+    * (1 + dot2)
+    * maim
+    * (isCrit ? critMultiplier : 1)
+    * defier
+    * giantKiller
+    * artifactMultiplier;
 
-      const damagePerHit = baseDamage
-        * (1 + dot1)
-        * (1 + dot2)
-        * maim
-        * (isCrit ? critMultiplier : 1)
-        * defier
-        * giantKiller
-        * artifactMultiplier;
+  const totalHitDamage = damagePerHit * 2.5;  // Apply temple multiplier (2.5)
 
-      const totalHitDamage = damagePerHit * 2.5;  // Apply temple multiplier (2.5)
+  rawHitDamage.push(damagePerHit);
+  templeHitDamage.push(totalHitDamage);
 
-      rawHitDamage.push(damagePerHit);
-      templeHitDamage.push(totalHitDamage);
+  summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
 
-      summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
+  subtotal += totalHitDamage;  // Add total hit damage (with temple multiplier) to subtotal (for DKM and later use)
+}
 
-      subtotal += totalHitDamage;  // Add total hit damage (with temple multiplier) to subtotal (for DKM and later use)
-      total += totalHitDamage;     // Add total damage (with temple multiplier) to final total
-    }
+// --- Calculate DKM ---
+// Calculate the sum of all temple-hit damage first (already multiplied by 2.5)
+const sumTempleHitDamage = templeHitDamage.reduce((a, b) => a + b, 0);
 
-    // --- Calculate DKM ---
-    // Calculate the sum of all temple-hit damage first (already multiplied by 2.5)
-    const sumTempleHitDamage = templeHitDamage.reduce((a, b) => a + b, 0);
+// Now apply DKM to the sum of temple-hit damage
+const demonKingsMightRaw = sumTempleHitDamage * 1.2;  // Apply DKM multiplier (1.2)
+const demonKingsMightTemple = demonKingsMightRaw * 2.5;  // Apply temple multiplier (2.5)
 
-    // Now apply DKM to the sum of temple-hit damage
-    const demonKingsMightRaw = sumTempleHitDamage * 1.2;  // Apply DKM multiplier (1.2)
-    const demonKingsMightTemple = demonKingsMightRaw * 2.5;  // Apply temple multiplier (2.5)
+// Add DKM to subtotal
+subtotal += demonKingsMightTemple;  // Now add DKM to subtotal (corrected)
 
-    // Add DKM to subtotal
-    subtotal += demonKingsMightTemple;  // Now add DKM to subtotal (corrected)
+// --- Balanced Strike ---
+// Use the new subtotal for Balanced Strike calculation
+let bsProc = false;
+let balancedStrike = 0;
+let bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
 
-    // --- Balanced Strike ---
-    // Use the new subtotal for Balanced Strike calculation
-    let bsProc = false;
-    let balancedStrike = 0;
-    let bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
+if (hasNonCrit) {
+  balancedStrike = subtotal * bsMultiplier * defier * elyvia * add * giantKiller * 2.5;
+  summaryHTML += `<span class="balanced">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
+  bsProc = true;
+}
 
-    if (hasNonCrit) {
-      balancedStrike = subtotal * bsMultiplier * defier * elyvia * add * giantKiller * 2.5;
-      summaryHTML += `<span class="balanced">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
-      bsProc = true;
-    }
+// --- Lethal Fightback ---
+// Use the new subtotal for Lethal Fightback calculation
+const lfbMultiplier = bsProc ? bsMultiplier : 1.0;
+const lethalFightback = subtotal * 0.18 * defier * giantKiller * add * elyvia * (1+lfbMultiplier) * 2.5;
+summaryHTML += `<span class="balanced">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
 
-    // --- Lethal Fightback ---
-    // Use the new subtotal for Lethal Fightback calculation
-    const lfbMultiplier = bsProc ? bsMultiplier : 1.0;
-    const lethalFightback = subtotal * 0.18 * defier * giantKiller * add * elyvia * (1+lfbMultiplier) * 2.5;
-    summaryHTML += `<span class="balanced">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
+// Final total damage (with balanced strike and lethal fightback added)
+total = subtotal + balancedStrike + lethalFightback;
 
-    // Final total damage (with balanced strike and lethal fightback added)
-    total = subtotal + balancedStrike + lethalFightback;
-
-    // --- Display the result ---
-    summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
+// --- Display the result ---
+summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
 
     const breakdownLines = [
       `<div class="mono"><strong>Multipliers & Sources</strong></div>`,
