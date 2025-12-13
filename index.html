@@ -158,13 +158,33 @@ function calculateDamage() {
   const maimInput = parseFloat(document.getElementById('maim').value) || 0;
   const maimMultiplier = 1 + (1 - enemyHP / 100) * (maimInput / 100);
 
-    // --- Transition Point Logic ---
-  const transitionPoint = parseInt(document.getElementById('transitionPoint').value) || 0;
-  if (transitionPoint === 12) {
-    // Apply bonus damage for transition point = 12
-    const transitionBonus = (enemyHP <= 50) ? 1.5 : 1.0;
-    additionalDamage = attack * transitionBonus * (1 + 0.3 * precision) * (add + 0.26);  // Using the existing scaling multipliers
-  }
+
+// Check if transition point is 12
+if (transitionPoint === 12) {
+    const isBelow50HP = enemyHP < 50;
+
+    // Base multipliers that apply to each hit
+    const baseMultiplier = giantKiller * defier * elyvia * (1 + precision) * hdMultiplier * petMultiplier * (1 + dot1) * (1 + dot2) * (add + addExtra) * maimMultiplier * artifactMultiplier;
+
+    // First hit: 1500% × Attack, applied 2 times
+    let hit1 = 1500 * attack * 2;
+    hit1 *= baseMultiplier;
+
+    // Second hit: 1000% × Attack
+    let hit2 = 1000 * attack;
+    hit2 *= baseMultiplier;
+
+    // Third hit: 800% or 1200% based on enemy HP
+    let hit3 = (isBelow50HP ? 800 : 1200) * attack;
+    hit3 *= baseMultiplier;
+
+    // Sum all transition damage hits
+    additionalDamage = hit1 + hit2 + hit3;
+}
+
+// Apply the transition damage to the total
+total += additionalDamage; 
+
   // --- Artifacts ---
   const ARTIFACT_NONE = 1;
   const ARTIFACT_ANTI_WARRIOR = 1.9;
