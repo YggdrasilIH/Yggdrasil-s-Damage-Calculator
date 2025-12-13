@@ -114,7 +114,7 @@
     console.log('Calculate Damage button clicked');  // Debugging: check if this triggers
 
         // --- Initialize variables --- 
-    let rawHitDamage = [];  // Declare the rawHitDamage array
+
     let templeHitDamage = [];  // Declare the templeHitDamage array
     let hasNonCrit = false;  // Declare hasNonCrit
     let subtotal = 0;  // Declare subtotal to accumulate the total damage
@@ -197,7 +197,7 @@ for (let i = 1; i <= hits; i++) {
 
   const totalHitDamage = damagePerHit * 2.5;  // Apply temple multiplier (2.5)
 
-  rawHitDamage.push(damagePerHit);
+
   templeHitDamage.push(totalHitDamage);
 
   summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i}${isCrit ? ' (CRIT)' : ''}: ${totalHitDamage.toExponential(2)}</span><br>`;
