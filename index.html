@@ -272,8 +272,7 @@ function calculateDamage() {
   breakdownLines.push(`<div class="mono">Subtotal × 0.18 × Defier × GiantKiller × ADD × MAIM × Elyvia × BS Bonus(${lfbMultiplier.toFixed(4)}) × Temple(2.5) = ${lethalFightback.toExponential(2)}</div>`);
   breakdownLines.push(`<br><div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`);
   document.getElementById('breakdown').innerHTML = breakdownLines.join("");
-
-  // --- Contributions (from total damage only) ---
+// --- Contributions (from total damage only) ---
 const totalDamageOriginal = total; // total damage from your calculation above
 
 // List all multipliers affecting total damage
@@ -342,11 +341,13 @@ const absImpacts = multipliers.map(m => {
   return { name: m.name, impact };
 });
 
+// Calculate the sum of all absolute impacts
+const sumImpact = absImpacts.reduce((a, b) => a + Math.abs(b.impact), 0);  // Use absolute values to sum up impacts
+
 // Convert to percentages of total impact
-const sumImpact = absImpacts.reduce((a, b) => a + b.impact, 0);
 const contribHTML = absImpacts.map(c => {
-  const pct = ((c.impact / sumImpact) * 100).toFixed(2);
-  return `<div class="mono">${c.name}: ${pct}%</div>`;
+  const pct = (Math.abs(c.impact) / sumImpact) * 100;  // Normalize to total impact
+  return `<div class="mono">${c.name}: ${pct.toFixed(2)}%</div>`;
 }).join("");
 
 // Add disclaimer
