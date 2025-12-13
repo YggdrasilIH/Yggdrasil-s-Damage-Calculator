@@ -158,9 +158,26 @@ function calculateDamage() {
   const maimInput = parseFloat(document.getElementById('maim').value) || 0;
   const maimMultiplier = 1 + (1 - enemyHP / 100) * (maimInput / 100);
 
+  // --- Artifact Multipliers ---
+  const ARTIFACT_NONE = 1;
+  const ARTIFACT_ANTI_WARRIOR = 1.9;
+  const ANTLERS_ADD_BONUS = 1.26;
+  const ANTLERS_SD_BONUS = 3.0;
 
-// Check if transition point is 12
-if (transitionPoint === 12) {
+  let artifactMultiplier = ARTIFACT_NONE;
+  let addExtra = 0;
+  let sdExtra = 0;
+  if (document.getElementById('antiwarrior').checked) {
+    artifactMultiplier = ARTIFACT_ANTI_WARRIOR;
+  } else if (document.getElementById('antlers').checked) {
+    addExtra = ANTLERS_ADD_BONUS;
+    sdExtra = ANTLERS_SD_BONUS;
+  }
+
+  // --- Transition Point ---
+  const transitionPoint = parseInt(document.getElementById('transitionPoint').value) || 0;
+
+  if (transitionPoint === 12) {
     const isBelow50HP = enemyHP < 50;
 
     // Base multipliers that apply to each hit
@@ -180,25 +197,6 @@ if (transitionPoint === 12) {
 
     // Sum all transition damage hits
     additionalDamage = hit1 + hit2 + hit3;
-}
-
-// Apply the transition damage to the total
-total += additionalDamage; 
-
-  // --- Artifacts ---
-  const ARTIFACT_NONE = 1;
-  const ARTIFACT_ANTI_WARRIOR = 1.9;
-  const ANTLERS_ADD_BONUS = 1.26;
-  const ANTLERS_SD_BONUS = 3.0;
-
-  let artifactMultiplier = ARTIFACT_NONE;
-  let addExtra = 0;
-  let sdExtra = 0;
-  if (document.getElementById('antiwarrior').checked) {
-    artifactMultiplier = ARTIFACT_ANTI_WARRIOR;
-  } else if (document.getElementById('antlers').checked) {
-    addExtra = ANTLERS_ADD_BONUS;
-    sdExtra = ANTLERS_SD_BONUS;
   }
 
   // --- Base Damage ---
@@ -245,7 +243,6 @@ total += additionalDamage;
   const lethalFightback = subtotal * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplier * 2.5;
 
   total = subtotal + balancedStrike + lethalFightback + additionalDamage; // Add the transition bonus
-
 
   // --- Summary Tab ---
   let summaryHTML = "";
