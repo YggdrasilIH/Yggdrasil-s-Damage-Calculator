@@ -272,20 +272,21 @@ function calculateDamage() {
   breakdownLines.push(`<div class="mono">Subtotal × 0.18 × Defier × GiantKiller × ADD × MAIM × Elyvia × BS Bonus(${lfbMultiplier.toFixed(4)}) × Temple(2.5) = ${lethalFightback.toExponential(2)}</div>`);
   breakdownLines.push(`<br><div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`);
   document.getElementById('breakdown').innerHTML = breakdownLines.join("");
-// --- Contributions (from total damage only) ---
+
+  // --- Contributions (from total damage only) ---
 const totalDamageOriginal = total; // total damage from your calculation above
 
 // List all multipliers affecting total damage
 const multipliers = [
-  { name: 'Attack*(12+SD)', value: attack*(12+sd+sdExtra) },
-  { name: 'Precision', value: 1 + 0.3*precision },
+  { name: 'Attack*(12+SD)', value: attack * (12 + sd + sdExtra) },
+  { name: 'Precision', value: 1 + 0.3 * precision },
   { name: 'ADD', value: add + addExtra },
   { name: 'MAIM', value: maimMultiplier },
   { name: 'Elyvia', value: elyvia },
   { name: 'HD', value: hdMultiplier },
   { name: 'Pet', value: petMultiplier },
-  { name: 'DoT1', value: 1+dot1 },
-  { name: 'DoT2', value: 1+dot2 },
+  { name: 'DoT1', value: 1 + dot1 },
+  { name: 'DoT2', value: 1 + dot2 },
   { name: 'Defier', value: defier },
   { name: 'Giant Killer', value: giantKiller },
   { name: 'Artifact', value: artifactMultiplier }
@@ -301,29 +302,32 @@ const absImpacts = multipliers.map(m => {
   let subtotalTemp = 0;
   let tempHits = [];
   const hits = enemyHP > 60 ? 3 : 5;
+  
+  // Recalculate damage for all LFA hits (ignoring this multiplier)
   for (let i = 1; i <= hits; i++) {
-    const isCrit = critsSelected > 0 ? (enemyHP > 60 ? i <= Math.min(critsSelected,3) : i <= Math.min(critsSelected,5)) : false;
+    const isCrit = critsSelected > 0 ? (enemyHP > 60 ? i <= Math.min(critsSelected, 3) : i <= Math.min(critsSelected, 5)) : false;
     const dmg = 
-      (multipliers.find(x=>x.name==='Attack*(12+SD)').value) *
-      (multipliers.find(x=>x.name==='Precision').value) *
-      (multipliers.find(x=>x.name==='ADD').value) *
-      (multipliers.find(x=>x.name==='MAIM').value) *
-      (multipliers.find(x=>x.name==='Elyvia').value) *
-      (multipliers.find(x=>x.name==='HD').value) *
-      (multipliers.find(x=>x.name==='Pet').value) *
-      (multipliers.find(x=>x.name==='DoT1').value) *
-      (multipliers.find(x=>x.name==='DoT2').value) *
+      multipliers.find(x => x.name === 'Attack*(12+SD)').value *
+      multipliers.find(x => x.name === 'Precision').value *
+      multipliers.find(x => x.name === 'ADD').value *
+      multipliers.find(x => x.name === 'MAIM').value *
+      multipliers.find(x => x.name === 'Elyvia').value *
+      multipliers.find(x => x.name === 'HD').value *
+      multipliers.find(x => x.name === 'Pet').value *
+      multipliers.find(x => x.name === 'DoT1').value *
+      multipliers.find(x => x.name === 'DoT2').value *
       (isCrit ? critMultiplier : 1) *
-      (multipliers.find(x=>x.name==='Defier').value) *
-      (multipliers.find(x=>x.name==='Giant Killer').value) *
-      (multipliers.find(x=>x.name==='Artifact').value);
-    const totalHitDamageTemp = dmg*2.5;
+      multipliers.find(x => x.name === 'Defier').value *
+      multipliers.find(x => x.name === 'Giant Killer').value *
+      multipliers.find(x => x.name === 'Artifact').value;
+      
+    const totalHitDamageTemp = dmg * 2.5;
     tempHits.push(totalHitDamageTemp);
     subtotalTemp += totalHitDamageTemp;
   }
 
-  const sumTempHits = tempHits.reduce((a,b)=>a+b,0);
-  const demonKingsTemp = sumTempHits*1.2*2.5; // DKM still included
+  const sumTempHits = tempHits.reduce((a, b) => a + b, 0);
+  const demonKingsTemp = sumTempHits * 1.2 * 2.5; // DKM still included
   subtotalTemp += demonKingsTemp;
 
   // Balanced Strike & Lethal Fightback ignored for contributions
@@ -338,10 +342,10 @@ const absImpacts = multipliers.map(m => {
   return { name: m.name, impact };
 });
 
-// Convert to percentages
-const sumImpact = absImpacts.reduce((a,b)=>a+b.impact,0);
-const contribHTML = absImpacts.map(c=>{
-  const pct = ((c.impact / sumImpact)*100).toFixed(2);
+// Convert to percentages of total impact
+const sumImpact = absImpacts.reduce((a, b) => a + b.impact, 0);
+const contribHTML = absImpacts.map(c => {
+  const pct = ((c.impact / sumImpact) * 100).toFixed(2);
   return `<div class="mono">${c.name}: ${pct}%</div>`;
 }).join("");
 
@@ -356,6 +360,7 @@ where D<sub>total</sub> is the total damage with all multipliers active, and D<s
 
 // Set contributions tab content
 document.getElementById('contributions').innerHTML = contribHTML + disclaimerHTML;
+
 }
   </script>
 
