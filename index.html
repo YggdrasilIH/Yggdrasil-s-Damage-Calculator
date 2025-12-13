@@ -274,88 +274,60 @@ function calculateDamage() {
   breakdownLines.push(`<br><div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`);
   document.getElementById('breakdown').innerHTML = breakdownLines.join("");
 
-// --- Contributions (logarithmic / multiplicative impact) ---
 const multipliers = [
-  { name: 'Attack*(12+SD+SD Extra)', apply: () => attack*(12+sd+sdExtra) },
-  { name: 'Precision', apply: () => 1 + 0.3*precision },
-  { name: 'ADD', apply: () => add + addExtra },
-  { name: 'MAIM', apply: () => maimMultiplier },
-  { name: 'Elyvia', apply: () => elyvia },
-  { name: 'HD', apply: () => hdMultiplier },
-  { name: 'Pet', apply: () => petMultiplier },
-  { name: 'DoT1', apply: () => 1+dot1 },
-  { name: 'DoT2', apply: () => 1+dot2 },
-  { name: 'Defier', apply: () => defier },
-  { name: 'Giant Killer', apply: () => giantKiller },
-  { name: 'Artifact', apply: () => artifactMultiplier }
+  { name: 'Attack*(12+SD+SD Extra)', getValue: () => attack*(12+sd+sdExtra) },
+  { name: 'Precision', getValue: () => 1+0.3*precision },
+  { name: 'ADD', getValue: () => add+addExtra },
+  { name: 'MAIM', getValue: () => maimMultiplier },
+  { name: 'Elyvia', getValue: () => elyvia },
+  { name: 'HD', getValue: () => hdMultiplier },
+  { name: 'Pet', getValue: () => petMultiplier },
+  { name: 'DoT1', getValue: () => 1+dot1 },
+  { name: 'DoT2', getValue: () => 1+dot2 },
+  { name: 'Defier', getValue: () => defier },
+  { name: 'Giant Killer', getValue: () => giantKiller },
+  { name: 'Artifact', getValue: () => artifactMultiplier }
 ];
 
-// Function to calculate total damage with one multiplier neutralized
-function totalDamageWithNeutral(multiplierName) {
-  const tempHits = [];
-  let subtotalTemp = 0;
-  for (let i = 1; i <= hits; i++) {
-    let isCrit = false;
-    if (critsSelected > 0) {
-      isCrit = enemyHP > 60 ? i <= Math.min(critsSelected, 3) : i <= Math.min(critsSelected, 5);
-    }
+const totalDamageOriginal = total; // total damage from your current calculation
 
-    let dmg = 1;
-    multipliers.forEach(m=>{
-      const val = m.name === multiplierName ? 1 : m.apply();
-      dmg *= val;
-    });
-    if(isCrit) dmg *= critMultiplier;
-    dmg *= 2.5;
-    dmg *= defier * giantKiller * (artifactMultiplier * (multiplierName==='Artifact'?1:1)); // keep interactions consistent
-    tempHits.push(dmg);
-    subtotalTemp += dmg;
-  }
+const impacts = multipliers.map(m => {
+  const original = m.getValue();  // store original
+  m.getValue = () => 1;           // neutralize
 
-  const sumTempHits = tempHits.reduce((a,b)=>a+b,0);
-  const demonKingsTemp = sumTempHits*1.2*2.5;
-  subtotalTemp += demonKingsTemp;
+  // Recompute total damage with this multiplier neutralized
+  let baseDamage = attack*(12+sd+sdExtra) *
+                   (1+0.3*precision) *
+                   (add+addExtra) *
+                   maimMultiplier *
+                   elyvia *
+                   hdMultiplier *
+                   petMultiplier *
+                   (1+dot1) *
+                   (1+dot2) *
+                   (critsSelected>0?critMultiplier:1) *
+                   defier *
+                   giantKiller *
+                   artifactMultiplier;
 
-  let balancedStrikeTemp = 0;
-  if(hasNonCrit){
-    balancedStrikeTemp = subtotalTemp * bsMultiplier *
-      ((multiplierName==='Defier'?1:defier) *
-       ((multiplierName==='Elyvia'?1:elyvia)) *
-       ((multiplierName==='ADD'?1:add+addExtra)) *
-       ((multiplierName==='MAIM'?1:maimMultiplier)) *
-       ((multiplierName==='Giant Killer'?1:giantKiller)) *
-       2.5);
-  }
+  // Multiply by hits
+  const hits = enemyHP>60?3:5;
+  let subtotal = baseDamage*2.5*hits;
 
-  let lfbMultiplierTemp = hasNonCrit ? 1+bsMultiplier : 1;
-  const lethalFightbackTemp = subtotalTemp * 0.18 *
-    ((multiplierName==='Defier'?1:defier) *
-     ((multiplierName==='Giant Killer'?1:giantKiller)) *
-     ((multiplierName==='ADD'?1:add+addExtra)) *
-     ((multiplierName==='MAIM'?1:maimMultiplier)) *
-     ((multiplierName==='Elyvia'?1:elyvia)) *
-     lfbMultiplierTemp *
-     2.5);
+  // Restore original
+  m.getValue = () => original;
 
-  return subtotalTemp + balancedStrikeTemp + lethalFightbackTemp;
-}
-
-// Compute log contributions
-const totalLog = Math.log(total);
-const logContributions = multipliers.map(m=>{
-  const neutralTotal = totalDamageWithNeutral(m.name);
-  const logImpact = totalLog - Math.log(neutralTotal);
-  return { name: m.name, impact: logImpact };
+  return { name: m.name, impact: Math.abs(totalDamageOriginal - subtotal) };
 });
 
 // Normalize to 100%
-const sumLogImpacts = logContributions.reduce((a,b)=>a+b.impact,0);
-const contribHTML = logContributions.map(c=>{
-  const percent = (c.impact / sumLogImpacts * 100).toFixed(2);
-  return `<div class="mono">${c.name}: ${percent}%</div>`;
-}).join("");
+const sumImpacts = impacts.reduce((a,b)=>a+b.impact,0);
+const contribHTML = impacts.map(c => 
+  `<div class="mono">${c.name}: ${(c.impact/sumImpacts*100).toFixed(2)}%</div>`
+).join("");
 
 document.getElementById('contributions').innerHTML = contribHTML;
+
 
 }
 </script>
