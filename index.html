@@ -350,16 +350,12 @@ const impacts = multipliers.map(m => {
 
   return { name: m.name, impact };
 });
-
-// Convert to percentages of total impact
-const sumImpact = impacts.reduce((a,b)=>a+b.impact,0);
-const contribHTML = impacts.map(c=>{
+// Compute contribution percentages
+const sumImpact = absImpacts.reduce((a,b)=>a+b.impact,0);
+const contribHTML = absImpacts.map(c=>{
   const pct = ((c.impact / sumImpact)*100).toFixed(2);
   return `<div class="mono">${c.name}: ${pct}%</div>`;
 }).join("");
-
-// After computing contributions
-const contribHTML = absImpacts.map(c => `<div class="mono">${c.name}: ${(c.impact/sumImpacts*100).toFixed(2)}%</div>`).join("");
 
 // Add the disclaimer at the bottom
 const disclaimerHTML = `
@@ -373,10 +369,6 @@ where D<sub>total</sub> is the total damage with all multipliers active, and D<s
 // Combine contributions and disclaimer
 document.getElementById('contributions').innerHTML = contribHTML + disclaimerHTML;
 
-
-
-}
-</script>
 
 
 
