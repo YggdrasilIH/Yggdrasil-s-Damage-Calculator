@@ -225,7 +225,7 @@ function calculateDamage() {
     const isBelow50HP = enemyHP < 50;
 
     // Base multipliers that apply to each hit
-    const baseMultiplier = giantKiller * defier * elyvia * (1 + precision) * hdMultiplier * petMultiplier * (1 + dot1) * (1 + dot2) * (add + addExtra) * maimMultiplier * artifactMultiplier;
+    const baseMultiplier = giantKiller * defier * elyvia * (1 + 0.3 * precision) * hdMultiplier * petMultiplier * (1 + dot1) * (1 + dot2) * (add + addExtra) * maimMultiplier * artifactMultiplier * 2.5;
 
     // First hit: 1500% × Attack, applied 2 times
     let hit1 = 1500 * attack * 2;
