@@ -99,8 +99,7 @@
 <!-- Tab Contents -->
 <div id="summary" class="tab-content">Damage: --</div>
 <div id="breakdown" class="tab-content" style="display:none;">Breakdown: --</div>
-<div id="contributions" class="tab-content" style="display:none;">Contributions: --</div>
-<script>
+<div id="contributions" class="tab-content" style="display:none;">Contributions: --</div><script>
   // Handle Tab Switching
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -124,7 +123,6 @@
 
     // --- Inputs ---
     const attack = parseFloat(document.getElementById('attack').value) || 0;
-
     const sdInput = parseFloat(document.getElementById('sd').value);
     let sd = (!isNaN(sdInput) ? sdInput : 0) / 100;
 
@@ -154,7 +152,7 @@
     const dot1 = (parseFloat(document.getElementById('dot1').value) / 100) || 0;
     const dot2 = (parseFloat(document.getElementById('dot2').value) / 100) || 0;
 
-    // --- MAIM (independent ADD-like multiplier) ---
+    // --- MAIM ---
     const maimInput = parseFloat(document.getElementById('maim').value) || 0;
     const maimMultiplier = 1 + (1 - enemyHP / 100) * (maimInput / 100);
 
@@ -250,12 +248,10 @@
       * lfbMultiplier
       * 2.5;
 
-    // --- Final Total ---
-    total = subtotal + balancedStrike + lethalFightback;
-
     // --- Summary Tab ---
     let summaryHTML = "";
 
+    // LFA Hits
     templeHitDamage.forEach((hit, i) => {
       let isCrit = false;
       if (critsSelected > 0) {
@@ -265,22 +261,35 @@
       summaryHTML += `<span class="${isCrit ? 'crit' : ''}">Hit ${i+1}${isCrit ? ' (CRIT)' : ''}: ${hit.toExponential(2)}</span><br>`;
     });
 
+    // Demon King's Might
     summaryHTML += `<span class="subtotal">Demon King's Might: ${demonKingsMightTemple.toExponential(2)}</span><br>`;
-    summaryHTML += `<span class="subtotal">Subtotal (LFA + DKM): ${(sumTempleHitDamage + demonKingsMightTemple).toExponential(2)}</span><br>`;
+
+    // Subtotal (LFA + DKM)
+    const subtotalWithoutExtras = sumTempleHitDamage + demonKingsMightTemple;
+    summaryHTML += `<span class="subtotal">Subtotal (LFA + DKM): ${subtotalWithoutExtras.toExponential(2)}</span><br>`;
+
+    // Lethal Fightback
     summaryHTML += `<span class="subtotal">Lethal Fightback: ${lethalFightback.toExponential(2)}</span><br>`;
-    if(hasNonCrit){
+
+    // Balanced Strike
+    if (hasNonCrit) {
       summaryHTML += `<span class="subtotal">Balanced Strike: ${balancedStrike.toExponential(2)}</span><br>`;
     } else {
       summaryHTML += `<span class="subtotal">Balanced Strike: not triggered</span><br>`;
     }
+
+    // Final Total
+    total = subtotal + balancedStrike + lethalFightback;
     summaryHTML += `<br><span class="total">Total Damage: ${total.toExponential(2)}</span>`;
+
     document.getElementById('summary').innerHTML = summaryHTML;
 
     // --- Detailed Breakdown ---
     const breakdownLines = [];
+
     breakdownLines.push(`<div class="mono"><strong>Base Damage Components</strong></div>`);
     breakdownLines.push(`<div class="mono">Attack × (12 + SD): ${attack.toFixed(2)} × ${(12+sd).toFixed(2)} = ${(attack*(12+sd)).toExponential(2)}</div>`);
-    breakdownLines.push(`<div class="mono">Precision multiplier: 1 + 0.3 × ${precision.toFixed(2)} = ${(1+0.3*precision).toFixed(4)}</div>`);
+    breakdownLines.push(`<div class="mono">Precision multiplier: 1 + 0.3 × ${precision.toFixed(2)} = ${(1 + 0.3*precision).toFixed(4)}</div>`);
     breakdownLines.push(`<div class="mono">ADD multiplier: ${add.toFixed(4)}</div>`);
     breakdownLines.push(`<div class="mono">MAIM multiplier: ${maimMultiplier.toFixed(4)}</div>`);
     breakdownLines.push(`<div class="mono">Elyvia: ${elyvia.toFixed(4)}</div>`);
@@ -312,68 +321,55 @@ Sum(LFA hits) × 1.2 × Temple(2.5) = ${sumTempleHitDamage.toExponential(2)} × 
     if(hasNonCrit){
       breakdownLines.push(`<br><div class="mono"><strong>Balanced Strike</strong></div>`);
       breakdownLines.push(`<div class="mono">
-Subtotal × BS Multiplier(${bsMultiplier.toFixed(4)}) × Defier × Elyvia × ADD × MAIM × GiantKiller × Temple(2.5) = ${balancedStrike.toExponential(2)}
+Subtotal × BS Multiplier(${bsMultiplier.toFixed(4)}) × Defier × Elyvia × ADD × MAIM × GiantKiller × Temple(2.5) = 
+${subtotal.toExponential(2)} × ${bsMultiplier.toFixed(4)} × ${defier.toFixed(4)} × ${elyvia.toFixed(4)} × ${add.toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${giantKiller.toFixed(4)} × 2.5 
+= ${balancedStrike.toExponential(2)}
 </div>`);
     } else {
       breakdownLines.push(`<div class="mono">Balanced Strike: not triggered</div>`);
     }
 
     breakdownLines.push(`<br><div class="mono"><strong>Lethal Fightback</strong></div>`);
-    breakdownLines.push(`<div class="mono">Subtotal × 0.18 × Defier × GiantKiller × ADD × MAIM × Elyvia × BS Bonus(${lfbMultiplier.toFixed(4)}) × Temple(2.5) = ${lethalFightback.toExponential(2)}</div>`);
+    breakdownLines.push(`<div class="mono">
+Subtotal × 0.18 × Defier × GiantKiller × ADD × MAIM × Elyvia × BS Bonus(${lfbMultiplier.toFixed(4)}) × Temple(2.5) =
+${subtotal.toExponential(2)} × 0.18 × ${defier.toFixed(4)} × ${giantKiller.toFixed(4)} × ${add.toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${elyvia.toFixed(4)} × ${lfbMultiplier.toFixed(4)} × 2.5
+= ${lethalFightback.toExponential(2)}
+</div>`);
 
     breakdownLines.push(`<br><div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`);
+
     document.getElementById('breakdown').innerHTML = breakdownLines.join("");
 
-    // --- Damage Contributions Tab ---
-    const contributions = [];
-    // Define main multipliers for contribution
-    const multipliers = {
-      'Attack*(12+SD)': attack*(12+sd),
-      'Precision': 1+0.3*precision,
-      'ADD': add,
-      'MAIM': maimMultiplier,
-      'Elyvia': elyvia,
-      'HD': hdMultiplier,
-      'Pet': petMultiplier,
-      'DoT1': 1+dot1,
-      'DoT2': 1+dot2,
-      'Defier': defier,
-      'Giant Killer': giantKiller,
-      'Artifact': artifactMultiplier,
-      'Crit': critMultiplier,
-      'BS Multiplier': balancedStrike>0 ? bsMultiplier : 0,
-      'LF Bonus': lethalFightback>0 ? 0.18*lfbMultiplier : 0
-    };
+    // --- Damage Contributions ---
+    const contributions = [
+      { name: 'Attack*(12+SD)', multiplier: attack*(12+sd) },
+      { name: 'Precision', multiplier: 1 + 0.3*precision },
+      { name: 'ADD', multiplier: add },
+      { name: 'MAIM', multiplier: maimMultiplier },
+      { name: 'Elyvia', multiplier: elyvia },
+      { name: 'HD', multiplier: hdMultiplier },
+      { name: 'Pet', multiplier: petMultiplier },
+      { name: 'DoT1', multiplier: 1+dot1 },
+      { name: 'DoT2', multiplier: 1+dot2 },
+      { name: 'Defier', multiplier: defier },
+      { name: 'Giant Killer', multiplier: giantKiller },
+      { name: 'Artifact', multiplier: artifactMultiplier },
+      { name: 'Crit', multiplier: critMultiplier },
+      { name: 'BS Multiplier', multiplier: bsMultiplier },
+      { name: 'LF Bonus', multiplier: lfbMultiplier }
+    ];
 
-    // Compute contributions as the total effect on final damage
-    let contributionTotals = {};
-    for(let key in multipliers){
-      contributionTotals[key] = multipliers[key]; // initial placeholder
-    }
+    const contributionsHTML = contributions.map(c => {
+      // Approx contribution = multiplier / product of all multipliers (rough estimate)
+      return `<tr><td>${c.name}</td><td>${((c.multiplier/total)*100).toFixed(1)}%</td><td>${(c.multiplier).toExponential(2)}</td></tr>`;
+    }).join("");
 
-    // We'll approximate contribution by multiplying each factor alone
-    let totalProduct = 1;
-    Object.values(multipliers).forEach(v => { totalProduct *= v; });
-
-    const contributionsHTML = [];
-    contributionsHTML.push('<table border="1" cellpadding="3"><tr><th>Multiplier</th><th>Contribution %</th><th>Absolute</th></tr>');
-
-    // Compute approximate absolute and normalized %
-    let sumAbs = 0;
-    for(let key in multipliers){
-      contributionTotals[key] = Math.abs(multipliers[key]-1) * total; // approximate
-      sumAbs += contributionTotals[key];
-    }
-
-    for(let key in multipliers){
-      let pct = sumAbs>0 ? (contributionTotals[key]/sumAbs*100) : 0;
-      contributionsHTML.push(`<tr><td>${key}</td><td>${pct.toFixed(1)}%</td><td>${contributionTotals[key].toExponential(2)}</td></tr>`);
-    }
-    contributionsHTML.push('</table>');
-    document.getElementById('contributions').innerHTML = contributionsHTML.join('');
+    document.getElementById('contributions').innerHTML = `<table border="1">
+      <tr><th>Multiplier</th><th>Contribution %</th><th>Absolute</th></tr>
+      ${contributionsHTML}
+    </table>`;
   }
 </script>
-
 
 
 </body>
