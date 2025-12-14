@@ -486,16 +486,24 @@ for (let critChance = 0; critChance <= 100; critChance++) {
     }
 }
 
-function updateSummary() {
-    const optimalCritRateElement = document.getElementById('optimalCritRate');
-    if (optimalCritRateElement) {
-        optimalCritRateElement.value = optimalCritChance.toFixed(2);
-    }
-}
+    setTimeout(() => {
+        // Update the summary content
+        document.getElementById('summary').innerHTML = summaryHTML;
 
-// Then call this function after the summary content is updated
+        // Update the optimalCritRate value
+        const optimalCritRateElement = document.getElementById('optimalCritRate');
+        if (optimalCritRateElement) {
+            console.log("Updating optimalCritRate to:", optimalCritChance.toFixed(2));
+            optimalCritRateElement.value = optimalCritChance.toFixed(2);
+        }
 
-
+        // Switch to the summary tab (if needed)
+        const activeTab = document.querySelector('.tab.active');
+        if (activeTab && activeTab.getAttribute('data-tab') === 'summary') {
+            document.getElementById('summary').style.display = 'block';
+        }
+    }, 100); // 100 ms delay, tweak if necessary
+});
 
 let summaryHTML = "<div class='damage-summary'>";
 
@@ -530,7 +538,7 @@ summaryHTML += `<div class="section total"><h3>Total Damage</h3><div class="tota
 summaryHTML += `<div class="section"><h3>Optimal Crit Rate</h3><div class="total-value"><input id="optimalCritRate" type="text" value="${optimalCritChance.toFixed(2)}" readonly /></div></div>`;
 
 summaryHTML += "</div>"; // Close the damage-summary div
-updateSummary();
+
 
 // --- Detailed Breakdown ---
 const breakdownLines = [];
