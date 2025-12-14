@@ -549,11 +549,11 @@ if (hasNonCrit) {
 if (additionalDamage > 0) {
   summaryHTML += `<div class="damage"><span>Transition Bonus Damage: <span class="damage-value">${additionalDamage.toExponential(2)}</span></span></div></div>`;
 }
-  // Imprint Damage (new section)
+  
+  // Imprint Damage section
 if (imprintChosen) {
-  const imprintDamage = expectedDamage * 0.10 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * 2.5;
-  summaryHTML += `<div class="section imprint"><h3>Imprint Damage</h3>`;
-  summaryHTML += `<div class="damage"><span>Imprint Damage: <span class="damage-value">${imprintDamage.toExponential(2)}</span></span></div></div>`;
+    summaryHTML += `<div class="section imprint"><h3>Imprint Damage</h3>`;
+    summaryHTML += `<div class="damage"><span>Imprint Damage: <span class="damage-value">${imprintDamage.toExponential(2)}</span></span></div></div>`;
 }
   
 
@@ -619,7 +619,6 @@ breakdownLines.push(`<div class="mono">Additional Damage: Final = 1500% × Attac
 
   // --- Imprint Damage Calculation ---
 if (imprintChosen) {
-  const imprintDamage = expectedDamage * 0.10 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * 2.5;
   breakdownLines.push(`<br><div class="mono"><strong>Imprint Damage</strong></div>`);
   breakdownLines.push(`<div class="mono">Expected Damage × 0.10 × Defier × GiantKiller × ADD × MAIM × Elyvia × 2.5 = ${imprintDamage.toExponential(2)}</div>`);
   breakdownLines.push(`<div class="mono">Final: ${expectedDamage.toFixed(2)} × 0.10 × ${defier.toFixed(4)} × ${giantKiller.toFixed(4)} × ${(add + addExtra).toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${elyvia.toFixed(4)} × 2.5 = ${imprintDamage.toExponential(2)}</div>`);
