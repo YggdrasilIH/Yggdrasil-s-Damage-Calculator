@@ -288,6 +288,7 @@ function calculateDamage() {
   let total = 0;
   let hasNonCrit = false;
   let additionalDamage = 0;
+  let imprintDamage = 0;
 
   // --- Inputs ---
   const attack = parseFloat(document.getElementById('attack').value) || 0;
@@ -419,7 +420,7 @@ function calculateDamage() {
   }
 
   // --- Imprint Damage Calculation ---
-let imprintDamage = 0;
+
 if imprintChosen {
     // If imprint is enabled, add 10% of the subtotal as extra damage
     imprintDamage = subtotal * 0.10; // 10% extra damage
@@ -474,7 +475,7 @@ function calculateExpectedDamageForCrits(critChance, hits) {
         // Calculate expected Lethal Fightback
         const lfbMultiplier = 1.0 + (k < hits ? 1.95 : 0);
         const expectedLethalFightback = expectedDamage * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplier * 2.5;
-      const imprintChosen = true;
+      
       let expectedImprintDamage = 0;
        if (imprintChosen) {
          const expectedImprintDamage = expectedDamage * 0.10 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * 2.5;
