@@ -419,64 +419,80 @@ function calculateDamage() {
 
 
   total = subtotal + balancedStrike + lethalFightback + additionalDamage; // Add the transition bonus
+function binomialCoefficient(n, k) {
+    if (k > n) return 0;
+    let result = 1;
+    for (let i = 0; i < k; i++) {
+        result *= (n - i) / (i + 1);
+    }
+    return result;
+}
 
-// Move this block to the end of your damage calculation function
+function calculateExpectedDamageForCrits(critChance, hits) {
+    let expectedDamage = 0;
+    
+    // Loop through possible number of crits (0 to hits)
+    for (let k = 0; k <= hits; k++) {
+        // Calculate binomial probability for exactly k crits
+        let binomialProbability = binomialCoefficient(hits, k) * Math.pow(critChance, k) * Math.pow(1 - critChance, hits - k);
+
+        // Calculate expected damage for exactly k crits
+        let damageForKCrits = 0;
+        let templeHitDamageTemp = [];
+        
+        for (let j = 0; j < hits; j++) {
+            // Determine if this hit is a crit or non-crit based on the count of k crits
+            let critProbability = (k / hits); // Simplified approach
+            let nonCritProbability = 1 - critProbability;
+
+            const expectedDamagePerHit = (critProbability * baseDamage * (1 + dot1) * (1 + dot2) * critMultiplier * defier * giantKiller * artifactMultiplier) +
+                                         (nonCritProbability * baseDamage * (1 + dot1) * (1 + dot2) * defier * giantKiller * artifactMultiplier);
+
+            templeHitDamageTemp.push(expectedDamagePerHit * 2.5); // Apply Temple multiplier
+        }
+
+        // Calculate expected Demon King's Might (DKM)
+        let sumTempleHitDamage = templeHitDamageTemp.reduce((acc, val) => acc + val, 0);
+        const expectedDemonKingsMight = sumTempleHitDamage * (add + addExtra) * defier * maimMultiplier * giantKiller * elyvia * 1.2 * 2.5;
+        damageForKCrits += expectedDemonKingsMight;
+
+        // Calculate expected Balanced Strike (if any crits did not occur)
+        let expectedBalancedStrike = 0;
+        if (k < hits) {  // Balanced Strike only triggers if not all hits are crits
+            expectedBalancedStrike = expectedDamage * 1.95 * defier * elyvia * (add + addExtra) * maimMultiplier * giantKiller * 2.5;
+        }
+
+        // Calculate expected Lethal Fightback
+        const lfbMultiplier = 1.0 + (k < hits ? 1.95 : 0);
+        const expectedLethalFightback = expectedDamage * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplier * 2.5;
+
+        // Total expected damage for exactly k crits
+        damageForKCrits += expectedBalancedStrike + expectedLethalFightback;
+
+        // Add weighted damage (weighted by binomial probability)
+        expectedDamage += binomialProbability * damageForKCrits;
+    }
+
+    return expectedDamage;
+}
+
+// --- Calculate Optimal Crit Chance ---
 let maxExpectedValue = 0;
 let optimalCritChance = 0;
 
-// Loop through possible crit chances (0 to 100%)
+// Iterate over possible crit chances (from 0 to 100%)
 for (let critChance = 0; critChance <= 100; critChance++) {
-  let expectedDamage = 0;
-  let totalHitDamage = 0;
-  let templeHitDamageTemp = []; // Temp array for hits in this loop
+    let currentExpectedDamage = calculateExpectedDamageForCrits(critChance / 100, hits);
 
-  // Convert crit chance from percentage to decimal
-  const critProbability = critChance / 100;
-  const nonCritProbability = 1 - critProbability;
-
-  // Loop over all possible hits and calculate expected damage
-  for (let j = 0; j < hits; j++) {
-    // Calculate expected damage for this hit considering crit and non-crit probabilities
-    const expectedDamagePerHit = (critProbability * baseDamage * (1 + dot1) * (1 + dot2) * critMultiplier * defier * giantKiller * artifactMultiplier) +
-                                 (nonCritProbability * baseDamage * (1 + dot1) * (1 + dot2) * defier * giantKiller * artifactMultiplier);
-
-    totalHitDamage = expectedDamagePerHit * 2.5; // Apply Temple multiplier
-    templeHitDamageTemp.push(totalHitDamage);
-    expectedDamage += totalHitDamage;
-  }
-
-  // Calculate expected Demon King's Might (DKM)
-  let sumTempleHitDamage = 0;
-  for (let k = 0; k < maxHitsForDKM; k++) {
-    sumTempleHitDamage += templeHitDamageTemp[k]; // Use the temporary array
-  }
-  const expectedDemonKingsMight = sumTempleHitDamage * (add + addExtra) * giantKiller * defier * maimMultiplier * elyvia * 1.2 * 2.5;
-  expectedDamage += expectedDemonKingsMight;
-
-  // Calculate expected Balanced Strike (if any crits did not occur)
-  let expectedBalancedStrike = 0;
-  let bsProc = critChance < 100; // Balanced Strike triggers if not all hits are crits
-  if (bsProc) {
-    expectedBalancedStrike = expectedDamage * 1.95 * defier * elyvia * (add + addExtra) * maimMultiplier * giantKiller * 2.5;
-  }
-
-  // Calculate expected Lethal Fightback
-  const lfbMultiplier = 1.0 + (bsProc ? 1.95 : 0);
-  const expectedLethalFightback = expectedDamage * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplier * 2.5;
-
-  // Total expected damage for this crit chance
-  const totalExpectedDamage = expectedDamage + expectedBalancedStrike + expectedLethalFightback;
-
-  // Track max expected value and optimal crit chance
-  if (totalExpectedDamage > maxExpectedValue) {
-      maxExpectedValue = totalExpectedDamage;
-      optimalCritChance = critChance; // Store the crit chance that gives the highest expected damage
-  }
+    if (currentExpectedDamage > maxExpectedValue) {
+        maxExpectedValue = currentExpectedDamage;
+        optimalCritChance = critChance;
+    }
 }
 
-// --- Calculate Optimal Crit Rate ---
 // Display Optimal Crit Chance
-document.getElementById('optimalCritRate').value = optimalCritChance.toFixed(2); // Display as a percentage
+document.getElementById('optimalCritRate').value = optimalCritChance.toFixed(2);
+
 
 
 let summaryHTML = "<div class='damage-summary'>";
