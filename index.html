@@ -10,7 +10,7 @@
       margin: 0;
       padding: 0;
     }
-
+ 
     .calculator {
       background: #d9c0a0; /* Even lighter brown for contrast */
       padding: 20px;
@@ -199,10 +199,12 @@
       </div>
     </div>
 
-    <!-- Artifacts Section (Directly Visible) -->
+    <!-- Elyvia and Artifacts Section -->
     <div class="section artifact-section">
-      <h3>Artifacts</h3>
+      <h3>Elyvia</h3>
+      <label><input type="checkbox" id="elyvia"> Enable Shrink</label>
       <div class="artifact-labels">
+        <h3>Artifacts</h3>
         <label><input type="radio" name="artifact" id="none" checked> None</label>
         <label><input type="radio" name="artifact" id="antiwarrior"> Antiwarrior (×1.9)</label>
         <label><input type="radio" name="artifact" id="antlers"> Antlers (+126% ADD, +300% SD)</label>
@@ -256,6 +258,8 @@
     <div id="breakdown" class="tab-content" style="display:none;">Breakdown: --</div>
     <div id="contributions" class="tab-content" style="display:none;">Contributions: --</div>
   </div>
+
+ 
 
 
 <script>
