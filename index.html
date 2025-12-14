@@ -249,8 +249,8 @@
     <!-- Tabs -->
     <div class="tabs">
       <div class="tab active" data-tab="summary">Summary</div>
-      <div class="tab" data-tab="breakdown">Detailed Breakdown</div>
-      <div class="tab" data-tab="contributions">Damage Contributions</div>
+      <div class="tab" data-tab="breakdown">Breakdown</div>
+      <div class="tab" data-tab="contributions">Contributions</div>
     </div>
 
     <!-- Tab Contents -->
@@ -437,7 +437,7 @@ if (hasNonCrit) {
   summaryHTML += `<div class="damage"><span>Balanced Strike: not triggered</span></div>`;
 }
 if (additionalDamage > 0) {
-  summaryHTML += `<div class="damage"><span>Transition Bonus Damage: <span class="damage-value">${additionalDamage.toExponential(2)}</span></span></div>`;
+  summaryHTML += `<div class="damage"><span>Transition Bonus Damage: <span class="damage-value">${additionalDamage.toExponential(2)}</span></span></div></div>`;
 }
 
 // Total Damage (fixed the structure)
