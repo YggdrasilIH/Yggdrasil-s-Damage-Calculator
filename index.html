@@ -486,7 +486,9 @@ for (let critChance = 0; critChance <= 100; critChance++) {
 }
 
 // Display Optimal Crit Chance
-document.getElementById('optimalCritRate').value = optimalCritChance.toFixed(2);
+if (document.querySelector('.tab.active').getAttribute('data-tab') === 'summary') {
+    document.getElementById('optimalCritRate').value = optimalCritChance.toFixed(2);
+  }
 
 
 
