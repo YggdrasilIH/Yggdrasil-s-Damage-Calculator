@@ -413,7 +413,7 @@ subtotal += demonKingsMightTemple;
 
   total = subtotal + balancedStrike + lethalFightback + additionalDamage; // Add the transition bonus
 
- let summaryHTML = "<div class='damage-summary'>";
+let summaryHTML = "<div class='damage-summary'>";
 
 // Hits
 summaryHTML += `<div class="section hits"><h3>Hits</h3>`;
@@ -426,7 +426,7 @@ summaryHTML += `</div>`;
 
 // Demon King's Might
 summaryHTML += `<div class="section dkm"><h3>Demon King's Might</h3>`;
-summaryHTML += `<div class="damage"><span>Demon King's Might: <span class="damage-value">${demonKingsMightTemple.toExponential(2)}</span></span></div>`;
+summaryHTML += `<div class="damage"><span>Demon King's Might: <span class="damage-value">${demonKingsMightTemple.toExponential(2)}</span></span></div></div>`;
 
 // Special Abilities
 summaryHTML += `<div class="section abilities"><h3>Special Abilities</h3>`;
@@ -446,6 +446,7 @@ summaryHTML += `<div class="section total"><h3>Total Damage</h3><div class="tota
 summaryHTML += "</div>"; // Close the damage-summary div
 
 document.getElementById('summary').innerHTML = summaryHTML;
+
 
   // --- Detailed Breakdown ---
   const breakdownLines = [];
