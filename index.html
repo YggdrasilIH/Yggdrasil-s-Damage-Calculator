@@ -16,7 +16,7 @@
       padding: 20px;
       margin: 40px auto;
       width: 760px;
-      border-radius: 10px; /* More subtle rounded corners */
+      border-radius: 10px;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
 
@@ -31,10 +31,10 @@
     }
 
     .section {
-      background: #e1d1a4; /* Slightly darker brown for sections */
+      background: #d1b080; /* Updated to a darker brown for consistency */
       padding: 20px;
       margin: 20px 0;
-      border-radius: 8px; /* Subtle rounded corners */
+      border-radius: 8px;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
     }
 
@@ -49,7 +49,7 @@
       padding: 12px;
       font-size: 16px;
       border: 1px solid #d2b27d; /* Lighter brown border */
-      border-radius: 6px; /* Slightly less rounded */
+      border-radius: 6px;
       background: #fff;
       color: #333;
     }
@@ -68,10 +68,10 @@
       padding: 14px 24px;
       margin-top: 20px;
       cursor: pointer;
-      border-radius: 8px; /* Subtle rounded corners for the button */
+      border-radius: 8px;
       border: none;
       background: #f1c40f; /* Softer yellow */
-      color: white;
+      color: #5c3c1b; /* Dark brown for button text */
       font-weight: bold;
       font-size: 18px;
       width: 100%;
@@ -81,23 +81,23 @@
     }
 
     button:hover {
-      background: #f39c12; /* Slightly darker yellow */
+      background: #f39c12;
     }
 
     button:before {
-      content: "⚔️"; /* Sword icon before the button text */
+      content: "⚔️";
       margin-right: 10px;
     }
 
     .tabs {
       display: flex;
       justify-content: flex-start;
-      gap: 0px; /* No space between tabs */
+      gap: 5px; /* Reduced space between tabs */
       margin-top: 20px;
     }
 
     .tab {
-      padding: 12px 24px;
+      padding: 12px 18px; /* Smaller padding for tabs */
       cursor: pointer;
       background: #fff;
       border-radius: 6px 6px 0 0;
@@ -113,7 +113,7 @@
     }
 
     .tab-content {
-      background: #fff;
+      background: #d1b080; /* Darker background for content */
       padding: 20px;
       border-radius: 0 0 8px 8px;
       text-align: left;
@@ -134,7 +134,7 @@
     }
 
     .damage.green {
-      color: #9e7d53; /* Green color for special info */
+      color: #9e7d53;
     }
 
     .damage.purple {
@@ -146,19 +146,19 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 20px;
-      background: #fff7e6; /* Soft cream background for Elyvia and Artifacts */
+      background: #f1e4d2; /* Lightened Elyvia background to match others */
       padding: 15px;
       border-radius: 8px;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
     }
 
     .artifact-section h3 {
-      color: #5c3c1b; /* Dark brown color for artifact section titles */
+      color: #5c3c1b;
     }
 
     .artifact-labels {
       display: flex;
-      gap: 10px; /* Bullet points in one row */
+      gap: 10px;
     }
 
     .artifact-section label {
@@ -246,8 +246,8 @@
     <!-- Tabs -->
     <div class="tabs">
       <div class="tab active" data-tab="summary">Summary</div>
-      <div class="tab" data-tab="breakdown">Detailed Breakdown</div>
-      <div class="tab" data-tab="contributions">Damage Contributions</div>
+      <div class="tab" data-tab="breakdown">Breakdown</div>
+      <div class="tab" data-tab="contributions">Contributions</div>
     </div>
 
     <!-- Tab Contents -->
