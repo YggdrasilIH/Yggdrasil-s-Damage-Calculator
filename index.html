@@ -413,41 +413,39 @@ subtotal += demonKingsMightTemple;
 
   total = subtotal + balancedStrike + lethalFightback + additionalDamage; // Add the transition bonus
 
-  let summaryHTML = "<div class='damage-summary'>";
+ let summaryHTML = "<div class='damage-summary'>";
 
 // Hits
 summaryHTML += `<div class="section hits"><h3>Hits</h3>`;
 templeHitDamage.forEach((hit, i) => {
   let isCrit = false;
   if (critsSelected > 0) isCrit = enemyHP > 60 ? i < Math.min(critsSelected, 3) : i < Math.min(critsSelected, 5);
-  summaryHTML += `<div class="hit ${isCrit ? 'crit' : ''}">Hit ${i + 1}${isCrit ? ' (CRIT)' : ''}: <span>${hit.toExponential(2)}</span></div>`;
+  summaryHTML += `<div class="hit ${isCrit ? 'crit' : ''}">Hit ${i + 1}${isCrit ? ' (CRIT)' : ''}: <span class="damage-value">${hit.toExponential(2)}</span></div>`;
 });
 summaryHTML += `</div>`;
 
 // Demon King's Might
 summaryHTML += `<div class="section dkm"><h3>Demon King's Might</h3>`;
-summaryHTML += `<div class="damage white">Demon King's Might: <span>${demonKingsMightTemple.toExponential(2)}</span></div>`;
+summaryHTML += `<div class="damage"><span>Demon King's Might: <span class="damage-value">${demonKingsMightTemple.toExponential(2)}</span></span></div>`;
 
 // Special Abilities
 summaryHTML += `<div class="section abilities"><h3>Special Abilities</h3>`;
-summaryHTML += `<div class="damage white">Lethal Fightback: <span>${lethalFightback.toExponential(2)}</span></div>`;
+summaryHTML += `<div class="damage"><span>Lethal Fightback: <span class="damage-value">${lethalFightback.toExponential(2)}</span></span></div>`;
 if (hasNonCrit) {
-  summaryHTML += `<div class="damage white">Balanced Strike: <span>${balancedStrike.toExponential(2)}</span></div>`;
+  summaryHTML += `<div class="damage"><span>Balanced Strike: <span class="damage-value">${balancedStrike.toExponential(2)}</span></span></div>`;
 } else {
-  summaryHTML += `<div class="damage white">Balanced Strike: not triggered</div>`;
+  summaryHTML += `<div class="damage"><span>Balanced Strike: not triggered</span></div>`;
 }
 if (additionalDamage > 0) {
-  summaryHTML += `<div class="damage white">Transition Bonus Damage: <span>${additionalDamage.toExponential(2)}</span></div>`;
+  summaryHTML += `<div class="damage"><span>Transition Bonus Damage: <span class="damage-value">${additionalDamage.toExponential(2)}</span></span></div>`;
 }
 
 // Total Damage
-summaryHTML += `<div class="total"><h3>Total Damage</h3><div class="total-value">${total.toExponential(2)}</div></div>`;
+summaryHTML += `<div class="section total"><h3>Total Damage</h3><div class="total-value">${total.toExponential(2)}</div></div>`;
 
 summaryHTML += "</div>"; // Close the damage-summary div
 
 document.getElementById('summary').innerHTML = summaryHTML;
-
-
 
   // --- Detailed Breakdown ---
   const breakdownLines = [];
