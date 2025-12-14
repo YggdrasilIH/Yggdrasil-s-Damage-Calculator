@@ -415,36 +415,184 @@ function calculateDamage() {
     // Sum all transition damage hits
     additionalDamage = hit1 + hit2 + hit3;
   }
+querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const selected = tab.getAttribute('data-tab');
+    document.getElementById('summary').style.display = selected === 'summary' ? 'block' : 'none';
+    document.getElementById('breakdown').style.display = selected === 'breakdown' ? 'block' : 'none';
+    document.getElementById('contributions').style.display = selected === 'contributions' ? 'block' : 'none';
+  });
+});
+
+document.getElementById('calcBtn').addEventListener('click', calculateDamage);
+
+function calculateDamage() {
+  // --- Initialize ---
+  let templeHitDamage = [];
+  let subtotal = 0;
+  let total = 0;
+  let hasNonCrit = false;
+  let additionalDamage = 0;
+
+  // --- Inputs ---
+  const attack = parseFloat(document.getElementById('attack').value) || 0;
+  const sdInput = parseFloat(document.getElementById('sd').value) || 0;
+  let sd = sdInput / 100;
+
+  let precisionInput = parseFloat(document.getElementById('precision').value) || 0;
+  precisionInput = Math.min(precisionInput, 150); // Cap precision at 150
+  const precision = precisionInput / 100;
+
+  const addRaw = parseFloat(document.getElementById('add').value) || 0;
+  let add = 1 + addRaw / 100;
+
+  const elyvia = document.getElementById('elyvia').checked ? 1.4 : 1;
+
+  let cdInput = parseFloat(document.getElementById('critDamage').value) || 0;
+  cdInput = Math.min(cdInput, 150); // Cap critDamage at 150
+  const critDamage = cdInput / 100;
+
+  const sqh = parseFloat(document.getElementById('sqh').value) || 0;
+  const enemyHP = parseFloat(document.getElementById('enemyHP').value) || 100;
+  const critsSelected = parseInt(document.getElementById('crits').value) || 0;
+
+  const hdInput = parseFloat(document.getElementById('hd').value) || 0;
+  const hdMultiplier = 1 + 0.7 * (hdInput / 100);
+
+  const petInput = parseFloat(document.getElementById('pet').value) || 0;
+  const petMultiplier = 1 + (petInput / 100);
+
+  const dot1 = (parseFloat(document.getElementById('dot1').value) / 100) || 0;
+  const dot2 = (parseFloat(document.getElementById('dot2').value) / 100) || 0;
+
+  const maimInput = parseFloat(document.getElementById('maim').value) || 0;
+  const maimMultiplier = 1 + (1 - enemyHP / 100) * (maimInput / 100);
+
+  // --- Artifact Multipliers ---
+  const ARTIFACT_NONE = 1;
+  const ARTIFACT_ANTI_WARRIOR = 1.9;
+  const ANTLERS_ADD_BONUS = 1.26;
+  const ANTLERS_SD_BONUS = 3.0;
+
+  let artifactMultiplier = ARTIFACT_NONE;
+  let addExtra = 0;
+  let sdExtra = 0;
+  if (document.getElementById('antiwarrior').checked) {
+    artifactMultiplier = ARTIFACT_ANTI_WARRIOR;
+  } else if (document.getElementById('antlers').checked) {
+    addExtra = ANTLERS_ADD_BONUS;
+    sdExtra = ANTLERS_SD_BONUS;
+  }
+
+  // --- Base Damage ---
+  const baseDamage = attack * (12 + sd + sdExtra) * (1 + 0.3 * precision) * (add + addExtra) * maimMultiplier * elyvia * hdMultiplier * petMultiplier;
+
+  const defier = enemyHP > 70 ? 1.3 : 1;
+  const giantKiller = 2;
+
+  // Determine the number of LFA hits based on the enemy HP
+  const hits = enemyHP > 60 ? 3 : 5; // 3 hits for HP > 60%, 5 hits for HP <= 60%
+
+  const critBase = 1.5 + 2 * critDamage;
+  const critMultiplier = sqh > 0 ? critBase * (1 + 0.24 * sqh) : critBase;
+
+  // --- LFA Hits ---
+  for (let i = 1; i <= hits; i++) {
+    let isCrit = false;
+    if (critsSelected > 0) {
+      isCrit = enemyHP > 60 ? i <= Math.min(critsSelected, 3) : i <= Math.min(critsSelected, 5);
+    }
+    if (!isCrit) hasNonCrit = true;
+
+    const damagePerHit = baseDamage * (1 + dot1) * (1 + dot2) * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
+    const totalHitDamage = damagePerHit * 2.5;
+
+    templeHitDamage.push(totalHitDamage);
+    subtotal += totalHitDamage;
+  }
+
+  // --- Demon King's Might Calculation ---
+  let sumTempleHitDamage = 0;
+  const maxHitsForDKM = enemyHP > 60 ? 2 : 4; // Limit DKM to the first 2 or 4 hits
+
+  for (let i = 0; i < maxHitsForDKM; i++) {
+    sumTempleHitDamage += templeHitDamage[i];
+  }
+
+  const demonKingsMightTemple = sumTempleHitDamage * (add + addExtra) * defier * maimMultiplier * elyvia * 1.2 * 2.5;
+  subtotal += demonKingsMightTemple;
+
+  let balancedStrike = 0;
+  let bsProc = false;
+  let bsMultiplier = enemyHP <= 50 ? 1.95 : 0.45;
+
+  if (hasNonCrit) {
+    bsProc = true;
+    balancedStrike = subtotal * bsMultiplier * defier * elyvia * (add + addExtra) * maimMultiplier * giantKiller * 2.5;
+  }
+
+  let lfbMultiplier = 1.0;
+  if (bsProc) lfbMultiplier += bsMultiplier;
+
+  const lethalFightback = subtotal * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplier * 2.5;
+
+  // --- Transition Point ---
+  const transitionPoint = parseInt(document.getElementById('transitionPoint').value) || 0;
+
+  if (transitionPoint === 12) {
+    const isBelow50HP = enemyHP < 50;
+
+    // Base multipliers that apply to each hit
+    const baseMultiplier = giantKiller * defier * elyvia * (1 + 0.3 * precision) * hdMultiplier * petMultiplier * (1 + dot1) * (1 + dot2) * (add + addExtra) * maimMultiplier * artifactMultiplier * 2.5;
+
+    // First hit: 1500% × Attack, applied 2 times
+    let hit1 = 1500 * attack * 2;
+    hit1 *= baseMultiplier;
+
+    // Second hit: 1000% × Attack
+    let hit2 = 1000 * attack;
+    hit2 *= baseMultiplier;
+
+    // Third hit: 800% or 1200% based on enemy HP
+    let hit3 = (isBelow50HP ? 800 : 1200) * attack;
+    hit3 *= baseMultiplier;
+
+    // Sum all transition damage hits
+    additionalDamage = hit1 + hit2 + hit3;
+  }
 
   total = subtotal + balancedStrike + lethalFightback + additionalDamage; // Add the transition bonus
-// --- Calculate Expected Value for Different Crit Scenarios ---
-let maxExpectedValue = 0;
-let optimalCrits = 0;
 
-// Loop through possible crits (0 to 5)
-for (let i = 0; i <= 5; i++) {
+  // --- Calculate Expected Value for Different Crit Scenarios ---
+  let maxExpectedValue = 0;
+  let optimalCrits = 0;
+
+  // Loop through possible crits (0 to 5)
+  for (let i = 0; i <= 5; i++) {
     let expectedDamage = 0;
     let totalHitDamage = 0;
     let templeHitDamageTemp = []; // Temp array for hits in this loop
 
     // Calculate expected damage for i crits
     for (let j = 0; j < hits; j++) {
-        let critProbability = i / hits; // Probability of this hit being a crit
-        let nonCritProbability = 1 - critProbability;
+      let critProbability = i / hits; // Probability of this hit being a crit
+      let nonCritProbability = 1 - critProbability;
 
-        // Expected damage for this hit considering crit and non-crit probabilities
-        const expectedDamagePerHit = (critProbability * baseDamage * (1 + dot1) * (1 + dot2) * critMultiplier * defier * giantKiller * artifactMultiplier) +
-                                     (nonCritProbability * baseDamage * (1 + dot1) * (1 + dot2) * defier * giantKiller * artifactMultiplier);
+      // Expected damage for this hit considering crit and non-crit probabilities
+      const expectedDamagePerHit = (critProbability * baseDamage * (1 + dot1) * (1 + dot2) * critMultiplier * defier * giantKiller * artifactMultiplier) +
+                                   (nonCritProbability * baseDamage * (1 + dot1) * (1 + dot2) * defier * giantKiller * artifactMultiplier);
 
-        totalHitDamage = expectedDamagePerHit * 2.5; // Apply Temple multiplier
-        templeHitDamageTemp.push(totalHitDamage);
-        expectedDamage += totalHitDamage;
+      totalHitDamage = expectedDamagePerHit * 2.5; // Apply Temple multiplier
+      templeHitDamageTemp.push(totalHitDamage);
+      expectedDamage += totalHitDamage;
     }
 
     // Calculate expected Demon King's Might (DKM)
     let sumTempleHitDamage = 0;
     for (let k = 0; k < maxHitsForDKM; k++) {
-        sumTempleHitDamage += templeHitDamageTemp[k]; // Use the temporary array
+      sumTempleHitDamage += templeHitDamageTemp[k]; // Use the temporary array
     }
     const expectedDemonKingsMight = sumTempleHitDamage * (add + addExtra) * defier * maimMultiplier * elyvia * 1.2 * 2.5;
     expectedDamage += expectedDemonKingsMight;
@@ -468,14 +616,13 @@ for (let i = 0; i <= 5; i++) {
         maxExpectedValue = totalExpectedDamage;
         optimalCrits = i;
     }
-}
+  }
 
-// --- Calculate Optimal Crit Rate ---
-const optimalCritRate = (optimalCrits / hits) * 100; // Convert to percentage
+  // --- Calculate Optimal Crit Rate ---
+  const optimalCritRate = (optimalCrits / hits) * 100; // Convert to percentage
 
-// Display Optimal Crit Rate
-document.getElementById('optimalCritRate').value = optimalCritRate.toFixed(2);
-
+  // Display Optimal Crit Rate
+  document.getElementById('optimalCritRate').value = optimalCritRate.toFixed(2);
 
 let summaryHTML = "<div class='damage-summary'>";
 
