@@ -440,12 +440,13 @@ if (additionalDamage > 0) {
   summaryHTML += `<div class="damage"><span>Transition Bonus Damage: <span class="damage-value">${additionalDamage.toExponential(2)}</span></span></div>`;
 }
 
-// Total Damage
+// Total Damage (fixed the structure)
 summaryHTML += `<div class="section total"><h3>Total Damage</h3><div class="total-value">${total.toExponential(2)}</div></div>`;
 
 summaryHTML += "</div>"; // Close the damage-summary div
 
 document.getElementById('summary').innerHTML = summaryHTML;
+
 
 
   // --- Detailed Breakdown ---
