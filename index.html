@@ -447,7 +447,6 @@ summaryHTML += "</div>"; // Close the damage-summary div
 
 document.getElementById('summary').innerHTML = summaryHTML;
 
-
 // --- Detailed Breakdown ---
 const breakdownLines = [];
 breakdownLines.push(`<div class="mono"><strong>Base Damage Components</strong></div>`);
@@ -469,39 +468,41 @@ templeHitDamage.forEach((hit,i)=>{
   let isCrit = false;
   if(critsSelected>0) isCrit = enemyHP>60 ? i<Math.min(critsSelected,3):i<Math.min(critsSelected,5);
   breakdownLines.push(`<div class="mono">Hit ${i+1}${isCrit?' (CRIT)':''}: base × dot1 × dot2 × ${isCrit?'critMultiplier × ':''}defier × giantKiller × artifact × 2.5 = ${hit.toExponential(2)}</div>`);
+  breakdownLines.push(`<div class="mono">Final: ${baseDamage.toFixed(2)} × ${((1 + dot1) * (1 + dot2)).toFixed(4)} × ${isCrit ? critMultiplier.toFixed(4) : 1} × ${defier.toFixed(4)} × ${giantKiller.toFixed(4)} × 2.5 = ${hit.toExponential(2)}</div>`);
 });
 
 breakdownLines.push(`<br><div class="mono"><strong>Demon King's Might (DKM)</strong></div>`);
 
 // Corrected DKM formula without the artifact multiplier
 breakdownLines.push(`<div class="mono">Sum(LFA hits) × 1.2 × Temple(2.5) = ${sumTempleHitDamage.toExponential(2)} × 1.2 × 2.5 = ${demonKingsMightTemple.toExponential(2)}</div>`);
-
-// Add the correct breakdown with relevant multipliers
-breakdownLines.push(`<div class="mono">Values: ${sumTempleHitDamage.toFixed(2)} × 1.2 × 2.5 × ${add.toFixed(4)} × ${addExtra.toFixed(4)} × ${elyvia.toFixed(4)} × ${defier.toFixed(4)} × ${maimMultiplier.toFixed(4)} × 2.5</div>`);
+breakdownLines.push(`<div class="mono">Final: ${sumTempleHitDamage.toFixed(2)} × 1.2 × 2.5 × ${add.toFixed(4)} × ${elyvia.toFixed(4)} × ${defier.toFixed(4)} × ${maimMultiplier.toFixed(4)} × 2.5 = ${demonKingsMightTemple.toExponential(2)}</div>`);
 
 if(hasNonCrit){
   breakdownLines.push(`<br><div class="mono"><strong>Balanced Strike</strong></div>`);
   breakdownLines.push(`<div class="mono">Subtotal × BS Multiplier(${bsMultiplier.toFixed(4)}) × Defier × Elyvia × ADD × MAIM × GiantKiller × Temple(2.5) = ${balancedStrike.toExponential(2)}</div>`);
-  breakdownLines.push(`<div class="mono">Values: ${subtotal.toFixed(2)} × ${bsMultiplier.toFixed(4)} × ${defier.toFixed(4)} × ${elyvia.toFixed(4)} × ${(add + addExtra).toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${giantKiller.toFixed(4)} × 2.5</div>`);
+  breakdownLines.push(`<div class="mono">Final: ${subtotal.toFixed(2)} × ${bsMultiplier.toFixed(4)} × ${defier.toFixed(4)} × ${elyvia.toFixed(4)} × ${(add + addExtra).toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${giantKiller.toFixed(4)} × 2.5 = ${balancedStrike.toExponential(2)}</div>`);
 } else {
   breakdownLines.push(`<div class="mono">Balanced Strike: not triggered</div>`);
 }
 
 breakdownLines.push(`<br><div class="mono"><strong>Lethal Fightback</strong></div>`);
 breakdownLines.push(`<div class="mono">Subtotal × 0.18 × Defier × GiantKiller × ADD × MAIM × Elyvia × BS Bonus(${lfbMultiplier.toFixed(4)}) × Temple(2.5) = ${lethalFightback.toExponential(2)}</div>`);
-breakdownLines.push(`<div class="mono">Values: ${subtotal.toFixed(2)} × 0.18 × ${defier.toFixed(4)} × ${giantKiller.toFixed(4)} × ${(add + addExtra).toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${elyvia.toFixed(4)} × ${lfbMultiplier.toFixed(4)} × 2.5</div>`);
+breakdownLines.push(`<div class="mono">Final: ${subtotal.toFixed(2)} × 0.18 × ${defier.toFixed(4)} × ${giantKiller.toFixed(4)} × ${(add + addExtra).toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${elyvia.toFixed(4)} × ${lfbMultiplier.toFixed(4)} × 2.5 = ${lethalFightback.toExponential(2)}</div>`);
 
-breakdownLines.push(`<br><div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`);
-
+// --- Additional Damage Calculation ---
+// Show the multipliers involved in the additional damage calculation
 breakdownLines.push(`<br><div class="mono"><strong>Additional Damage (Transition Point = 12)</strong></div>`);
+
+const additionalDamageMultiplier = (1 + 0.7 * (hdInput / 100)) * (1 + petInput / 100) * (1 + dot1) * (1 + dot2) * (1 + (1 - enemyHP / 100) * (maimInput / 100)) * (add + addExtra) * elyvia;
 breakdownLines.push(`<div class="mono">1500% × Attack × 2 (×2 hits) = ${1500 * attack * 2}</div>`);
 breakdownLines.push(`<div class="mono">1000% × Attack (×1 hit) = ${1000 * attack}</div>`);
 breakdownLines.push(`<div class="mono">${enemyHP < 50 ? '800%' : '1200%'} × Attack (×1 hit) = ${enemyHP < 50 ? 800 * attack : 1200 * attack}</div>`);
-breakdownLines.push(`<div class="mono">Total Additional Damage: ${additionalDamage.toExponential(2)}</div>`);
+breakdownLines.push(`<div class="mono">Additional Damage: Final = 1500% × Attack × 2 × ${additionalDamageMultiplier.toFixed(4)} = ${additionalDamage.toExponential(2)}</div>`);
+
+breakdownLines.push(`<br><div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`);
 
 // --- Final Breakdown HTML ---
 document.getElementById('breakdown').innerHTML = breakdownLines.join("");
-
 
   
   // --- Contributions (based on TOTAL damage) ---
