@@ -258,6 +258,14 @@
     <div id="breakdown" class="tab-content" style="display:none;">Breakdown: --</div>
     <div id="contributions" class="tab-content" style="display:none;">Contributions: --</div>
   </div>
+
+  <div class="section">
+  <h3>Optimal Crit Rate</h3>
+  <div class="total-value">
+    <input id="optimalCritRate" type="text" readonly />
+  </div>
+</div>
+
 <script>
 // --- Tab Switching ---
 document.querySelectorAll('.tab').forEach(tab => {
@@ -412,6 +420,60 @@ subtotal += demonKingsMightTemple;
   }
 
   total = subtotal + balancedStrike + lethalFightback + additionalDamage; // Add the transition bonus
+
+
+  // --- Simulate Damage for Different Crits ---
+let maxDamage = 0;
+let optimalCrits = 0;
+
+// Loop through possible crits (0 to 5)
+for (let i = 0; i <= 5; i++) {
+    let subtotalTemp = 0;
+    let totalHitDamage = 0;
+
+    // Calculate damage for i crits
+    for (let j = 0; j < hits; j++) {
+        let isCrit = j < i; // First i hits are crits
+        const damagePerHit = baseDamage * (1 + dot1) * (1 + dot2) * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
+        totalHitDamage = damagePerHit * 2.5; // Apply Temple multiplier
+        subtotalTemp += totalHitDamage;
+    }
+
+    // Calculate Demon King's Might
+    let sumTempleHitDamage = 0;
+    const maxHitsForDKM = enemyHP > 60 ? 2 : 4; // Limit DKM to the first 2 or 4 hits
+    for (let k = 0; k < maxHitsForDKM; k++) {
+        sumTempleHitDamage += templeHitDamage[k];
+    }
+    const demonKingsMightTemp = sumTempleHitDamage * (add + addExtra) * defier * maimMultiplier * elyvia * 1.2 * 2.5;
+    subtotalTemp += demonKingsMightTemp;
+
+    // Calculate Balanced Strike (if any crits did not occur)
+    let balancedStrikeTemp = 0;
+    let bsProc = i < hits;
+    if (bsProc) {
+        balancedStrikeTemp = subtotalTemp * 1.95 * defier * elyvia * (add + addExtra) * maimMultiplier * giantKiller * 2.5;
+    }
+
+    // Calculate Lethal Fightback
+    const lfbMultiplierTemp = 1.0 + (bsProc ? 1.95 : 0);
+    const lethalFightbackTemp = subtotalTemp * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplierTemp * 2.5;
+
+    // Total damage with i crits
+    const totalTemp = subtotalTemp + balancedStrikeTemp + lethalFightbackTemp;
+
+    // Track max damage and optimal crits
+    if (totalTemp > maxDamage) {
+        maxDamage = totalTemp;
+        optimalCrits = i;
+    }
+}
+// --- Calculate Optimal Crit Rate ---
+const optimalCritRate = (optimalCrits / hits) * 100; // Convert to percentage
+
+// Display Optimal Crit Rate
+document.getElementById('optimalCritRate').value = optimalCritRate.toFixed(2);
+
 
 let summaryHTML = "<div class='damage-summary'>";
 
