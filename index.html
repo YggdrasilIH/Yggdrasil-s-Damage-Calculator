@@ -303,6 +303,8 @@ function calculateDamage() {
 
   const elyvia = document.getElementById('elyvia').checked ? 1.4 : 1;
 
+  const imprintChosen = document.getElementById('imprint').checked;
+  
   let cdInput = parseFloat(document.getElementById('critDamage').value) || 0;
   cdInput = Math.min(cdInput, 150); // Cap critDamage at 150
   const critDamage = cdInput / 100;
@@ -415,8 +417,6 @@ function calculateDamage() {
     // Sum all transition damage hits
     additionalDamage = hit1 + hit2 + hit3;
   }
-
-const imprintChosen = document.getElementById('imprint').checked;
 
   // --- Imprint Damage Calculation ---
 let imprintDamage = 0;
