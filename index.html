@@ -416,9 +416,11 @@ function calculateDamage() {
     additionalDamage = hit1 + hit2 + hit3;
   }
 
+const imprintChosen = document.getElementById('imprint').checked;
+
   // --- Imprint Damage Calculation ---
 let imprintDamage = 0;
-if (document.getElementById('imprint').checked) {
+if imprintChosen {
     // If imprint is enabled, add 10% of the subtotal as extra damage
     imprintDamage = subtotal * 0.10; // 10% extra damage
     // Apply all relevant multipliers
