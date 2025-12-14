@@ -486,10 +486,14 @@ for (let critChance = 0; critChance <= 100; critChance++) {
     }
 }
 
-document.getElementById('calcBtn').addEventListener('click', function() {
-    calculateDamage();
-    document.getElementById('optimalCritRate').value = optimalCritChance.toFixed(2); // Update value after calculations
-});
+function updateSummary() {
+    const optimalCritRateElement = document.getElementById('optimalCritRate');
+    if (optimalCritRateElement) {
+        optimalCritRateElement.value = optimalCritChance.toFixed(2);
+    }
+}
+
+// Then call this function after the summary content is updated
 
 
 
@@ -526,7 +530,7 @@ summaryHTML += `<div class="section total"><h3>Total Damage</h3><div class="tota
 summaryHTML += `<div class="section"><h3>Optimal Crit Rate</h3><div class="total-value"><input id="optimalCritRate" type="text" value="${optimalCritChance.toFixed(2)}" readonly /></div></div>`;
 
 summaryHTML += "</div>"; // Close the damage-summary div
-
+updateSummary();
 
 // --- Detailed Breakdown ---
 const breakdownLines = [];
