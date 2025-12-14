@@ -486,7 +486,14 @@ for (let critChance = 0; critChance <= 100; critChance++) {
     }
 }
 
-    document.getElementById('optimalCritRate').value = optimalCritChance.toFixed(2)
+// Update the summary first
+document.getElementById('summary').innerHTML = summaryHTML;
+
+// Then, after updating the summary, set the optimalCritRate value
+const optimalCritRateElement = document.getElementById('optimalCritRate');
+if (optimalCritRateElement) {
+    optimalCritRateElement.value = optimalCritChance.toFixed(2);
+}
  
 
 
