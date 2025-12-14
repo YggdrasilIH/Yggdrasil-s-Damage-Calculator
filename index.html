@@ -420,24 +420,23 @@ function calculateDamage() {
 
   total = subtotal + balancedStrike + lethalFightback + additionalDamage; // Add the transition bonus
 
-// After LFA Hits, Demon King's Might, Balanced Strike, Lethal Fightback, etc. calculation
-// --- Optimal Crit Rate Calculation ---
 // Move this block to the end of your damage calculation function
 let maxExpectedValue = 0;
-let optimalCrits = 0;
+let optimalCritChance = 0;
 
-// Loop through possible crits (0 to 5)
-for (let i = 0; i <= 5; i++) {
+// Loop through possible crit chances (0 to 100%)
+for (let critChance = 0; critChance <= 100; critChance++) {
   let expectedDamage = 0;
   let totalHitDamage = 0;
   let templeHitDamageTemp = []; // Temp array for hits in this loop
 
-  // Calculate expected damage for i crits
-  for (let j = 0; j < hits; j++) {
-    let critProbability = i / hits; // Probability of this hit being a crit
-    let nonCritProbability = 1 - critProbability;
+  // Convert crit chance from percentage to decimal
+  const critProbability = critChance / 100;
+  const nonCritProbability = 1 - critProbability;
 
-    // Expected damage for this hit considering crit and non-crit probabilities
+  // Loop over all possible hits and calculate expected damage
+  for (let j = 0; j < hits; j++) {
+    // Calculate expected damage for this hit considering crit and non-crit probabilities
     const expectedDamagePerHit = (critProbability * baseDamage * (1 + dot1) * (1 + dot2) * critMultiplier * defier * giantKiller * artifactMultiplier) +
                                  (nonCritProbability * baseDamage * (1 + dot1) * (1 + dot2) * defier * giantKiller * artifactMultiplier);
 
@@ -456,30 +455,28 @@ for (let i = 0; i <= 5; i++) {
 
   // Calculate expected Balanced Strike (if any crits did not occur)
   let expectedBalancedStrike = 0;
-  let bsProc = i < hits;
+  let bsProc = critChance < 100; // Balanced Strike triggers if not all hits are crits
   if (bsProc) {
-      expectedBalancedStrike = expectedDamage * 1.95 * defier * elyvia * (add + addExtra) * maimMultiplier * giantKiller * 2.5;
+    expectedBalancedStrike = expectedDamage * 1.95 * defier * elyvia * (add + addExtra) * maimMultiplier * giantKiller * 2.5;
   }
 
   // Calculate expected Lethal Fightback
   const lfbMultiplier = 1.0 + (bsProc ? 1.95 : 0);
   const expectedLethalFightback = expectedDamage * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplier * 2.5;
 
-  // Total expected damage for i crits
+  // Total expected damage for this crit chance
   const totalExpectedDamage = expectedDamage + expectedBalancedStrike + expectedLethalFightback;
 
-  // Track max expected value and optimal crits
+  // Track max expected value and optimal crit chance
   if (totalExpectedDamage > maxExpectedValue) {
       maxExpectedValue = totalExpectedDamage;
-      optimalCrits = i;
+      optimalCritChance = critChance; // Store the crit chance that gives the highest expected damage
   }
 }
 
 // --- Calculate Optimal Crit Rate ---
-const optimalCritRate = (optimalCrits / hits) * 100; // Convert to percentage
-
-// Display Optimal Crit Rate
-document.getElementById('optimalCritRate').value = optimalCritRate.toFixed(2);
+// Display Optimal Crit Chance
+document.getElementById('optimalCritRate').value = optimalCritChance.toFixed(2); // Display as a percentage
 
 
 let summaryHTML = "<div class='damage-summary'>";
