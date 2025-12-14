@@ -375,7 +375,7 @@ function calculateDamage() {
     sumTempleHitDamage += templeHitDamage[i];
   }
 
-  const demonKingsMightTemple = sumTempleHitDamage * (add + addExtra) * defier * maimMultiplier * elyvia * 1.2 * 2.5;
+  const demonKingsMightTemple = sumTempleHitDamage * (add + addExtra) * defier * giantKiller * maimMultiplier * elyvia * 1.2 * 2.5;
   subtotal += demonKingsMightTemple;
 
   let balancedStrike = 0;
@@ -450,7 +450,7 @@ for (let critChance = 0; critChance <= 100; critChance++) {
   for (let k = 0; k < maxHitsForDKM; k++) {
     sumTempleHitDamage += templeHitDamageTemp[k]; // Use the temporary array
   }
-  const expectedDemonKingsMight = sumTempleHitDamage * (add + addExtra) * defier * maimMultiplier * elyvia * 1.2 * 2.5;
+  const expectedDemonKingsMight = sumTempleHitDamage * (add + addExtra) * giantKiller * defier * maimMultiplier * elyvia * 1.2 * 2.5;
   expectedDamage += expectedDemonKingsMight;
 
   // Calculate expected Balanced Strike (if any crits did not occur)
