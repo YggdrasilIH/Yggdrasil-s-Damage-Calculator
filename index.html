@@ -528,6 +528,11 @@ summaryHTML += `<div class="section"><h3>Optimal Crit Rate</h3><div class="total
 summaryHTML += "</div>"; // Close the damage-summary div
 
 document.getElementById('summary').innerHTML = summaryHTML;
+     const activeTab = document.querySelector('.tab.active');
+    if (activeTab.getAttribute('data-tab') !== 'summary') {
+        // Switch to the summary tab
+        document.querySelector('.tab[data-tab="summary"]').click();
+    }
 
 // --- Detailed Breakdown ---
 const breakdownLines = [];
