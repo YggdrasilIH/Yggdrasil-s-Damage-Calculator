@@ -621,7 +621,7 @@ breakdownLines.push(`<div class="mono">Additional Damage: Final = 1500% × Attac
 if (imprintChosen) {
   breakdownLines.push(`<br><div class="mono"><strong>Imprint Damage</strong></div>`);
   breakdownLines.push(`<div class="mono">Expected Damage × 0.10 × Defier × GiantKiller × ADD × MAIM × Elyvia × 2.5 = ${imprintDamage.toExponential(2)}</div>`);
-  breakdownLines.push(`<div class="mono">Final: ${expectedDamage.toFixed(2)} × 0.10 × ${defier.toFixed(4)} × ${giantKiller.toFixed(4)} × ${(add + addExtra).toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${elyvia.toFixed(4)} × 2.5 = ${imprintDamage.toExponential(2)}</div>`);
+  breakdownLines.push(`<div class="mono">Final: ${subtotal.toFixed(2)} × 0.10 × ${defier.toFixed(4)} × ${giantKiller.toFixed(4)} × ${(add + addExtra).toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${elyvia.toFixed(4)} × 2.5 = ${imprintDamage.toExponential(2)}</div>`);
 }
 breakdownLines.push(`<br><div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`);
 
