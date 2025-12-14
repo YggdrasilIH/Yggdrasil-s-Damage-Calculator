@@ -4,27 +4,27 @@
   <meta charset="utf-8" />
   <title>LFA Boss Active Damage Calculator</title>
   <style>
-    body { font-family: Arial, Helvetica, sans-serif; background: #f8f8f8; color: #333; text-align: center; margin: 0; padding: 0; }
-    .calculator { background: #ffeb3b; padding: 16px; margin: 20px auto; width: 760px; border-radius: 20px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2); }
-    h2 { color: #fff; background-color: #4caf50; padding: 10px; border-radius: 12px; font-size: 24px; margin-bottom: 10px; }
-    .section { background: #ffffff; padding: 15px; margin: 15px 0; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    input { width: 95%; padding: 8px; font-size: 16px; border: 1px solid #bbb; border-radius: 10px; background: #fafafa; color: #333; }
+    body { font-family: Arial, Helvetica, sans-serif; background: #e0f7fa; color: #333; margin: 0; padding: 0; }
+    .calculator { background: #ffeb3b; padding: 20px; margin: 40px auto; width: 760px; border-radius: 20px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2); }
+    h2 { color: #fff; background-color: #4caf50; padding: 12px; border-radius: 20px; font-size: 24px; text-transform: uppercase; }
+    .section { background: #ffffff; padding: 20px; margin: 20px 0; border-radius: 12px; box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    input { width: 95%; padding: 10px; font-size: 16px; border: 1px solid #4caf50; border-radius: 10px; background: #ffffff; color: #333; }
     input[type="range"] { width: 100%; }
-    h3 { margin: 10px 0; color: #4caf50; }
-    button { padding: 12px 24px; margin-top: 15px; cursor: pointer; border-radius: 20px; border: none; background: #4caf50; color: white; font-weight: bold; font-size: 18px; }
+    h3 { margin: 10px 0; color: #4caf50; font-size: 18px; }
+    button { padding: 14px 28px; margin-top: 20px; cursor: pointer; border-radius: 30px; border: none; background: #4caf50; color: white; font-weight: bold; font-size: 18px; width: 100%; }
     button:hover { background: #357a38; }
-    .tabs { display: flex; justify-content: center; margin-top: 15px; gap: 12px; }
-    .tab { padding: 10px 20px; cursor: pointer; background: #ffffff; border-radius: 8px 8px 0 0; font-size: 18px; font-weight: bold; }
+    .tabs { display: flex; justify-content: center; margin-top: 20px; gap: 15px; }
+    .tab { padding: 12px 24px; cursor: pointer; background: #ffffff; border-radius: 8px 8px 0 0; font-size: 18px; font-weight: bold; }
     .tab.active { background: #4caf50; color: #fff; }
-    .tab-content { background: #ffffff; padding: 20px; border-radius: 0 0 10px 10px; text-align: left; min-height: 160px; font-size: 18px; }
+    .tab-content { background: #ffffff; padding: 20px; border-radius: 0 0 12px 12px; text-align: left; font-size: 18px; }
     .crit { color: #ff4c4c; font-weight: bold; }
     .subtotal { color: #4caf50; font-weight: bold; }
     .balanced { color: #42a5f5; font-weight: bold; }
     .total { color: #ba68c8; font-weight: bold; }
     .mono { font-family: Consolas, Menlo, monospace; }
     .small { font-size: 14px; color: #777; }
-    .total-value { font-size: 24px; font-weight: bold; color: #ba68c8; }
+    .total-value { font-size: 28px; font-weight: bold; color: #ba68c8; }
     .damage-summary { font-size: 18px; }
     .damage { color: #333; }
     .damage.white { color: #777; }
@@ -108,7 +108,6 @@
     <div id="breakdown" class="tab-content" style="display:none;">Breakdown: --</div>
     <div id="contributions" class="tab-content" style="display:none;">Contributions: --</div>
   </div>
-
 <script>
 // --- Tab Switching ---
 document.querySelectorAll('.tab').forEach(tab => {
