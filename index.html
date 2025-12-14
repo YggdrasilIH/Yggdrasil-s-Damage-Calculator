@@ -295,7 +295,7 @@ function calculateDamage() {
   let sd = sdInput / 100;
 
   let precisionInput = parseFloat(document.getElementById('precision').value) || 0;
-  if (precisionInput > 150) precisionInput = 150;
+  precisionInput = Math.min(precisionInput, 150); // Cap precision at 150
   const precision = precisionInput / 100;
 
   const addRaw = parseFloat(document.getElementById('add').value) || 0;
@@ -304,7 +304,7 @@ function calculateDamage() {
   const elyvia = document.getElementById('elyvia').checked ? 1.4 : 1;
 
   let cdInput = parseFloat(document.getElementById('critDamage').value) || 0;
-  if (cdInput > 150) cdInput = 150;
+  cdInput = Math.min(cdInput, 150); // Cap critDamage at 150
   const critDamage = cdInput / 100;
 
   const sqh = parseFloat(document.getElementById('sqh').value) || 0;
@@ -339,46 +339,43 @@ function calculateDamage() {
     sdExtra = ANTLERS_SD_BONUS;
   }
 
-// --- Base Damage ---
-const baseDamage = attack * (12 + sd + sdExtra) * (1 + 0.3 * precision) * (add + addExtra) * maimMultiplier * elyvia * hdMultiplier * petMultiplier;
+  // --- Base Damage ---
+  const baseDamage = attack * (12 + sd + sdExtra) * (1 + 0.3 * precision) * (add + addExtra) * maimMultiplier * elyvia * hdMultiplier * petMultiplier;
 
-const defier = enemyHP > 70 ? 1.3 : 1;
-const giantKiller = 2;
+  const defier = enemyHP > 70 ? 1.3 : 1;
+  const giantKiller = 2;
 
-// Determine the number of LFA hits based on the enemy HP
-const hits = enemyHP > 60 ? 3 : 5; // 3 hits for HP > 60%, 5 hits for HP <= 60%
+  // Determine the number of LFA hits based on the enemy HP
+  const hits = enemyHP > 60 ? 3 : 5; // 3 hits for HP > 60%, 5 hits for HP <= 60%
 
-const critBase = 1.5 + 2 * critDamage;
-const critMultiplier = sqh > 0 ? critBase * (1 + 0.24 * sqh) : critBase;
+  const critBase = 1.5 + 2 * critDamage;
+  const critMultiplier = sqh > 0 ? critBase * (1 + 0.24 * sqh) : critBase;
 
-// --- LFA Hits ---
-for (let i = 1; i <= hits; i++) {
-  let isCrit = false;
-  if (critsSelected > 0) {
-    isCrit = enemyHP > 60 ? i <= Math.min(critsSelected, 3) : i <= Math.min(critsSelected, 5);
+  // --- LFA Hits ---
+  for (let i = 1; i <= hits; i++) {
+    let isCrit = false;
+    if (critsSelected > 0) {
+      isCrit = enemyHP > 60 ? i <= Math.min(critsSelected, 3) : i <= Math.min(critsSelected, 5);
+    }
+    if (!isCrit) hasNonCrit = true;
+
+    const damagePerHit = baseDamage * (1 + dot1) * (1 + dot2) * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
+    const totalHitDamage = damagePerHit * 2.5;
+
+    templeHitDamage.push(totalHitDamage);
+    subtotal += totalHitDamage;
   }
-  if (!isCrit) hasNonCrit = true;
 
-  const damagePerHit = baseDamage * (1 + dot1) * (1 + dot2) * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
-  const totalHitDamage = damagePerHit * 2.5;
+  // --- Demon King's Might Calculation ---
+  let sumTempleHitDamage = 0;
+  const maxHitsForDKM = enemyHP > 60 ? 2 : 4; // Limit DKM to the first 2 or 4 hits
 
-  templeHitDamage.push(totalHitDamage);
-  subtotal += totalHitDamage;
-}
+  for (let i = 0; i < maxHitsForDKM; i++) {
+    sumTempleHitDamage += templeHitDamage[i];
+  }
 
-// --- Demon King's Might Calculation ---
-let sumTempleHitDamage = 0;
-// Apply only the first 2 hits if HP > 60, or the first 4 hits if HP <= 60
-const maxHitsForDKM = enemyHP > 60 ? 2 : 4; // Limit DKM to the first 2 or 4 hits
-
-for (let i = 0; i < maxHitsForDKM; i++) {
-  sumTempleHitDamage += templeHitDamage[i];
-}
-
-// Apply multipliers to DKM and calculate the final value
-const demonKingsMightTemple = sumTempleHitDamage * (add + addExtra) * defier * maimMultiplier * elyvia * 1.2 * 2.5;
-subtotal += demonKingsMightTemple;
-
+  const demonKingsMightTemple = sumTempleHitDamage * (add + addExtra) * defier * maimMultiplier * elyvia * 1.2 * 2.5;
+  subtotal += demonKingsMightTemple;
 
   let balancedStrike = 0;
   let bsProc = false;
@@ -394,7 +391,7 @@ subtotal += demonKingsMightTemple;
 
   const lethalFightback = subtotal * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplier * 2.5;
 
-   // --- Transition Point ---
+  // --- Transition Point ---
   const transitionPoint = parseInt(document.getElementById('transitionPoint').value) || 0;
 
   if (transitionPoint === 12) {
@@ -421,29 +418,27 @@ subtotal += demonKingsMightTemple;
 
   total = subtotal + balancedStrike + lethalFightback + additionalDamage; // Add the transition bonus
 
-
   // --- Simulate Damage for Different Crits ---
-let maxDamage = 0;
-let optimalCrits = 0;
+  let maxDamage = 0;
+  let optimalCrits = 0;
 
-// Loop through possible crits (0 to 5)
-for (let i = 0; i <= 5; i++) {
+  // Loop through possible crits (0 to 5)
+  for (let i = 0; i <= 5; i++) {
     let subtotalTemp = 0;
     let totalHitDamage = 0;
 
     // Calculate damage for i crits
     for (let j = 0; j < hits; j++) {
-        let isCrit = j < i; // First i hits are crits
-        const damagePerHit = baseDamage * (1 + dot1) * (1 + dot2) * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
-        totalHitDamage = damagePerHit * 2.5; // Apply Temple multiplier
-        subtotalTemp += totalHitDamage;
+      let isCrit = j < i; // First i hits are crits
+      const damagePerHit = baseDamage * (1 + dot1) * (1 + dot2) * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
+      totalHitDamage = damagePerHit * 2.5; // Apply Temple multiplier
+      subtotalTemp += totalHitDamage;
     }
 
     // Calculate Demon King's Might
-    let sumTempleHitDamage = 0;
-    const maxHitsForDKM = enemyHP > 60 ? 2 : 4; // Limit DKM to the first 2 or 4 hits
+    sumTempleHitDamage = 0;
     for (let k = 0; k < maxHitsForDKM; k++) {
-        sumTempleHitDamage += templeHitDamage[k];
+      sumTempleHitDamage += templeHitDamage[k];
     }
     const demonKingsMightTemp = sumTempleHitDamage * (add + addExtra) * defier * maimMultiplier * elyvia * 1.2 * 2.5;
     subtotalTemp += demonKingsMightTemp;
@@ -452,7 +447,7 @@ for (let i = 0; i <= 5; i++) {
     let balancedStrikeTemp = 0;
     let bsProc = i < hits;
     if (bsProc) {
-        balancedStrikeTemp = subtotalTemp * 1.95 * defier * elyvia * (add + addExtra) * maimMultiplier * giantKiller * 2.5;
+      balancedStrikeTemp = subtotalTemp * 1.95 * defier * elyvia * (add + addExtra) * maimMultiplier * giantKiller * 2.5;
     }
 
     // Calculate Lethal Fightback
@@ -464,15 +459,17 @@ for (let i = 0; i <= 5; i++) {
 
     // Track max damage and optimal crits
     if (totalTemp > maxDamage) {
-        maxDamage = totalTemp;
-        optimalCrits = i;
+      maxDamage = totalTemp;
+      optimalCrits = i;
     }
-}
-// --- Calculate Optimal Crit Rate ---
-const optimalCritRate = (optimalCrits / hits) * 100; // Convert to percentage
+  }
 
-// Display Optimal Crit Rate
-document.getElementById('optimalCritRate').value = optimalCritRate.toFixed(2);
+  // --- Calculate Optimal Crit Rate ---
+  const optimalCritRate = (optimalCrits / hits) * 100; // Convert to percentage
+
+  // Display Optimal Crit Rate
+  document.getElementById('optimalCritRate').value = optimalCritRate.toFixed(2);
+}
 
 
 let summaryHTML = "<div class='damage-summary'>";
