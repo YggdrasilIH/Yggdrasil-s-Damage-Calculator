@@ -486,10 +486,7 @@ for (let critChance = 0; critChance <= 100; critChance++) {
     }
 }
 
-// Display Optimal Crit Chance
-if (document.querySelector('.tab.active').getAttribute('data-tab') === 'summary') {
-    document.getElementById('optimalCritRate').value = optimalCritChance.toFixed(2);
-  }
+
 
 
 
@@ -684,6 +681,10 @@ document.getElementById('breakdown').innerHTML = breakdownLines.join("");
   document.getElementById('contributions').innerHTML = contribHTML + disclaimerHTML;
 }
 
+  // Display Optimal Crit Chance
+if (document.querySelector('.tab.active').getAttribute('data-tab') === 'summary') {
+    document.getElementById('optimalCritRate').value = optimalCritChance.toFixed(2);
+  }
   </script>
 
 </body>
