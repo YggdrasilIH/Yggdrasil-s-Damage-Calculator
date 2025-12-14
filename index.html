@@ -255,38 +255,41 @@ subtotal += demonKingsMightTemple;
   }
 
   total = subtotal + balancedStrike + lethalFightback + additionalDamage; // Add the transition bonus
-let summaryHTML = "<div class='damage-section'>";
+
+  let summaryHTML = "<div class='damage-summary'>";
 
 // Hits
-summaryHTML += `<h3>Hits</h3>`;
+summaryHTML += `<div class="section hits"><h3>Hits</h3>`;
 templeHitDamage.forEach((hit, i) => {
   let isCrit = false;
   if (critsSelected > 0) isCrit = enemyHP > 60 ? i < Math.min(critsSelected, 3) : i < Math.min(critsSelected, 5);
-  summaryHTML += `<div class="hit ${isCrit ? 'crit' : ''}">Hit ${i+1}${isCrit ? ' (CRIT)' : ''}: ${hit.toExponential(2)}</div>`;
+  summaryHTML += `<div class="hit ${isCrit ? 'crit' : ''}">Hit ${i + 1}${isCrit ? ' (CRIT)' : ''}: <span>${hit.toExponential(2)}</span></div>`;
 });
+summaryHTML += `</div>`;
 
 // Demon King's Might
-summaryHTML += `<h3>Demon King's Might</h3>`;
-summaryHTML += `<div class="damage white">Demon King's Might: ${demonKingsMightTemple.toExponential(2)}</div>`;
+summaryHTML += `<div class="section dkm"><h3>Demon King's Might</h3>`;
+summaryHTML += `<div class="damage white">Demon King's Might: <span>${demonKingsMightTemple.toExponential(2)}</span></div>`;
 
 // Special Abilities
-summaryHTML += `<h3>Special Abilities</h3>`;
-summaryHTML += `<div class="damage white">Lethal Fightback: ${lethalFightback.toExponential(2)}</div>`;
+summaryHTML += `<div class="section abilities"><h3>Special Abilities</h3>`;
+summaryHTML += `<div class="damage white">Lethal Fightback: <span>${lethalFightback.toExponential(2)}</span></div>`;
 if (hasNonCrit) {
-  summaryHTML += `<div class="damage white">Balanced Strike: ${balancedStrike.toExponential(2)}</div>`;
+  summaryHTML += `<div class="damage white">Balanced Strike: <span>${balancedStrike.toExponential(2)}</span></div>`;
 } else {
   summaryHTML += `<div class="damage white">Balanced Strike: not triggered</div>`;
 }
 if (additionalDamage > 0) {
-  summaryHTML += `<div class="damage white">Transition Bonus Damage: ${additionalDamage.toExponential(2)}</div>`;
+  summaryHTML += `<div class="damage white">Transition Bonus Damage: <span>${additionalDamage.toExponential(2)}</span></div>`;
 }
 
 // Total Damage
-summaryHTML += `<div class="total">Total Damage: ${total.toExponential(2)}</div>`;
+summaryHTML += `<div class="total"><h3>Total Damage</h3><div class="total-value">${total.toExponential(2)}</div></div>`;
 
-summaryHTML += "</div>"; // Close the section div
+summaryHTML += "</div>"; // Close the damage-summary div
 
 document.getElementById('summary').innerHTML = summaryHTML;
+
 
 
   // --- Detailed Breakdown ---
