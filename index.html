@@ -174,35 +174,46 @@ function calculateDamage() {
     sdExtra = ANTLERS_SD_BONUS;
   }
 
- 
-  // --- Base Damage ---
-  const baseDamage = attack * (12 + sd + sdExtra) * (1 + 0.3 * precision) * (add + addExtra) * maimMultiplier * elyvia * hdMultiplier * petMultiplier;
+// --- Base Damage ---
+const baseDamage = attack * (12 + sd + sdExtra) * (1 + 0.3 * precision) * (add + addExtra) * maimMultiplier * elyvia * hdMultiplier * petMultiplier;
 
-  const defier = enemyHP > 70 ? 1.3 : 1;
-  const giantKiller = 2;
-  const hits = enemyHP > 60 ? 3 : 5;
+const defier = enemyHP > 70 ? 1.3 : 1;
+const giantKiller = 2;
 
-  const critBase = 1.5 + 2 * critDamage;
-  const critMultiplier = sqh > 0 ? critBase * (1 + 0.24 * sqh) : critBase;
+// Determine the number of LFA hits based on the enemy HP
+const hits = enemyHP > 60 ? 3 : 5; // 3 hits for HP > 60%, 5 hits for HP <= 60%
 
-  // --- LFA Hits ---
-  for (let i = 1; i <= hits; i++) {
-    let isCrit = false;
-    if (critsSelected > 0) {
-      isCrit = enemyHP > 60 ? i <= Math.min(critsSelected, 3) : i <= Math.min(critsSelected, 5);
-    }
-    if (!isCrit) hasNonCrit = true;
+const critBase = 1.5 + 2 * critDamage;
+const critMultiplier = sqh > 0 ? critBase * (1 + 0.24 * sqh) : critBase;
 
-    const damagePerHit = baseDamage * (1 + dot1) * (1 + dot2) * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
-    const totalHitDamage = damagePerHit * 2.5;
-
-    templeHitDamage.push(totalHitDamage);
-    subtotal += totalHitDamage;
+// --- LFA Hits ---
+for (let i = 1; i <= hits; i++) {
+  let isCrit = false;
+  if (critsSelected > 0) {
+    isCrit = enemyHP > 60 ? i <= Math.min(critsSelected, 3) : i <= Math.min(critsSelected, 5);
   }
+  if (!isCrit) hasNonCrit = true;
 
-  const sumTempleHitDamage = templeHitDamage.reduce((a,b)=>a+b,0);
-  const demonKingsMightTemple = sumTempleHitDamage * 1.2 * 2.5;
-  subtotal += demonKingsMightTemple;
+  const damagePerHit = baseDamage * (1 + dot1) * (1 + dot2) * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
+  const totalHitDamage = damagePerHit * 2.5;
+
+  templeHitDamage.push(totalHitDamage);
+  subtotal += totalHitDamage;
+}
+
+// --- Demon King's Might Calculation ---
+let sumTempleHitDamage = 0;
+// Apply only the first 2 hits if HP > 60, or the first 4 hits if HP <= 60
+const maxHitsForDKM = enemyHP > 60 ? 2 : 4; // Limit DKM to the first 2 or 4 hits
+
+for (let i = 0; i < maxHitsForDKM; i++) {
+  sumTempleHitDamage += templeHitDamage[i];
+}
+
+// Apply multipliers to DKM and calculate the final value
+const demonKingsMightTemple = sumTempleHitDamage * (add + addExtra) * defier * maimMultiplier * elyvia * 1.2 * 2.5;
+subtotal += demonKingsMightTemple;
+
 
   let balancedStrike = 0;
   let bsProc = false;
