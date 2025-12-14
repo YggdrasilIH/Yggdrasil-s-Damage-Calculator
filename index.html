@@ -423,12 +423,12 @@ function calculateDamage() {
 
 if (imprintChosen) {
     // If imprint is enabled, add 10% of the subtotal as extra damage
-    imprintDamage = subtotal * 0.10; // 10% extra damage
-    // Apply all relevant multipliers
-    imprintDamage *= (add + addExtra) * elyvia * giantKiller * defier * maim * 2.5;
+    imprintDamage = subtotal * 0.10 * (add + addExtra) * elyvia * giantKiller * defier * maimMultiplier * 2.5; // 10% extra damage
+
 }
 
-  total = subtotal + balancedStrike + lethalFightback + additionalDamage + imprintDamage; // Add the transition bonus
+  total = subtotal + balancedStrike + lethalFightback + additionalDamage + imprintDamage;
+  
 function binomialCoefficient(n, k) {
     if (k > n) return 0;
     let result = 1;
@@ -552,7 +552,6 @@ if (additionalDamage > 0) {
   
   // Imprint Damage section
 if (imprintChosen) {
-    summaryHTML += `<div class="section imprint"><h3>Imprint Damage</h3>`;
     summaryHTML += `<div class="damage"><span>Imprint Damage: <span class="damage-value">${imprintDamage.toExponential(2)}</span></span></div></div>`;
 }
   
