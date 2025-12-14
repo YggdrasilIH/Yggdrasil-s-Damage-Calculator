@@ -440,6 +440,7 @@ function binomialCoefficient(n, k) {
 
 function calculateExpectedDamageForCrits(critChance, hits) {
     let expectedDamage = 0;
+   let expectedImprintDamage = 0;
     
     // Loop through possible number of crits (0 to hits)
     for (let k = 0; k <= hits; k++) {
@@ -476,7 +477,7 @@ function calculateExpectedDamageForCrits(critChance, hits) {
         const lfbMultiplier = 1.0 + (k < hits ? 1.95 : 0);
         const expectedLethalFightback = expectedDamage * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplier * 2.5;
       
-      let expectedImprintDamage = 0;
+     
        if (imprintChosen) {
          const expectedImprintDamage = expectedDamage * 0.10 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * 2.5;
        }
