@@ -268,7 +268,8 @@
 
 <script>
 // --- Tab Switching ---
-document.querySelectorAll('.tab').forEach(tab => {
+
+querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
@@ -278,7 +279,6 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.getElementById('contributions').style.display = selected === 'contributions' ? 'block' : 'none';
   });
 });
-
 
 document.getElementById('calcBtn').addEventListener('click', calculateDamage);
 
