@@ -4,20 +4,20 @@
   <meta charset="utf-8" />
   <title>LFA Boss Active Damage Calculator</title>
   <style>
-    body { font-family: Arial, Helvetica, sans-serif; background: #e0f7fa; color: #333; margin: 0; padding: 0; }
-    .calculator { background: #ffeb3b; padding: 20px; margin: 40px auto; width: 760px; border-radius: 20px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2); }
-    h2 { color: #fff; background-color: #4caf50; padding: 12px; border-radius: 20px; font-size: 24px; text-transform: uppercase; }
-    .section { background: #ffffff; padding: 20px; margin: 20px 0; border-radius: 12px; box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1); }
+    body { font-family: Arial, Helvetica, sans-serif; background: #e1f5fe; color: #333; margin: 0; padding: 0; }
+    .calculator { background: linear-gradient(to bottom, #ffeb3b, #ff9800); padding: 20px; margin: 40px auto; width: 760px; border-radius: 20px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2); }
+    h2 { color: #fff; background-color: #4caf50; padding: 15px; border-radius: 20px; font-size: 24px; text-transform: uppercase; }
+    .section { background: #ffffff; padding: 20px; margin: 20px 0; border-radius: 15px; box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1); }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    input { width: 95%; padding: 10px; font-size: 16px; border: 1px solid #4caf50; border-radius: 10px; background: #ffffff; color: #333; }
+    input { width: 95%; padding: 12px; font-size: 16px; border: 1px solid #4caf50; border-radius: 12px; background: #ffffff; color: #333; }
     input[type="range"] { width: 100%; }
     h3 { margin: 10px 0; color: #4caf50; font-size: 18px; }
-    button { padding: 14px 28px; margin-top: 20px; cursor: pointer; border-radius: 30px; border: none; background: #4caf50; color: white; font-weight: bold; font-size: 18px; width: 100%; }
+    button { padding: 16px 28px; margin-top: 20px; cursor: pointer; border-radius: 30px; border: none; background: #4caf50; color: white; font-weight: bold; font-size: 18px; width: 100%; }
     button:hover { background: #357a38; }
-    .tabs { display: flex; justify-content: center; margin-top: 20px; gap: 15px; }
+    .tabs { display: flex; justify-content: center; margin-top: 20px; gap: 12px; }
     .tab { padding: 12px 24px; cursor: pointer; background: #ffffff; border-radius: 8px 8px 0 0; font-size: 18px; font-weight: bold; }
     .tab.active { background: #4caf50; color: #fff; }
-    .tab-content { background: #ffffff; padding: 20px; border-radius: 0 0 12px 12px; text-align: left; font-size: 18px; }
+    .tab-content { background: #ffffff; padding: 20px; border-radius: 0 0 15px 15px; text-align: left; font-size: 18px; }
     .crit { color: #ff4c4c; font-weight: bold; }
     .subtotal { color: #4caf50; font-weight: bold; }
     .balanced { color: #42a5f5; font-weight: bold; }
@@ -31,6 +31,12 @@
     .damage.green { color: #4caf50; }
     .damage.blue { color: #42a5f5; }
     .damage.purple { color: #ba68c8; }
+    
+    /* Elyvia and Artifact Section */
+    .artifact-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .artifact-section label { margin-right: 20px; }
+    .artifact-section input { width: auto; margin-right: 10px; }
+
   </style>
 </head>
 <body>
@@ -52,8 +58,10 @@
     </div>
 
     <!-- Buffs & Artifacts -->
-    <div class="section" style="display:flex; justify-content:space-between; align-items:center;">
-      <label><input type="checkbox" id="elyvia"> Elyvia (shrink) </label>
+    <div class="section artifact-section">
+      <div>
+        <label><input type="checkbox" id="elyvia"> Elyvia (shrink) </label>
+      </div>
       <div>
         <label><input type="radio" name="artifact" id="none" checked> None</label>
         <label><input type="radio" name="artifact" id="antiwarrior"> Antiwarrior (×1.9)</label>
