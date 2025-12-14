@@ -417,61 +417,64 @@ function calculateDamage() {
   }
 
   total = subtotal + balancedStrike + lethalFightback + additionalDamage; // Add the transition bonus
-
-  // Simulate Damage for Different Crits
-let maxDamage = 0;
+// --- Calculate Expected Value for Different Crit Scenarios ---
+let maxExpectedValue = 0;
 let optimalCrits = 0;
 
 // Loop through possible crits (0 to 5)
 for (let i = 0; i <= 5; i++) {
-    let subtotalTemp = 0;
+    let expectedDamage = 0;
     let totalHitDamage = 0;
     let templeHitDamageTemp = []; // Temp array for hits in this loop
 
-    // Calculate damage for i crits
+    // Calculate expected damage for i crits
     for (let j = 0; j < hits; j++) {
-        let isCrit = j < i; // First i hits are crits
-        const damagePerHit = baseDamage * (1 + dot1) * (1 + dot2) * (isCrit ? critMultiplier : 1) * defier * giantKiller * artifactMultiplier;
-        totalHitDamage = damagePerHit * 2.5; // Apply Temple multiplier
+        let critProbability = i / hits; // Probability of this hit being a crit
+        let nonCritProbability = 1 - critProbability;
+
+        // Expected damage for this hit considering crit and non-crit probabilities
+        const expectedDamagePerHit = (critProbability * baseDamage * (1 + dot1) * (1 + dot2) * critMultiplier * defier * giantKiller * artifactMultiplier) +
+                                     (nonCritProbability * baseDamage * (1 + dot1) * (1 + dot2) * defier * giantKiller * artifactMultiplier);
+
+        totalHitDamage = expectedDamagePerHit * 2.5; // Apply Temple multiplier
         templeHitDamageTemp.push(totalHitDamage);
-        subtotalTemp += totalHitDamage;
+        expectedDamage += totalHitDamage;
     }
 
-    // Calculate Demon King's Might using the new temporary array
+    // Calculate expected Demon King's Might (DKM)
     let sumTempleHitDamage = 0;
     for (let k = 0; k < maxHitsForDKM; k++) {
         sumTempleHitDamage += templeHitDamageTemp[k]; // Use the temporary array
     }
-    const demonKingsMightTemp = sumTempleHitDamage * (add + addExtra) * defier * maimMultiplier * elyvia * 1.2 * 2.5;
-    subtotalTemp += demonKingsMightTemp;
+    const expectedDemonKingsMight = sumTempleHitDamage * (add + addExtra) * defier * maimMultiplier * elyvia * 1.2 * 2.5;
+    expectedDamage += expectedDemonKingsMight;
 
-    // Calculate Balanced Strike (if any crits did not occur)
-    let balancedStrikeTemp = 0;
+    // Calculate expected Balanced Strike (if any crits did not occur)
+    let expectedBalancedStrike = 0;
     let bsProc = i < hits;
     if (bsProc) {
-        balancedStrikeTemp = subtotalTemp * 1.95 * defier * elyvia * (add + addExtra) * maimMultiplier * giantKiller * 2.5;
+        expectedBalancedStrike = expectedDamage * 1.95 * defier * elyvia * (add + addExtra) * maimMultiplier * giantKiller * 2.5;
     }
 
-    // Calculate Lethal Fightback
-    const lfbMultiplierTemp = 1.0 + (bsProc ? 1.95 : 0);
-    const lethalFightbackTemp = subtotalTemp * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplierTemp * 2.5;
+    // Calculate expected Lethal Fightback
+    const lfbMultiplier = 1.0 + (bsProc ? 1.95 : 0);
+    const expectedLethalFightback = expectedDamage * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplier * 2.5;
 
-    // Total damage with i crits
-    const totalTemp = subtotalTemp + balancedStrikeTemp + lethalFightbackTemp;
+    // Total expected damage for i crits
+    const totalExpectedDamage = expectedDamage + expectedBalancedStrike + expectedLethalFightback;
 
-    // Track max damage and optimal crits
-    if (totalTemp > maxDamage) {
-        maxDamage = totalTemp;
+    // Track max expected value and optimal crits
+    if (totalExpectedDamage > maxExpectedValue) {
+        maxExpectedValue = totalExpectedDamage;
         optimalCrits = i;
     }
 }
 
-  // --- Calculate Optimal Crit Rate ---
-  const optimalCritRate = (optimalCrits / hits) * 100; // Convert to percentage
+// --- Calculate Optimal Crit Rate ---
+const optimalCritRate = (optimalCrits / hits) * 100; // Convert to percentage
 
-  // Display Optimal Crit Rate
-  document.getElementById('optimalCritRate').value = optimalCritRate.toFixed(2);
-
+// Display Optimal Crit Rate
+document.getElementById('optimalCritRate').value = optimalCritRate.toFixed(2);
 
 
 let summaryHTML = "<div class='damage-summary'>";
