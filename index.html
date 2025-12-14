@@ -199,18 +199,21 @@
       </div>
     </div>
 
-    <!-- Elyvia and Artifacts Section -->
-    <div class="section artifact-section">
-      <h3>Elyvia</h3>
-      <label><input type="checkbox" id="elyvia"> Enable Shrink</label>
-      <div class="artifact-labels">
-        <h3>Artifacts</h3>
-        <label><input type="radio" name="artifact" id="none" checked> None</label>
-        <label><input type="radio" name="artifact" id="antiwarrior"> Antiwarrior (×1.9)</label>
-        <label><input type="radio" name="artifact" id="antlers"> Antlers (+126% ADD, +300% SD)</label>
-      </div>
-    </div>
+<!-- Other Damages Section -->
+<div class="section artifact-section">
+  <h3>Other Damages</h3>
+  <label><input type="checkbox" id="elyvia"> Enable Shrink</label>
+    <!-- Add Imprint Option Here -->
+  <label><input type="checkbox" id="imprint"> Enable Imprint</label>
+  <div class="artifact-labels">
+    <h3>Artifacts</h3>
+    <label><input type="radio" name="artifact" id="none" checked> None</label>
+    <label><input type="radio" name="artifact" id="antiwarrior"> Antiwarrior (×1.9)</label>
+    <label><input type="radio" name="artifact" id="antlers"> Antlers (+126% ADD, +300% SD)</label>
+  </div>
 
+</div>
+    
     <!-- Enemy HP and Crits -->
     <div class="section">
       <div class="grid">
@@ -413,8 +416,16 @@ function calculateDamage() {
     additionalDamage = hit1 + hit2 + hit3;
   }
 
+  // --- Imprint Damage Calculation ---
+let imprintDamage = 0;
+if (document.getElementById('imprint').checked) {
+    // If imprint is enabled, add 10% of the subtotal as extra damage
+    imprintDamage = subtotal * 0.10; // 10% extra damage
+    // Apply all relevant multipliers
+    imprintDamage *= (add + addExtra) * elyvia * giantKiller * defier * maim * 2.5;
+}
 
-  total = subtotal + balancedStrike + lethalFightback + additionalDamage; // Add the transition bonus
+  total = subtotal + balancedStrike + lethalFightback + additionalDamage + imprintDamage; // Add the transition bonus
 function binomialCoefficient(n, k) {
     if (k > n) return 0;
     let result = 1;
@@ -461,9 +472,13 @@ function calculateExpectedDamageForCrits(critChance, hits) {
         // Calculate expected Lethal Fightback
         const lfbMultiplier = 1.0 + (k < hits ? 1.95 : 0);
         const expectedLethalFightback = expectedDamage * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplier * 2.5;
-
+      const imprintChosen = true;
+      let expectedImprintDamage = 0;
+       if (imprintChosen) {
+         const expectedImprintDamage = expectedDamage * 0.10 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * 2.5;
+       }
         // Total expected damage for exactly k crits
-        damageForKCrits += expectedBalancedStrike + expectedLethalFightback;
+        damageForKCrits += expectedBalancedStrike + expectedLethalFightback + expectedImprintDamage;
 
         // Add weighted damage (weighted by binomial probability)
         expectedDamage += binomialProbability * damageForKCrits;
@@ -530,6 +545,13 @@ if (hasNonCrit) {
 if (additionalDamage > 0) {
   summaryHTML += `<div class="damage"><span>Transition Bonus Damage: <span class="damage-value">${additionalDamage.toExponential(2)}</span></span></div></div>`;
 }
+  // Imprint Damage (new section)
+if (imprintChosen) {
+  const imprintDamage = expectedDamage * 0.10 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * 2.5;
+  summaryHTML += `<div class="section imprint"><h3>Imprint Damage</h3>`;
+  summaryHTML += `<div class="damage"><span>Imprint Damage: <span class="damage-value">${imprintDamage.toExponential(2)}</span></span></div></div>`;
+}
+  
 
 // Total Damage (fixed the structure)
 summaryHTML += `<div class="section total"><h3>Total Damage</h3><div class="total-value">${total.toExponential(2)}</div></div>`;
@@ -591,6 +613,13 @@ breakdownLines.push(`<div class="mono">1000% × Attack (×1 hit) = ${1000 * atta
 breakdownLines.push(`<div class="mono">${enemyHP < 50 ? '800%' : '1200%'} × Attack (×1 hit) = ${enemyHP < 50 ? 800 * attack : 1200 * attack}</div>`);
 breakdownLines.push(`<div class="mono">Additional Damage: Final = 1500% × Attack × 2 × ${additionalDamageMultiplier.toFixed(4)} = ${additionalDamage.toExponential(2)}</div>`);
 
+  // --- Imprint Damage Calculation ---
+if (imprintChosen) {
+  const imprintDamage = expectedDamage * 0.10 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * 2.5;
+  breakdownLines.push(`<br><div class="mono"><strong>Imprint Damage</strong></div>`);
+  breakdownLines.push(`<div class="mono">Expected Damage × 0.10 × Defier × GiantKiller × ADD × MAIM × Elyvia × 2.5 = ${imprintDamage.toExponential(2)}</div>`);
+  breakdownLines.push(`<div class="mono">Final: ${expectedDamage.toFixed(2)} × 0.10 × ${defier.toFixed(4)} × ${giantKiller.toFixed(4)} × ${(add + addExtra).toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${elyvia.toFixed(4)} × 2.5 = ${imprintDamage.toExponential(2)}</div>`);
+}
 breakdownLines.push(`<br><div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`);
 
 // --- Final Breakdown HTML ---
