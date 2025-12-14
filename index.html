@@ -259,12 +259,7 @@
     <div id="contributions" class="tab-content" style="display:none;">Contributions: --</div>
   </div>
 
-  <div class="section">
-  <h3>Optimal Crit Rate</h3>
-  <div class="total-value">
-    <input id="optimalCritRate" type="text" readonly />
-  </div>
-</div>
+ 
 
 <script>
 // --- Tab Switching ---
@@ -524,6 +519,8 @@ if (additionalDamage > 0) {
 
 // Total Damage (fixed the structure)
 summaryHTML += `<div class="section total"><h3>Total Damage</h3><div class="total-value">${total.toExponential(2)}</div></div>`;
+// Optimal Crit Rate
+summaryHTML += `<div class="section"><h3>Optimal Crit Rate</h3><div class="total-value"><input id="optimalCritRate" type="text" value="${optimalCritChance.toFixed(2)}" readonly /></div></div>`;
 
 summaryHTML += "</div>"; // Close the damage-summary div
 
