@@ -419,15 +419,16 @@ function calculateDamage() {
     additionalDamage = hit1 + hit2 + hit3;
   }
 
+  subtotal2 = subtotal + balancedStrike + lethalFightback + additionalDamage;
   // --- Imprint Damage Calculation ---
 
 if (imprintChosen) {
     // If imprint is enabled, add 10% of the subtotal as extra damage
-    imprintDamage = subtotal * 0.10 * (add + addExtra) * elyvia * giantKiller * defier * maimMultiplier * 2.5; // 10% extra damage
+    imprintDamage = subtotal2 * 0.10 * (add + addExtra) * elyvia * giantKiller * defier * maimMultiplier * 2.5; // 10% extra damage
 
 }
 
-  total = subtotal + balancedStrike + lethalFightback + additionalDamage + imprintDamage;
+  total = subtotal2 + imprintDamage;
   
 function binomialCoefficient(n, k) {
     if (k > n) return 0;
@@ -619,8 +620,8 @@ breakdownLines.push(`<div class="mono">Additional Damage: Final = 1500% × Attac
   // --- Imprint Damage Calculation ---
 if (imprintChosen) {
   breakdownLines.push(`<br><div class="mono"><strong>Imprint Damage</strong></div>`);
-  breakdownLines.push(`<div class="mono">Expected Damage × 0.10 × Defier × GiantKiller × ADD × MAIM × Elyvia × 2.5 = ${imprintDamage.toExponential(2)}</div>`);
-  breakdownLines.push(`<div class="mono">Final: ${subtotal.toFixed(2)} × 0.10 × ${defier.toFixed(4)} × ${giantKiller.toFixed(4)} × ${(add + addExtra).toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${elyvia.toFixed(4)} × 2.5 = ${imprintDamage.toExponential(2)}</div>`);
+  breakdownLines.push(`<div class="mono">Subtotal2 × 0.10 × Defier × GiantKiller × ADD × MAIM × Elyvia × 2.5 = ${imprintDamage.toExponential(2)}</div>`);
+  breakdownLines.push(`<div class="mono">Final: ${subtotal2.toFixed(2)} × 0.10 × ${defier.toFixed(4)} × ${giantKiller.toFixed(4)} × ${(add + addExtra).toFixed(4)} × ${maimMultiplier.toFixed(4)} × ${elyvia.toFixed(4)} × 2.5 = ${imprintDamage.toExponential(2)}</div>`);
 }
 breakdownLines.push(`<br><div class="mono"><strong>Total Damage</strong>: ${total.toExponential(2)}</div>`);
 
