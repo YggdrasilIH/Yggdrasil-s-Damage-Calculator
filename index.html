@@ -208,7 +208,7 @@
   <div class="artifact-labels">
     <h3>Artifacts</h3>
     <label><input type="radio" name="artifact" id="none" checked> None</label>
-    <label><input type="radio" name="artifact" id="antiwarrior"> Antiwarrior (×1.9)</label>
+    <label><input type="radio" name="artifact" id="antiwarrior"> Antiwarrior (×1.9, +50% SD)</label>
     <label><input type="radio" name="artifact" id="antlers"> Antlers (+126% ADD, +300% SD)</label>
   </div>
 
@@ -329,6 +329,7 @@ function calculateDamage() {
   // --- Artifact Multipliers ---
   const ARTIFACT_NONE = 1;
   const ARTIFACT_ANTI_WARRIOR = 1.9;
+  const ARTIFACT_ANTI_WARRIOR_SD = .5;
   const ANTLERS_ADD_BONUS = 1.26;
   const ANTLERS_SD_BONUS = 3.0;
 
@@ -337,6 +338,7 @@ function calculateDamage() {
   let sdExtra = 0;
   if (document.getElementById('antiwarrior').checked) {
     artifactMultiplier = ARTIFACT_ANTI_WARRIOR;
+    sdExtra = ARTIFACT_ANTI_WARRIOR_SD;
   } else if (document.getElementById('antlers').checked) {
     addExtra = ANTLERS_ADD_BONUS;
     sdExtra = ANTLERS_SD_BONUS;
