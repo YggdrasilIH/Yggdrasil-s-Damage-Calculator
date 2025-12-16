@@ -443,88 +443,154 @@ function binomialCoefficient(n, k) {
 
 function calculateExpectedDamageForCrits(critChance, hits) {
     let expectedDamage = 0;
-    let expectedImprintDamage = 0;
-    
-    // Loop through possible number of crits (0 to hits)
+
     for (let k = 0; k <= hits; k++) {
-        // Calculate binomial probability for exactly k crits
-        let binomialProbability = binomialCoefficient(hits, k) * Math.pow(critChance, k) * Math.pow(1 - critChance, hits - k);
+        const binomialProbability =
+            binomialCoefficient(hits, k) *
+            Math.pow(critChance, k) *
+            Math.pow(1 - critChance, hits - k);
 
-        // Calculate expected damage for exactly k crits
-        let damageForKCrits = 0;
         let templeHitDamageTemp = [];
-        
+        let subtotalTemp = 0;
+        let hasNonCritTemp = (k < hits);
+
+        // --- Expected LFA hits ---
         for (let j = 0; j < hits; j++) {
-            // Determine if this hit is a crit or non-crit based on the count of k crits
-            let critProbability = (k / hits); // Simplified approach
-            let nonCritProbability = 1 - critProbability;
+            const critProbability = k / hits;
+            const nonCritProbability = 1 - critProbability;
 
-            const expectedDamagePerHit = (critProbability * baseDamage * (1 + dot1) * (1 + dot2) * critMultiplier * defier * giantKiller * artifactMultiplier) +
-                                         (nonCritProbability * baseDamage * (1 + dot1) * (1 + dot2) * defier * giantKiller * artifactMultiplier);
+            const expectedDamagePerHit =
+                (critProbability *
+                    baseDamage *
+                    (1 + dot1) *
+                    (1 + dot2) *
+                    critMultiplier *
+                    defier *
+                    giantKiller *
+                    artifactMultiplier) +
+                (nonCritProbability *
+                    baseDamage *
+                    (1 + dot1) *
+                    (1 + dot2) *
+                    defier *
+                    giantKiller *
+                    artifactMultiplier);
 
-            templeHitDamageTemp.push(expectedDamagePerHit * 2.5); // Apply Temple multiplier
+            const templeHit = expectedDamagePerHit * 2.5;
+            templeHitDamageTemp.push(templeHit);
+            subtotalTemp += templeHit;
         }
 
-        // Calculate expected Demon King's Might (DKM)
-        let sumTempleHitDamage = templeHitDamageTemp.reduce((acc, val) => acc + val, 0);
-        const expectedDemonKingsMight = sumTempleHitDamage * (add + addExtra) * defier * maimMultiplier * giantKiller * elyvia * 1.2 * 2.5;
-        damageForKCrits += expectedDemonKingsMight;
-
-        // Calculate expected Balanced Strike (if any crits did not occur)
-        let expectedBalancedStrike = 0;
-        if (k < hits) {  // Balanced Strike only triggers if not all hits are crits
-            expectedBalancedStrike = expectedDamage * 1.95 * defier * elyvia * (add + addExtra) * maimMultiplier * giantKiller * 2.5;
+        // --- Expected DKM ---
+        const maxHitsForDKM = enemyHP > 60 ? 2 : 4;
+        let dkmSum = 0;
+        for (let i = 0; i < maxHitsForDKM; i++) {
+            dkmSum += templeHitDamageTemp[i];
         }
 
-        // Calculate expected Lethal Fightback
-        const lfbMultiplier = 1.0 + (k < hits ? 1.95 : 0);
-        const expectedLethalFightback = expectedDamage * 0.18 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * lfbMultiplier * 2.5;
-      
-     
-if (imprintChosen) {
-    expectedImprintDamage = expectedDamage * 0.10 * defier * giantKiller * (add + addExtra) * maimMultiplier * elyvia * 2.5;
-}
-        // Total expected damage for exactly k crits
-        damageForKCrits += expectedBalancedStrike + expectedLethalFightback + expectedImprintDamage;
+        const expectedDKM =
+            dkmSum *
+            (add + addExtra) *
+            defier *
+            maimMultiplier *
+            giantKiller *
+            elyvia *
+            1.2 *
+            2.5;
 
-        // Add weighted damage (weighted by binomial probability)
+        subtotalTemp += expectedDKM;
+
+        // --- Expected Balanced Strike ---
+        let expectedBS = 0;
+        let bsMultiplierTemp = enemyHP <= 50 ? 1.95 : 0.45;
+
+        if (hasNonCritTemp) {
+            expectedBS =
+                subtotalTemp *
+                bsMultiplierTemp *
+                defier *
+                elyvia *
+                (add + addExtra) *
+                maimMultiplier *
+                giantKiller *
+                2.5;
+        }
+
+        // --- Expected Lethal Fightback ---
+        let lfbMultiplierTemp = 1.0;
+        if (hasNonCritTemp) lfbMultiplierTemp += bsMultiplierTemp;
+
+        const expectedLFB =
+            subtotalTemp *
+            0.18 *
+            defier *
+            giantKiller *
+            (add + addExtra) *
+            maimMultiplier *
+            elyvia *
+            lfbMultiplierTemp *
+            2.5;
+
+        // --- Expected Transition Damage ---
+        let expectedTransition = 0;
+        if (transitionPoint === 12) {
+            const isBelow50HP = enemyHP < 50;
+
+            const baseMultiplier =
+                giantKiller *
+                defier *
+                elyvia *
+                (1 + 0.3 * precision) *
+                hdMultiplier *
+                petMultiplier *
+                (1 + dot1) *
+                (1 + dot2) *
+                (add + addExtra) *
+                maimMultiplier *
+                artifactMultiplier *
+                2.5;
+
+            let hit1 = 1500 * attack * 2 * baseMultiplier;
+            let hit2 = 1000 * attack * baseMultiplier;
+            let hit3 = (isBelow50HP ? 800 : 1200) * attack * baseMultiplier;
+
+            expectedTransition = hit1 + hit2 + hit3;
+        }
+
+        // --- Expected Imprint (CORRECT BASE) ---
+        let expectedImprint = 0;
+        if (imprintChosen) {
+            const subtotal2Temp =
+                subtotalTemp +
+                expectedBS +
+                expectedLFB +
+                expectedTransition;
+
+            expectedImprint =
+                subtotal2Temp *
+                0.10 *
+                defier *
+                giantKiller *
+                (add + addExtra) *
+                maimMultiplier *
+                elyvia *
+                2.5;
+        }
+
+        // --- Total for exactly k crits ---
+        const damageForKCrits =
+            subtotalTemp +
+            expectedBS +
+            expectedLFB +
+            expectedTransition +
+            expectedImprint;
+
         expectedDamage += binomialProbability * damageForKCrits;
     }
 
     return expectedDamage;
 }
 
-// --- Calculate Optimal Crit Chance ---
-let maxExpectedValue = 0;
-let optimalCritChance = 0;
-
-// Iterate over possible crit chances (from 0 to 100%)
-for (let critChance = 0; critChance <= 100; critChance++) {
-    let currentExpectedDamage = calculateExpectedDamageForCrits(critChance / 100, hits);
-
-    if (currentExpectedDamage > maxExpectedValue) {
-        maxExpectedValue = currentExpectedDamage;
-        optimalCritChance = critChance;
-    }
-}
-
-    setTimeout(() => {
-        // Update the summary content
-        document.getElementById('summary').innerHTML = summaryHTML;
-
-        // Update the optimalCritRate value
-        const optimalCritRateElement = document.getElementById('optimalCritRate');
-        if (optimalCritRateElement) {
-            console.log("Updating optimalCritRate to:", optimalCritChance.toFixed(2));
-            optimalCritRateElement.value = optimalCritChance.toFixed(2);
-        }
-
-        // Switch to the summary tab (if needed)
-        const activeTab = document.querySelector('.tab.active');
-        if (activeTab && activeTab.getAttribute('data-tab') === 'summary') {
-            document.getElementById('summary').style.display = 'block';
-        }
-    }, 100); 
 
 let summaryHTML = "<div class='damage-summary'>";
 
