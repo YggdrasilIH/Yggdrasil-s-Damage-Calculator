@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>15-Round Battle Simulator</title>
+
 <style>
   body {
     font-family: Arial, sans-serif;
@@ -14,13 +15,19 @@
     padding: 10px 20px;
     font-size: 16px;
     cursor: pointer;
+    margin-bottom: 15px;
   }
   pre {
     background: #1e1e1e;
     padding: 15px;
-    max-height: 80vh;
+    max-height: 45vh;
     overflow-y: auto;
     white-space: pre-wrap;
+    border-radius: 6px;
+  }
+  canvas {
+    background: #1e1e1e;
+    margin-top: 20px;
     border-radius: 6px;
   }
 </style>
@@ -29,18 +36,25 @@
 
 <h1>15-Round Battle Simulator</h1>
 <button onclick="runSimulation()">Run Simulation</button>
+
 <pre id="log"></pre>
+
+<canvas id="curseChart" width="800" height="250"></canvas>
+<canvas id="buffChart" width="800" height="250"></canvas>
 
 <script>
 /* =========================
-   GLOBAL STATE
+   LOGGING
 ========================= */
 
 const logEl = document.getElementById("log");
-
 function log(msg) {
   logEl.textContent += msg + "\n";
 }
+
+/* =========================
+   RNG
+========================= */
 
 function rng50() {
   return Math.random() < 0.5;
@@ -56,7 +70,14 @@ const LFA = {
 };
 
 /* =========================
-   BUFF HANDLING
+   HISTORY TRACKING
+========================= */
+
+let curseHistory = [];
+let buffHistory = [];
+
+/* =========================
+   BUFF APPLICATION
 ========================= */
 
 function applyBuffToLFA(buff) {
@@ -68,25 +89,12 @@ function applyBuffToLFA(buff) {
 
   if (LFA.curseStacks > 0) {
     LFA.curseStacks--;
-    log(`  ✖ Buff negated by Curse: ${buff.name} (Curse left: ${LFA.curseStacks})`);
+    log(`  ✖ Buff negated: ${buff.name} (Curse left: ${LFA.curseStacks})`);
   } else {
     LFA.buffs.push(buff);
     log(`  ✔ Buff applied: ${buff.name}`);
   }
 }
-
-/* =========================
-   HERO DEFINITIONS
-========================= */
-
-const heroes = [
-  { speed: 1, name: "Vespera" },
-  { speed: 2, name: "LFA" },
-  { speed: 3, name: "Elyvia" },
-  { speed: 4, name: "SQH" },
-  { speed: 5, name: "PDE" },
-  { speed: 6, name: "LBRM" }
-];
 
 /* =========================
    HERO ACTIONS
@@ -95,17 +103,9 @@ const heroes = [
 function vesperaAction(round) {
   log(" Vespera attacks");
 
-  // Always buffs
-  [
-    "10 Attack",
-    "10 Damage Reduction",
-    "10 Control Immunity",
-    "30 Speed"
-  ].forEach(name =>
-    applyBuffToLFA({ name, type: "NORMAL" })
-  );
+  ["10 Attack", "10 Damage Reduction", "10 Control Immunity", "30 Speed"]
+    .forEach(name => applyBuffToLFA({ name, type: "NORMAL" }));
 
-  // Conditional buffs
   if (round % 2 === 1) {
     applyBuffToLFA({ name: "Attack Steal", type: "NORMAL" });
     applyBuffToLFA({ name: "All Damage Dealt", type: "ALL_DAMAGE_DEALT" });
@@ -114,7 +114,6 @@ function vesperaAction(round) {
     applyBuffToLFA({ name: "Crit", type: "NORMAL" });
   }
 
-  // DB (fastest hero on attack)
   applyBuffToLFA({ name: "Energy (DB)", type: "NORMAL" });
 }
 
@@ -134,22 +133,19 @@ function genericAttack(name) {
 function team2Counter() {
   if (rng50()) {
     LFA.curseStacks++;
-    log(`  ⚠ Team 2 counter: +1 Curse (Total: ${LFA.curseStacks})`);
-  } else {
-    log("  Team 2 counter: no Curse");
+    log(`  ⚠ Counter: +1 Curse (Total: ${LFA.curseStacks})`);
   }
 }
 
 function team2Turn() {
   log(" Team 2 attacks");
   LFA.curseStacks += 2;
-  log(`  ⚠ +2 Curse from Team 2 attack (Total: ${LFA.curseStacks})`);
+  log(`  ⚠ +2 Curse (Total: ${LFA.curseStacks})`);
 
-  // Reactive buffs
   applyBuffToLFA({ name: "Crit (SQH reaction)", type: "NORMAL" });
-  applyBuffToLFA({ name: "All Damage Dealt (PDE reaction)", type: "ALL_DAMAGE_DEALT" });
-  applyBuffToLFA({ name: "All Damage Dealt (PDE reaction)", type: "ALL_DAMAGE_DEALT" });
-  applyBuffToLFA({ name: "Holy Damage (PDE reaction)", type: "NORMAL" });
+  applyBuffToLFA({ name: "All Damage Dealt (PDE)", type: "ALL_DAMAGE_DEALT" });
+  applyBuffToLFA({ name: "All Damage Dealt (PDE)", type: "ALL_DAMAGE_DEALT" });
+  applyBuffToLFA({ name: "Holy Damage (PDE)", type: "NORMAL" });
 }
 
 /* =========================
@@ -157,13 +153,11 @@ function team2Turn() {
 ========================= */
 
 function endOfRoundTeam1() {
-  log(" End of Round – Team 1 effects");
+  log(" End of Round – Team 1");
 
-  // Mirror (speed 3)
   applyBuffToLFA({ name: "Energy (Mirror)", type: "NORMAL" });
   applyBuffToLFA({ name: "All Damage Dealt (Mirror)", type: "ALL_DAMAGE_DEALT" });
 
-  // Scissors
   applyBuffToLFA({ name: "Attack (Scissors SQH)", type: "NORMAL" });
   applyBuffToLFA({ name: "Holy Damage (Scissors PDE)", type: "NORMAL" });
   applyBuffToLFA({ name: "Holy Damage (Scissors LBRM)", type: "NORMAL" });
@@ -171,7 +165,36 @@ function endOfRoundTeam1() {
 
 function endOfRoundTeam2() {
   LFA.curseStacks += 3;
-  log(` ⚠ End of Round Team 2: +3 Curse (Total: ${LFA.curseStacks})`);
+  log(` ⚠ End of Round: +3 Curse (Total: ${LFA.curseStacks})`);
+}
+
+/* =========================
+   GRAPHING
+========================= */
+
+function drawGraph(canvasId, data, label) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const maxVal = Math.max(...data, 1);
+  const padding = 40;
+  const stepX = (canvas.width - padding * 2) / (data.length - 1);
+
+  ctx.strokeStyle = "#4cafef";
+  ctx.beginPath();
+
+  data.forEach((val, i) => {
+    const x = padding + stepX * i;
+    const y = canvas.height - padding - (val / maxVal) * (canvas.height - padding * 2);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+
+  ctx.stroke();
+
+  ctx.fillStyle = "#ccc";
+  ctx.fillText(label, padding, 20);
 }
 
 /* =========================
@@ -182,31 +205,19 @@ function runSimulation() {
   logEl.textContent = "";
   LFA.buffs = [];
   LFA.curseStacks = 0;
+  curseHistory = [];
+  buffHistory = [];
+
+  const heroes = ["Vespera", "LFA", "Elyvia", "SQH", "PDE", "LBRM"];
 
   for (let round = 1; round <= 15; round++) {
     log(`\n===== ROUND ${round} =====`);
 
     for (const hero of heroes) {
-      switch (hero.name) {
-        case "Vespera":
-          vesperaAction(round);
-          break;
-        case "LFA":
-          genericAttack("LFA");
-          break;
-        case "Elyvia":
-          genericAttack("Elyvia");
-          break;
-        case "SQH":
-          genericAttack("SQH");
-          break;
-        case "PDE":
-          genericAttack("PDE");
-          break;
-        case "LBRM":
-          lbrmAction();
-          break;
-      }
+      if (hero === "Vespera") vesperaAction(round);
+      else if (hero === "LBRM") lbrmAction();
+      else genericAttack(hero);
+
       team2Counter();
     }
 
@@ -214,11 +225,15 @@ function runSimulation() {
     endOfRoundTeam1();
     endOfRoundTeam2();
 
-    log(` Buff count: ${LFA.buffs.length}`);
+    curseHistory.push(LFA.curseStacks);
+    buffHistory.push(LFA.buffs.length);
+
+    log(` Buffs on LFA: ${LFA.buffs.map(b => b.name).join(", ")}`);
     log(` Curse stacks end of round: ${LFA.curseStacks}`);
   }
 
-  log("\n===== SIMULATION COMPLETE =====");
+  drawGraph("curseChart", curseHistory, "Curse of Decay Stacks per Round");
+  drawGraph("buffChart", buffHistory, "Total Buffs on LFA per Round");
 }
 </script>
 
