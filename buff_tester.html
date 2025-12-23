@@ -39,8 +39,8 @@
 
 <pre id="log"></pre>
 
-<canvas id="curseChart" width="800" height="250"></canvas>
-<canvas id="buffChart" width="800" height="250"></canvas>
+<canvas id="curseChart" width="800" height="260"></canvas>
+<canvas id="buffChart" width="800" height="260"></canvas>
 
 <script>
 /* =========================
@@ -70,7 +70,7 @@ const LFA = {
 };
 
 /* =========================
-   HISTORY TRACKING
+   HISTORY
 ========================= */
 
 let curseHistory = [];
@@ -103,7 +103,7 @@ function applyBuffToLFA(buff) {
 function vesperaAction(round) {
   log(" Vespera attacks");
 
-  ["10 Attack", "10 Damage Reduction", "10 Control Immunity", "30 Speed"]
+  ["Attack +10", "Damage Reduction +10", "Control Immunity +10", "Speed +30"]
     .forEach(name => applyBuffToLFA({ name, type: "NORMAL" }));
 
   if (round % 2 === 1) {
@@ -127,7 +127,7 @@ function genericAttack(name) {
 }
 
 /* =========================
-   TEAM 2 LOGIC
+   TEAM 2
 ========================= */
 
 function team2Counter() {
@@ -142,10 +142,10 @@ function team2Turn() {
   LFA.curseStacks += 2;
   log(`  ⚠ +2 Curse (Total: ${LFA.curseStacks})`);
 
-  applyBuffToLFA({ name: "Crit (SQH reaction)", type: "NORMAL" });
-  applyBuffToLFA({ name: "All Damage Dealt (PDE)", type: "ALL_DAMAGE_DEALT" });
-  applyBuffToLFA({ name: "All Damage Dealt (PDE)", type: "ALL_DAMAGE_DEALT" });
-  applyBuffToLFA({ name: "Holy Damage (PDE)", type: "NORMAL" });
+  applyBuffToLFA({ name: "Crit", type: "NORMAL" });
+  applyBuffToLFA({ name: "All Damage Dealt", type: "ALL_DAMAGE_DEALT" });
+  applyBuffToLFA({ name: "All Damage Dealt", type: "ALL_DAMAGE_DEALT" });
+  applyBuffToLFA({ name: "Holy Damage", type: "NORMAL" });
 }
 
 /* =========================
@@ -156,11 +156,11 @@ function endOfRoundTeam1() {
   log(" End of Round – Team 1");
 
   applyBuffToLFA({ name: "Energy (Mirror)", type: "NORMAL" });
-  applyBuffToLFA({ name: "All Damage Dealt (Mirror)", type: "ALL_DAMAGE_DEALT" });
+  applyBuffToLFA({ name: "All Damage Dealt", type: "ALL_DAMAGE_DEALT" });
 
-  applyBuffToLFA({ name: "Attack (Scissors SQH)", type: "NORMAL" });
-  applyBuffToLFA({ name: "Holy Damage (Scissors PDE)", type: "NORMAL" });
-  applyBuffToLFA({ name: "Holy Damage (Scissors LBRM)", type: "NORMAL" });
+  applyBuffToLFA({ name: "Attack", type: "NORMAL" });
+  applyBuffToLFA({ name: "Holy Damage", type: "NORMAL" });
+  applyBuffToLFA({ name: "Holy Damage", type: "NORMAL" });
 }
 
 function endOfRoundTeam2() {
@@ -169,26 +169,52 @@ function endOfRoundTeam2() {
 }
 
 /* =========================
-   GRAPHING
+   SUMMARY HELPERS
+========================= */
+
+function groupedBuffSummary() {
+  const map = {};
+  LFA.buffs.forEach(b => map[b.name] = (map[b.name] || 0) + 1);
+  return Object.entries(map)
+    .map(([k, v]) => `${k} ×${v}`)
+    .join(", ");
+}
+
+/* =========================
+   GRAPHING (FIXED)
 ========================= */
 
 function drawGraph(canvasId, data, label) {
   const canvas = document.getElementById(canvasId);
   const ctx = canvas.getContext("2d");
-
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  const padding = 50;
   const maxVal = Math.max(...data, 1);
-  const padding = 40;
-  const stepX = (canvas.width - padding * 2) / (data.length - 1);
+  const height = canvas.height - padding * 2;
+  const width = canvas.width - padding * 2;
+  const stepX = width / (data.length - 1);
 
+  // Axes
+  ctx.strokeStyle = "#555";
+  ctx.beginPath();
+  ctx.moveTo(padding, padding);
+  ctx.lineTo(padding, canvas.height - padding);
+  ctx.lineTo(canvas.width - padding, canvas.height - padding);
+  ctx.stroke();
+
+  // Line + points
   ctx.strokeStyle = "#4cafef";
+  ctx.fillStyle = "#4cafef";
   ctx.beginPath();
 
   data.forEach((val, i) => {
     const x = padding + stepX * i;
-    const y = canvas.height - padding - (val / maxVal) * (canvas.height - padding * 2);
+    const y = canvas.height - padding - (val / maxVal) * height;
     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
   });
 
   ctx.stroke();
@@ -198,7 +224,7 @@ function drawGraph(canvasId, data, label) {
 }
 
 /* =========================
-   MAIN SIMULATION
+   MAIN SIM
 ========================= */
 
 function runSimulation() {
@@ -228,7 +254,7 @@ function runSimulation() {
     curseHistory.push(LFA.curseStacks);
     buffHistory.push(LFA.buffs.length);
 
-    log(` Buffs on LFA: ${LFA.buffs.map(b => b.name).join(", ")}`);
+    log(` Buffs on LFA: ${groupedBuffSummary()}`);
     log(` Curse stacks end of round: ${LFA.curseStacks}`);
   }
 
