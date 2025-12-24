@@ -1,266 +1,146 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>15-Round Battle Simulator</title>
-
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    background: #121212;
-    color: #e0e0e0;
-    padding: 20px;
-  }
-  button {
-    padding: 10px 20px;
-    font-size: 16px;
-    cursor: pointer;
-    margin-bottom: 15px;
-  }
-  pre {
-    background: #1e1e1e;
-    padding: 15px;
-    max-height: 45vh;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    border-radius: 6px;
-  }
-  canvas {
-    background: #1e1e1e;
-    margin-top: 20px;
-    border-radius: 6px;
-  }
-</style>
+  <meta charset="utf-8" />
+  <title>Battle Simulator</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f5f4eb; }
+    pre { background: #e0dcd0; padding: 10px; border-radius: 5px; }
+  </style>
 </head>
 <body>
 
-<h1>15-Round Battle Simulator</h1>
-<button onclick="runSimulation()">Run Simulation</button>
-
+<h1>Battle Simulator Skeleton</h1>
 <pre id="log"></pre>
 
-<canvas id="curseChart" width="800" height="260"></canvas>
-<canvas id="buffChart" width="800" height="260"></canvas>
-
 <script>
-/* =========================
-   LOGGING
-========================= */
-
-const logEl = document.getElementById("log");
-function log(msg) {
-  logEl.textContent += msg + "\n";
-}
-
-/* =========================
-   RNG
-========================= */
-
-function rng50() {
-  return Math.random() < 0.5;
-}
-
-/* =========================
-   LFA STATE
-========================= */
-
-const LFA = {
-  buffs: [],
-  curseStacks: 0
+/* ------------------------
+   Global Battle State
+-------------------------*/
+const battleState = {
+  round: 1,
+  heroes: [],
+  lfaBuffs: {},
+  boss: {
+    abyssalCorruptionStacks: 0,
+    HDStacks: 0,
+    atkBuff: 0
+  },
+  lfaDebuffs: {
+    curseOfDecay: { stacks: 0 }
+  }
 };
 
-/* =========================
-   HISTORY
-========================= */
+/* ------------------------
+   Utility Functions
+-------------------------*/
+function tryApplyBuff(buff, targetBuffs) {
+  // Curse of Decay check (only for LFA)
+  if (targetBuffs === battleState.lfaBuffs &&
+      battleState.lfaDebuffs.curseOfDecay.stacks > 0 &&
+      buff.offsettable &&
+      buff.stat !== "ADD" &&
+      !buff.isSkillEffect) {
+    battleState.lfaDebuffs.curseOfDecay.stacks--;
+    return; // buff negated
+  }
 
-let curseHistory = [];
-let buffHistory = [];
-
-/* =========================
-   BUFF APPLICATION
-========================= */
-
-function applyBuffToLFA(buff) {
-  if (buff.type === "ALL_DAMAGE_DEALT") {
-    LFA.buffs.push(buff);
-    log(`  ✔ Buff applied (immune): ${buff.name}`);
+  // Non-stacking ADD logic
+  if (buff.stat === "ADD" && buff.nonStacking) {
+    targetBuffs[buff.stat] = { value: buff.value, duration: buff.duration };
     return;
   }
 
-  if (LFA.curseStacks > 0) {
-    LFA.curseStacks--;
-    log(`  ✖ Buff negated: ${buff.name} (Curse left: ${LFA.curseStacks})`);
+  // Normal buff stacking
+  if (!targetBuffs[buff.stat]) {
+    targetBuffs[buff.stat] = { value: buff.value, duration: buff.duration };
   } else {
-    LFA.buffs.push(buff);
-    log(`  ✔ Buff applied: ${buff.name}`);
+    targetBuffs[buff.stat].value += buff.value;
+    targetBuffs[buff.stat].duration = Math.max(targetBuffs[buff.stat].duration, buff.duration);
   }
 }
 
-/* =========================
-   HERO ACTIONS
-========================= */
+/* ------------------------
+   Hero Definitions
+-------------------------*/
 
-function vesperaAction(round) {
-  log(" Vespera attacks");
+// SQH
+const SQH = {
+  name: "SQH",
+  transitionPoints: 0,
+  activeBuffs: [
+    { stat: "abyssalCorruption", value: 1, chance: 0.25 }
+  ],
+  basicBuffs: [],
+  DTThreshold: 12,
+  DTBuffs: [
+    { stat: "energy", value: 20, duration: 0, stackable: true },
+    { stat: "armor", value: 0.20, duration: 2, stackable: true },
+    { stat: "DR", value: 0.20, duration: 2, stackable: true },
+    { stat: "atk", value: 0.10, duration: 2, stackable: true },
+    { stat: "ADD", value: 0.10, duration: 2, stackable: true }
+  ]
+};
 
-  ["Attack +10", "Damage Reduction +10", "Control Immunity +10", "Speed +30"]
-    .forEach(name => applyBuffToLFA({ name, type: "NORMAL" }));
+// Ely
+const Ely = {
+  name: "Ely",
+  hasDT: false,
+  activeBuffs: [],
+  basicBuffs: []
+};
 
-  if (round % 2 === 1) {
-    applyBuffToLFA({ name: "Attack Steal", type: "NORMAL" });
-    applyBuffToLFA({ name: "All Damage Dealt", type: "ALL_DAMAGE_DEALT" });
-    applyBuffToLFA({ name: "Crit Damage", type: "NORMAL" });
-  } else {
-    applyBuffToLFA({ name: "Crit", type: "NORMAL" });
-  }
+// LBRM
+const LBRM = {
+  name: "LBRM",
+  transitionPoints: 0,
+  activeBuffs: [
+    { stat: "ADD", value: 0.12, duration: 4, stackable: false, nonStacking: true }
+  ],
+  basicBuffs: [
+    { stat: "ADD", value: 0.12, duration: 4, stackable: false, nonStacking: true }
+  ],
+  DTThreshold: 6,
+  DTBuffs: [
+    { stat: "HD", value: 0.10, duration: 2, stackable: true },
+    { stat: "ADD", value: 0.15, duration: 2, stackable: true },
+    { stat: "ADD", value: 0.10, duration: 3, stackable: true }
+  ]
+};
 
-  applyBuffToLFA({ name: "Energy (DB)", type: "NORMAL" });
-}
+// Vespera
+const Vespera = {
+  name: "Vespera",
+  transitionPoints: 0,
+  activeBuffs: [
+    { stat: "atk", value: 0.10, duration: 2, stackable: true },
+    { stat: "armor", value: 0.10, duration: 2, stackable: true },
+    { stat: "DR", value: 0.10, duration: 2, stackable: true },
+    { stat: "CI", value: 0.10, duration: 2, stackable: true },
+    { stat: "speed", value: 30, duration: 2, stackable: true }
+  ],
+  basicBuffs: [
+    { stat: "atk", value: 0.10, duration: 2, stackable: true },
+    { stat: "ADD", value: 0.08, duration: 2, stackable: true, chance: 0.8 }
+  ],
+  DT6Buffs: [
+    { stat: "energy", value: 20, duration: 0, stackable: true },
+    { stat: "atk", value: 0.10, duration: 2, stackable: true }
+  ],
+  DT12Buffs: [
+    { stat: "energy", value: 20, duration: 0, stackable: true },
+    { stat: "atk", value: 0.10, duration: 2, stackable: true },
+    { stat: "ADD", value: 0.10, duration: 2, stackable: true }
+  ]
+};
 
-function lbrmAction() {
-  log(" LBRM attacks");
-  applyBuffToLFA({ name: "All Damage Dealt", type: "ALL_DAMAGE_DEALT" });
-}
+// Register heroes
+battleState.heroes.push(SQH, Ely, LBRM, Vespera);
 
-function genericAttack(name) {
-  log(` ${name} attacks`);
-}
-
-/* =========================
-   TEAM 2
-========================= */
-
-function team2Counter() {
-  if (rng50()) {
-    LFA.curseStacks++;
-    log(`  ⚠ Counter: +1 Curse (Total: ${LFA.curseStacks})`);
-  }
-}
-
-function team2Turn() {
-  log(" Team 2 attacks");
-  LFA.curseStacks += 2;
-  log(`  ⚠ +2 Curse (Total: ${LFA.curseStacks})`);
-
-  applyBuffToLFA({ name: "Crit", type: "NORMAL" });
-  applyBuffToLFA({ name: "All Damage Dealt", type: "ALL_DAMAGE_DEALT" });
-  applyBuffToLFA({ name: "All Damage Dealt", type: "ALL_DAMAGE_DEALT" });
-  applyBuffToLFA({ name: "Holy Damage", type: "NORMAL" });
-}
-
-/* =========================
-   END OF ROUND
-========================= */
-
-function endOfRoundTeam1() {
-  log(" End of Round – Team 1");
-
-  applyBuffToLFA({ name: "Energy (Mirror)", type: "NORMAL" });
-  applyBuffToLFA({ name: "All Damage Dealt", type: "ALL_DAMAGE_DEALT" });
-
-  applyBuffToLFA({ name: "Attack", type: "NORMAL" });
-  applyBuffToLFA({ name: "Holy Damage", type: "NORMAL" });
-  applyBuffToLFA({ name: "Holy Damage", type: "NORMAL" });
-}
-
-function endOfRoundTeam2() {
-  LFA.curseStacks += 3;
-  log(` ⚠ End of Round: +3 Curse (Total: ${LFA.curseStacks})`);
-}
-
-/* =========================
-   SUMMARY HELPERS
-========================= */
-
-function groupedBuffSummary() {
-  const map = {};
-  LFA.buffs.forEach(b => map[b.name] = (map[b.name] || 0) + 1);
-  return Object.entries(map)
-    .map(([k, v]) => `${k} ×${v}`)
-    .join(", ");
-}
-
-/* =========================
-   GRAPHING (FIXED)
-========================= */
-
-function drawGraph(canvasId, data, label) {
-  const canvas = document.getElementById(canvasId);
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const padding = 50;
-  const maxVal = Math.max(...data, 1);
-  const height = canvas.height - padding * 2;
-  const width = canvas.width - padding * 2;
-  const stepX = width / (data.length - 1);
-
-  // Axes
-  ctx.strokeStyle = "#555";
-  ctx.beginPath();
-  ctx.moveTo(padding, padding);
-  ctx.lineTo(padding, canvas.height - padding);
-  ctx.lineTo(canvas.width - padding, canvas.height - padding);
-  ctx.stroke();
-
-  // Line + points
-  ctx.strokeStyle = "#4cafef";
-  ctx.fillStyle = "#4cafef";
-  ctx.beginPath();
-
-  data.forEach((val, i) => {
-    const x = padding + stepX * i;
-    const y = canvas.height - padding - (val / maxVal) * height;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    ctx.beginPath();
-    ctx.arc(x, y, 3, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  ctx.stroke();
-
-  ctx.fillStyle = "#ccc";
-  ctx.fillText(label, padding, 20);
-}
-
-/* =========================
-   MAIN SIM
-========================= */
-
-function runSimulation() {
-  logEl.textContent = "";
-  LFA.buffs = [];
-  LFA.curseStacks = 0;
-  curseHistory = [];
-  buffHistory = [];
-
-  const heroes = ["Vespera", "LFA", "Elyvia", "SQH", "PDE", "LBRM"];
-
-  for (let round = 1; round <= 15; round++) {
-    log(`\n===== ROUND ${round} =====`);
-
-    for (const hero of heroes) {
-      if (hero === "Vespera") vesperaAction(round);
-      else if (hero === "LBRM") lbrmAction();
-      else genericAttack(hero);
-
-      team2Counter();
-    }
-
-    team2Turn();
-    endOfRoundTeam1();
-    endOfRoundTeam2();
-
-    curseHistory.push(LFA.curseStacks);
-    buffHistory.push(LFA.buffs.length);
-
-    log(` Buffs on LFA: ${groupedBuffSummary()}`);
-    log(` Curse stacks end of round: ${LFA.curseStacks}`);
-  }
-
-  drawGraph("curseChart", curseHistory, "Curse of Decay Stacks per Round");
-  drawGraph("buffChart", buffHistory, "Total Buffs on LFA per Round");
-}
+/* ------------------------
+   Example Logging
+-------------------------*/
+document.getElementById("log").textContent = JSON.stringify(battleState, null, 2);
 </script>
 
 </body>
