@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Battle Simulator</title>
+  <title>Battle Simulator with SE Boss</title>
   <style>
     body { font-family: Arial, sans-serif; background: #f5f4eb; }
     pre { background: #e0dcd0; padding: 10px; border-radius: 5px; }
@@ -10,7 +10,7 @@
 </head>
 <body>
 
-<h1>Battle Simulator Skeleton</h1>
+<h1>15-Round Battle Simulator with SE Boss</h1>
 <pre id="log"></pre>
 
 <script>
@@ -32,10 +32,9 @@ const battleState = {
 };
 
 /* ------------------------
-   Utility Functions
+   Buff Utility
 -------------------------*/
 function tryApplyBuff(buff, targetBuffs) {
-  // Curse of Decay check (only for LFA)
   if (targetBuffs === battleState.lfaBuffs &&
       battleState.lfaDebuffs.curseOfDecay.stacks > 0 &&
       buff.offsettable &&
@@ -45,13 +44,11 @@ function tryApplyBuff(buff, targetBuffs) {
     return; // buff negated
   }
 
-  // Non-stacking ADD logic
   if (buff.stat === "ADD" && buff.nonStacking) {
     targetBuffs[buff.stat] = { value: buff.value, duration: buff.duration };
     return;
   }
 
-  // Normal buff stacking
   if (!targetBuffs[buff.stat]) {
     targetBuffs[buff.stat] = { value: buff.value, duration: buff.duration };
   } else {
@@ -61,16 +58,120 @@ function tryApplyBuff(buff, targetBuffs) {
 }
 
 /* ------------------------
+   Hero Action
+-------------------------*/
+function applyHeroAction(hero, actionType) {
+  const buffs = actionType === "active" ? hero.activeBuffs : hero.basicBuffs;
+
+  buffs.forEach(buff => {
+    if (buff.chance && Math.random() > buff.chance) return;
+    tryApplyBuff(buff, battleState.lfaBuffs);
+  });
+
+  if (actionType === "active" && hero.transitionPoints !== undefined) hero.transitionPoints += 6;
+
+  if (hero.DTThreshold && hero.transitionPoints >= hero.DTThreshold) applyDTSkill(hero);
+
+  // SE Boss counterattack
+  seBossCounterattack(hero);
+}
+
+/* ------------------------
+   DT Skill
+-------------------------*/
+function applyDTSkill(hero) {
+  let dtBuffs;
+
+  if (hero.name === "Vespera") {
+    if (hero.transitionPoints >= 12) {
+      dtBuffs = hero.DT12Buffs;
+      hero.transitionPoints = 0;
+    } else if (hero.transitionPoints >= 6) {
+      dtBuffs = hero.DT6Buffs;
+    } else return;
+  } else {
+    dtBuffs = hero.DTBuffs;
+    hero.transitionPoints = 0;
+  }
+
+  dtBuffs.forEach(buff => tryApplyBuff(buff, battleState.lfaBuffs));
+}
+
+/* ------------------------
+   SE Boss Mechanics
+-------------------------*/
+function seBossCounterattack(hero) {
+  // Counterattack occurs after each hero action
+  if (hero.name === "SE Boss") return; // boss cannot counter itself
+
+  // Counterattack: 50% chance to apply Curse of Decay to LFA
+  const maxCounter = 6; // limit per round
+  if (!battleState.boss.counterCount) battleState.boss.counterCount = 0;
+  if (battleState.boss.counterCount >= maxCounter) return;
+
+  battleState.boss.counterCount++;
+
+  if (Math.random() < 0.5) {
+    battleState.lfaDebuffs.curseOfDecay.stacks++;
+  }
+
+  // SE Boss attack effect (2 Curse layers + 8% ATK steal) occurs per counter
+  applySEBossAttack();
+}
+
+function applySEBossAttack() {
+  // 2 Curse layers on LFA
+  battleState.lfaDebuffs.curseOfDecay.stacks += 2;
+
+  // 8% ATK steal placeholder (could be tracked separately)
+  tryApplyBuff({ stat: "atk", value: -0.08, duration: 3, offsettable: true }, battleState.lfaBuffs);
+}
+
+/* ------------------------
+   End-of-Round Boss Effects
+-------------------------*/
+function endOfRoundBossEffects() {
+  // SE Boss gains 2 HD stacks and 15% attack buff per round (15 rounds duration)
+  battleState.boss.HDStacks += 2;
+  battleState.boss.atkBuff += 0.15;
+
+  // End-of-round: +3 Curse layers on LFA
+  battleState.lfaDebuffs.curseOfDecay.stacks += 3;
+
+  // 25% chance to remove one random LFA buff (excluding ADD)
+  const lfaBuffKeys = Object.keys(battleState.lfaBuffs).filter(stat => stat !== "ADD");
+  if (lfaBuffKeys.length > 0 && Math.random() < 0.25) {
+    const randomBuff = lfaBuffKeys[Math.floor(Math.random() * lfaBuffKeys.length)];
+    delete battleState.lfaBuffs[randomBuff];
+  }
+}
+
+/* ------------------------
+   End-of-Round Processing
+-------------------------*/
+function endOfRound() {
+  // Decrement durations
+  for (const stat in battleState.lfaBuffs) {
+    const buff = battleState.lfaBuffs[stat];
+    if (buff.duration > 0) buff.duration--;
+    if (buff.duration === 0) delete battleState.lfaBuffs[stat];
+  }
+
+  // Apply boss end-of-round effects
+  endOfRoundBossEffects();
+
+  // Reset counter for next round
+  battleState.boss.counterCount = 0;
+}
+
+/* ------------------------
    Hero Definitions
 -------------------------*/
-
 // SQH
 const SQH = {
   name: "SQH",
   transitionPoints: 0,
-  activeBuffs: [
-    { stat: "abyssalCorruption", value: 1, chance: 0.25 }
-  ],
+  activeBuffs: [{ stat: "abyssalCorruption", value: 1, chance: 0.25 }],
   basicBuffs: [],
   DTThreshold: 12,
   DTBuffs: [
@@ -83,23 +184,14 @@ const SQH = {
 };
 
 // Ely
-const Ely = {
-  name: "Ely",
-  hasDT: false,
-  activeBuffs: [],
-  basicBuffs: []
-};
+const Ely = { name: "Ely", hasDT: false, activeBuffs: [], basicBuffs: [] };
 
 // LBRM
 const LBRM = {
   name: "LBRM",
   transitionPoints: 0,
-  activeBuffs: [
-    { stat: "ADD", value: 0.12, duration: 4, stackable: false, nonStacking: true }
-  ],
-  basicBuffs: [
-    { stat: "ADD", value: 0.12, duration: 4, stackable: false, nonStacking: true }
-  ],
+  activeBuffs: [{ stat: "ADD", value: 0.12, duration: 4, stackable: false, nonStacking: true }],
+  basicBuffs: [{ stat: "ADD", value: 0.12, duration: 4, stackable: false, nonStacking: true }],
   DTThreshold: 6,
   DTBuffs: [
     { stat: "HD", value: 0.10, duration: 2, stackable: true },
@@ -134,11 +226,38 @@ const Vespera = {
   ]
 };
 
+// Placeholders for LFA, BDSM, PDE
+const LFA = { name: "LFA" };
+const BDSM = { name: "BDSM" };
+const PDE = { name: "PDE" };
+
 // Register heroes
-battleState.heroes.push(SQH, Ely, LBRM, Vespera);
+battleState.heroes.push(SQH, Ely, LBRM, Vespera, LFA, BDSM, PDE);
 
 /* ------------------------
-   Example Logging
+   Round Simulation
+-------------------------*/
+function simulateRound(roundNumber) {
+  battleState.round = roundNumber;
+
+  // Iterate heroes in speed order (example: placeholder order)
+  battleState.heroes.forEach(hero => {
+    applyHeroAction(hero, "active"); // placeholder: assume active
+  });
+
+  // End-of-round processing
+  endOfRound();
+}
+
+/* ------------------------
+   Simulate 15 Rounds
+-------------------------*/
+for (let r = 1; r <= 15; r++) {
+  simulateRound(r);
+}
+
+/* ------------------------
+   Display Battle State
 -------------------------*/
 document.getElementById("log").textContent = JSON.stringify(battleState, null, 2);
 </script>
