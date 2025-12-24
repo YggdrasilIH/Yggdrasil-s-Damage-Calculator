@@ -1,265 +1,230 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <title>Battle Simulator with SE Boss</title>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f5f4eb; }
-    pre { background: #e0dcd0; padding: 10px; border-radius: 5px; }
-  </style>
+<meta charset="utf-8">
+<title>Battle Simulator with Hero Selection</title>
+<style>
+body { font-family: Arial, sans-serif; background: #f5f4eb; padding: 20px; }
+select { margin-right: 10px; margin-bottom: 10px; }
+button { margin-top: 10px; padding: 5px 10px; }
+pre { background: #e0dcd0; padding: 10px; border-radius: 5px; margin-top: 20px; }
+</style>
 </head>
 <body>
 
-<h1>15-Round Battle Simulator with SE Boss</h1>
+<h1>Battle Simulator</h1>
+
+<h3>Select Heroes and Artifacts</h3>
+<div id="hero-selection">
+  <!-- 6 hero slots -->
+  <div>
+    Hero 1: 
+    <select class="hero-select">
+      <option value="">--Select--</option>
+      <option value="SQH">SQH</option>
+      <option value="Ely">Ely</option>
+      <option value="LFA">LFA</option>
+      <option value="LBRM">LBRM</option>
+      <option value="BDSM">BDSM</option>
+      <option value="Vespera">Vespera</option>
+      <option value="PDE">PDE</option>
+    </select>
+    Artifact:
+    <select class="artifact-select">
+      <option value="none">none</option>
+      <option value="mirror">mirror</option>
+      <option value="db">db</option>
+      <option value="scissors">scissors</option>
+      <option value="antiwarrior">antiwarrior</option>
+      <option value="antlers">antlers</option>
+    </select>
+  </div>
+  <div>
+    Hero 2: 
+    <select class="hero-select">
+      <option value="">--Select--</option>
+      <option value="SQH">SQH</option>
+      <option value="Ely">Ely</option>
+      <option value="LFA">LFA</option>
+      <option value="LBRM">LBRM</option>
+      <option value="BDSM">BDSM</option>
+      <option value="Vespera">Vespera</option>
+      <option value="PDE">PDE</option>
+    </select>
+    Artifact:
+    <select class="artifact-select">
+      <option value="none">none</option>
+      <option value="mirror">mirror</option>
+      <option value="db">db</option>
+      <option value="scissors">scissors</option>
+      <option value="antiwarrior">antiwarrior</option>
+      <option value="antlers">antlers</option>
+    </select>
+  </div>
+  <div>
+    Hero 3: 
+    <select class="hero-select">
+      <option value="">--Select--</option>
+      <option value="SQH">SQH</option>
+      <option value="Ely">Ely</option>
+      <option value="LFA">LFA</option>
+      <option value="LBRM">LBRM</option>
+      <option value="BDSM">BDSM</option>
+      <option value="Vespera">Vespera</option>
+      <option value="PDE">PDE</option>
+    </select>
+    Artifact:
+    <select class="artifact-select">
+      <option value="none">none</option>
+      <option value="mirror">mirror</option>
+      <option value="db">db</option>
+      <option value="scissors">scissors</option>
+      <option value="antiwarrior">antiwarrior</option>
+      <option value="antlers">antlers</option>
+    </select>
+  </div>
+  <div>
+    Hero 4: 
+    <select class="hero-select">
+      <option value="">--Select--</option>
+      <option value="SQH">SQH</option>
+      <option value="Ely">Ely</option>
+      <option value="LFA">LFA</option>
+      <option value="LBRM">LBRM</option>
+      <option value="BDSM">BDSM</option>
+      <option value="Vespera">Vespera</option>
+      <option value="PDE">PDE</option>
+    </select>
+    Artifact:
+    <select class="artifact-select">
+      <option value="none">none</option>
+      <option value="mirror">mirror</option>
+      <option value="db">db</option>
+      <option value="scissors">scissors</option>
+      <option value="antiwarrior">antiwarrior</option>
+      <option value="antlers">antlers</option>
+    </select>
+  </div>
+  <div>
+    Hero 5: 
+    <select class="hero-select">
+      <option value="">--Select--</option>
+      <option value="SQH">SQH</option>
+      <option value="Ely">Ely</option>
+      <option value="LFA">LFA</option>
+      <option value="LBRM">LBRM</option>
+      <option value="BDSM">BDSM</option>
+      <option value="Vespera">Vespera</option>
+      <option value="PDE">PDE</option>
+    </select>
+    Artifact:
+    <select class="artifact-select">
+      <option value="none">none</option>
+      <option value="mirror">mirror</option>
+      <option value="db">db</option>
+      <option value="scissors">scissors</option>
+      <option value="antiwarrior">antiwarrior</option>
+      <option value="antlers">antlers</option>
+    </select>
+  </div>
+  <div>
+    Hero 6: 
+    <select class="hero-select">
+      <option value="">--Select--</option>
+      <option value="SQH">SQH</option>
+      <option value="Ely">Ely</option>
+      <option value="LFA">LFA</option>
+      <option value="LBRM">LBRM</option>
+      <option value="BDSM">BDSM</option>
+      <option value="Vespera">Vespera</option>
+      <option value="PDE">PDE</option>
+    </select>
+    Artifact:
+    <select class="artifact-select">
+      <option value="none">none</option>
+      <option value="mirror">mirror</option>
+      <option value="db">db</option>
+      <option value="scissors">scissors</option>
+      <option value="antiwarrior">antiwarrior</option>
+      <option value="antlers">antlers</option>
+    </select>
+  </div>
+</div>
+
+<button id="runBattle">Run Battle</button>
+
 <pre id="log"></pre>
 
 <script>
-/* ------------------------
-   Global Battle State
--------------------------*/
-const battleState = {
-  round: 1,
-  heroes: [],
-  lfaBuffs: {},
-  boss: {
-    abyssalCorruptionStacks: 0,
-    HDStacks: 0,
-    atkBuff: 0
-  },
-  lfaDebuffs: {
-    curseOfDecay: { stacks: 0 }
-  }
+// ------------------------
+// Hero Templates (simplified)
+// ------------------------
+const heroTemplates = {
+  SQH: { name: "SQH" },
+  Ely: { name: "Ely" },
+  LFA: { name: "LFA" },
+  LBRM: { name: "LBRM" },
+  BDSM: { name: "BDSM" },
+  Vespera: { name: "Vespera" },
+  PDE: { name: "PDE" }
 };
 
-/* ------------------------
-   Buff Utility
--------------------------*/
-function tryApplyBuff(buff, targetBuffs) {
-  if (targetBuffs === battleState.lfaBuffs &&
-      battleState.lfaDebuffs.curseOfDecay.stacks > 0 &&
-      buff.offsettable &&
-      buff.stat !== "ADD" &&
-      !buff.isSkillEffect) {
-    battleState.lfaDebuffs.curseOfDecay.stacks--;
-    return; // buff negated
-  }
+// ------------------------
+// Read user selections
+// ------------------------
+function getSelectedHeroes() {
+  const heroSelects = document.querySelectorAll(".hero-select");
+  const artifactSelects = document.querySelectorAll(".artifact-select");
+  const selectedHeroes = [];
 
-  if (buff.stat === "ADD" && buff.nonStacking) {
-    targetBuffs[buff.stat] = { value: buff.value, duration: buff.duration };
-    return;
-  }
-
-  if (!targetBuffs[buff.stat]) {
-    targetBuffs[buff.stat] = { value: buff.value, duration: buff.duration };
-  } else {
-    targetBuffs[buff.stat].value += buff.value;
-    targetBuffs[buff.stat].duration = Math.max(targetBuffs[buff.stat].duration, buff.duration);
-  }
-}
-
-/* ------------------------
-   Hero Action
--------------------------*/
-function applyHeroAction(hero, actionType) {
-  const buffs = actionType === "active" ? hero.activeBuffs : hero.basicBuffs;
-
-  buffs.forEach(buff => {
-    if (buff.chance && Math.random() > buff.chance) return;
-    tryApplyBuff(buff, battleState.lfaBuffs);
+  heroSelects.forEach((sel, idx) => {
+    const name = sel.value;
+    if (!name) return; // skip empty
+    const hero = { ...heroTemplates[name], artifact: artifactSelects[idx].value };
+    selectedHeroes.push(hero);
   });
 
-  if (actionType === "active" && hero.transitionPoints !== undefined) hero.transitionPoints += 6;
-
-  if (hero.DTThreshold && hero.transitionPoints >= hero.DTThreshold) applyDTSkill(hero);
-
-  // SE Boss counterattack
-  seBossCounterattack(hero);
+  return selectedHeroes;
 }
 
-/* ------------------------
-   DT Skill
--------------------------*/
-function applyDTSkill(hero) {
-  let dtBuffs;
+// ------------------------
+// Example Battle Loop (15 rounds)
+// ------------------------
+function runBattle() {
+  const heroes = getSelectedHeroes();
+  const battleState = {
+    round: 0,
+    heroes: heroes,
+    lfaBuffs: {},
+    lfaDebuffs: { curseOfDecay: { stacks: 0 } },
+    boss: { abyssalCorruptionStacks: 0, HDStacks: 0, atkBuff: 0, counterCount: 0 }
+  };
 
-  if (hero.name === "Vespera") {
-    if (hero.transitionPoints >= 12) {
-      dtBuffs = hero.DT12Buffs;
-      hero.transitionPoints = 0;
-    } else if (hero.transitionPoints >= 6) {
-      dtBuffs = hero.DT6Buffs;
-    } else return;
-  } else {
-    dtBuffs = hero.DTBuffs;
-    hero.transitionPoints = 0;
+  for (let r = 1; r <= 15; r++) {
+    battleState.round = r;
+
+    // Sort heroes by selection order (or you can add speed property later)
+    const orderedHeroes = [...battleState.heroes];
+
+    orderedHeroes.forEach(hero => {
+      // Placeholder: apply hero action (basic/active) and DT mechanics
+      // Buffs would be applied here
+    });
+
+    // Placeholder: SE boss actions
+    battleState.boss.HDStacks += 2;
+    battleState.boss.atkBuff += 0.15;
+    battleState.lfaDebuffs.curseOfDecay.stacks += 3;
+    battleState.boss.counterCount = 0;
+
+    // Placeholder: decrement buff durations
   }
 
-  dtBuffs.forEach(buff => tryApplyBuff(buff, battleState.lfaBuffs));
+  document.getElementById("log").textContent = JSON.stringify(battleState, null, 2);
 }
 
-/* ------------------------
-   SE Boss Mechanics
--------------------------*/
-function seBossCounterattack(hero) {
-  // Counterattack occurs after each hero action
-  if (hero.name === "SE Boss") return; // boss cannot counter itself
-
-  // Counterattack: 50% chance to apply Curse of Decay to LFA
-  const maxCounter = 6; // limit per round
-  if (!battleState.boss.counterCount) battleState.boss.counterCount = 0;
-  if (battleState.boss.counterCount >= maxCounter) return;
-
-  battleState.boss.counterCount++;
-
-  if (Math.random() < 0.5) {
-    battleState.lfaDebuffs.curseOfDecay.stacks++;
-  }
-
-  // SE Boss attack effect (2 Curse layers + 8% ATK steal) occurs per counter
-  applySEBossAttack();
-}
-
-function applySEBossAttack() {
-  // 2 Curse layers on LFA
-  battleState.lfaDebuffs.curseOfDecay.stacks += 2;
-
-  // 8% ATK steal placeholder (could be tracked separately)
-  tryApplyBuff({ stat: "atk", value: -0.08, duration: 3, offsettable: true }, battleState.lfaBuffs);
-}
-
-/* ------------------------
-   End-of-Round Boss Effects
--------------------------*/
-function endOfRoundBossEffects() {
-  // SE Boss gains 2 HD stacks and 15% attack buff per round (15 rounds duration)
-  battleState.boss.HDStacks += 2;
-  battleState.boss.atkBuff += 0.15;
-
-  // End-of-round: +3 Curse layers on LFA
-  battleState.lfaDebuffs.curseOfDecay.stacks += 3;
-
-  // 25% chance to remove one random LFA buff (excluding ADD)
-  const lfaBuffKeys = Object.keys(battleState.lfaBuffs).filter(stat => stat !== "ADD");
-  if (lfaBuffKeys.length > 0 && Math.random() < 0.25) {
-    const randomBuff = lfaBuffKeys[Math.floor(Math.random() * lfaBuffKeys.length)];
-    delete battleState.lfaBuffs[randomBuff];
-  }
-}
-
-/* ------------------------
-   End-of-Round Processing
--------------------------*/
-function endOfRound() {
-  // Decrement durations
-  for (const stat in battleState.lfaBuffs) {
-    const buff = battleState.lfaBuffs[stat];
-    if (buff.duration > 0) buff.duration--;
-    if (buff.duration === 0) delete battleState.lfaBuffs[stat];
-  }
-
-  // Apply boss end-of-round effects
-  endOfRoundBossEffects();
-
-  // Reset counter for next round
-  battleState.boss.counterCount = 0;
-}
-
-/* ------------------------
-   Hero Definitions
--------------------------*/
-// SQH
-const SQH = {
-  name: "SQH",
-  transitionPoints: 0,
-  activeBuffs: [{ stat: "abyssalCorruption", value: 1, chance: 0.25 }],
-  basicBuffs: [],
-  DTThreshold: 12,
-  DTBuffs: [
-    { stat: "energy", value: 20, duration: 0, stackable: true },
-    { stat: "armor", value: 0.20, duration: 2, stackable: true },
-    { stat: "DR", value: 0.20, duration: 2, stackable: true },
-    { stat: "atk", value: 0.10, duration: 2, stackable: true },
-    { stat: "ADD", value: 0.10, duration: 2, stackable: true }
-  ]
-};
-
-// Ely
-const Ely = { name: "Ely", hasDT: false, activeBuffs: [], basicBuffs: [] };
-
-// LBRM
-const LBRM = {
-  name: "LBRM",
-  transitionPoints: 0,
-  activeBuffs: [{ stat: "ADD", value: 0.12, duration: 4, stackable: false, nonStacking: true }],
-  basicBuffs: [{ stat: "ADD", value: 0.12, duration: 4, stackable: false, nonStacking: true }],
-  DTThreshold: 6,
-  DTBuffs: [
-    { stat: "HD", value: 0.10, duration: 2, stackable: true },
-    { stat: "ADD", value: 0.15, duration: 2, stackable: true },
-    { stat: "ADD", value: 0.10, duration: 3, stackable: true }
-  ]
-};
-
-// Vespera
-const Vespera = {
-  name: "Vespera",
-  transitionPoints: 0,
-  activeBuffs: [
-    { stat: "atk", value: 0.10, duration: 2, stackable: true },
-    { stat: "armor", value: 0.10, duration: 2, stackable: true },
-    { stat: "DR", value: 0.10, duration: 2, stackable: true },
-    { stat: "CI", value: 0.10, duration: 2, stackable: true },
-    { stat: "speed", value: 30, duration: 2, stackable: true }
-  ],
-  basicBuffs: [
-    { stat: "atk", value: 0.10, duration: 2, stackable: true },
-    { stat: "ADD", value: 0.08, duration: 2, stackable: true, chance: 0.8 }
-  ],
-  DT6Buffs: [
-    { stat: "energy", value: 20, duration: 0, stackable: true },
-    { stat: "atk", value: 0.10, duration: 2, stackable: true }
-  ],
-  DT12Buffs: [
-    { stat: "energy", value: 20, duration: 0, stackable: true },
-    { stat: "atk", value: 0.10, duration: 2, stackable: true },
-    { stat: "ADD", value: 0.10, duration: 2, stackable: true }
-  ]
-};
-
-// Placeholders for LFA, BDSM, PDE
-const LFA = { name: "LFA" };
-const BDSM = { name: "BDSM" };
-const PDE = { name: "PDE" };
-
-// Register heroes
-battleState.heroes.push(SQH, Ely, LBRM, Vespera, LFA, BDSM, PDE);
-
-/* ------------------------
-   Round Simulation
--------------------------*/
-function simulateRound(roundNumber) {
-  battleState.round = roundNumber;
-
-  // Iterate heroes in speed order (example: placeholder order)
-  battleState.heroes.forEach(hero => {
-    applyHeroAction(hero, "active"); // placeholder: assume active
-  });
-
-  // End-of-round processing
-  endOfRound();
-}
-
-/* ------------------------
-   Simulate 15 Rounds
--------------------------*/
-for (let r = 1; r <= 15; r++) {
-  simulateRound(r);
-}
-
-/* ------------------------
-   Display Battle State
--------------------------*/
-document.getElementById("log").textContent = JSON.stringify(battleState, null, 2);
+// ------------------------
+document.getElementById("runBattle").addEventListener("click", runBattle);
 </script>
 
 </body>
