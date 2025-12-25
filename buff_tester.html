@@ -35,17 +35,13 @@ const heroTemplates = {
   PDE: { name: "PDE", DTThreshold:null, energy:50, transitionPoints:0, artifact:"none" }
 };
 const artifactOptions = ["mirror","db","scissors","antlers","none"];
-const buffStats = ["atk","speed","HD","CI","ADD","critRate","critDamage","DR","energy","armor"];
+const buffStats = ["atk","speed","HD","CI","ADD","critRate","critDamage","DR","energy","armor","atkSteal"];
 
 // -------------------- Utility Functions --------------------
 function setHeroEnergy(hero, value){ hero.energy = Math.max(0,value); }
 function tryApplyBuff(buff, buffPool){
   if(!buffPool[buff.stat]) buffPool[buff.stat]=[];
   buffPool[buff.stat].push({...buff});
-}
-function tryGainEnergy(amount, hero){
-  hero.energy += amount;
-  if(hero.energy>100) hero.energy=100;
 }
 function decrementBuffs(buffPool){
   for(const stat in buffPool){
@@ -65,24 +61,24 @@ let battleState = {
 };
 
 // -------------------- Hero Action Functions --------------------
-function applyHeroAction(hero, actionType){
-  // Active consumes all energy
+function applyHeroAction(hero){
+  const actionType = hero.energy >= 100 ? "active" : "basic";
+
+  // Active skill consumes all energy first
   if(actionType==="active"){
     setHeroEnergy(hero,0);
-    // Every hero active skill gives all allies 3% ADD for 1 round
-    battleState.heroes.forEach(h=>{
-      tryApplyBuff({stat:"ADD", value:0.03, duration:1, offsettable:true}, h.buffs);
-    });
+    // Any hero using active gives +3% ADD to all allies
+    battleState.heroes.forEach(h=>tryApplyBuff({stat:"ADD", value:0.03, duration:1, offsettable:true}, h.buffs));
   }
 
   // Hero-specific action buffs
   switch(hero.name){
     case "LFA":
-      if(actionType==="basic") tryApplyBuff({stat:"critRate", value:0.24, duration:4, offsettable:true}, hero.buffs);
       if(actionType==="active"){
-        tryApplyBuff({stat:"critRate", value:0.5, duration:2, offsettable:true}, hero.buffs);
-        tryApplyBuff({stat:"critDamage", value:1.0, duration:2, offsettable:true}, hero.buffs);
         tryApplyBuff({stat:"atkSteal", value:0.3, duration:15, offsettable:false}, hero.buffs);
+      }
+      if(actionType==="basic"){
+        tryApplyBuff({stat:"critRate", value:0.24, duration:4, offsettable:true}, hero.buffs);
       }
       break;
     case "LBRM":
@@ -100,30 +96,30 @@ function applyHeroAction(hero, actionType){
         if(Math.random()<0.8) tryApplyBuff({stat:"ADD", value:0.08, duration:2, offsettable:false}, hero.buffs);
       }
       if(actionType==="active"){
-        battleState.heroes.forEach(h=>{
-          tryApplyBuff({stat:"atk", value:0.1, duration:2, offsettable:true}, h.buffs);
-          tryApplyBuff({stat:"armor", value:0.1, duration:2, offsettable:true}, h.buffs);
-          tryApplyBuff({stat:"DR", value:0.1, duration:2, offsettable:true}, h.buffs);
-          tryApplyBuff({stat:"CI", value:0.1, duration:2, offsettable:true}, h.buffs);
-          tryApplyBuff({stat:"speed", value:30, duration:2, offsettable:true}, h.buffs);
+        battleState.heroes.forEach(h2=>{
+          tryApplyBuff({stat:"atk", value:0.1, duration:2, offsettable:true}, h2.buffs);
+          tryApplyBuff({stat:"armor", value:0.1, duration:2, offsettable:true}, h2.buffs);
+          tryApplyBuff({stat:"DR", value:0.1, duration:2, offsettable:true}, h2.buffs);
+          tryApplyBuff({stat:"CI", value:0.1, duration:2, offsettable:true}, h2.buffs);
+          tryApplyBuff({stat:"speed", value:30, duration:2, offsettable:true}, h2.buffs);
         });
       }
       break;
     case "PDE":
-      // Buffs applied on boss hit handled separately
-      break;
-    default:
+      // Buffs from boss normal attacks handled separately
       break;
   }
 
-  // Post-action buffs
-  if(actionType==="basic"){
-    tryApplyBuff({stat:"ADD", value:0.35, duration:15, offsettable:false}, hero.buffs);
-    tryGainEnergy(100, hero);
-  }
+  // Post-action crit buffs for hero using active skill
   if(actionType==="active"){
     tryApplyBuff({stat:"critRate", value:0.5, duration:2, offsettable:true}, hero.buffs);
     tryApplyBuff({stat:"critDamage", value:1.0, duration:2, offsettable:true}, hero.buffs);
+  }
+
+  // Basic action post-effects
+  if(actionType==="basic"){
+    tryApplyBuff({stat:"ADD", value:0.35, duration:15, offsettable:false}, hero.buffs);
+    tryApplyBuff({stat:"energy", value:100, duration:0, offsettable:false}, hero.buffs); // Basic gives energy only to self
   }
 
   if(hero.transitionPoints!==undefined && actionType==="active") hero.transitionPoints+=6;
@@ -134,7 +130,11 @@ function applyHeroAction(hero, actionType){
 // -------------------- Boss Functions --------------------
 function applySEBossNormalAttack(){
   battleState.heroes.forEach(h=>{
-    // PDE reacts to boss normal attack
+    // CI and DR effects for all heroes
+    tryApplyBuff({stat:"CI", value:0.15, duration:3, offsettable:true}, h.buffs);
+    tryApplyBuff({stat:"DR", value:0.1, duration:1, offsettable:true}, h.buffs);
+
+    // PDE reacts
     if(h.name==="PDE"){
       if(h.transitionPoints>=18){
         h.transitionPoints -= 18;
@@ -149,32 +149,23 @@ function applySEBossNormalAttack(){
         });
       }
     }
-    // CI and DR
-    tryApplyBuff({stat:"CI", value:0.15, duration:3, offsettable:true}, h.buffs);
-    tryApplyBuff({stat:"DR", value:0.1, duration:1, offsettable:true}, h.buffs);
   });
-  // LFA loses 100 energy
-  const lfa = battleState.heroes.find(h=>h.name==="LFA");
-  if(lfa) setHeroEnergy(lfa, lfa.energy-100);
 
-  // Apply Scissors: any SE boss buffs are copied to LFA
-  if(battleState.heroes.some(h=>h.artifact==="scissors")){
-    const lfa = battleState.heroes.find(h=>h.name==="LFA");
-    battleState.heroes.forEach(h=>{
-      for(const stat in h.buffs){
-        h.buffs[stat].forEach(b=>{
-          if(!lfa.buffs[stat]) lfa.buffs[stat] = [];
-          lfa.buffs[stat].push({...b});
-        });
-      }
-    });
+  // Boss normal attack steals 8% LFA ATK
+  const lfa = battleState.heroes.find(h=>h.name==="LFA");
+  if(lfa) tryApplyBuff({stat:"atkSteal", value:0.08, duration:2, offsettable:false}, lfa.buffs);
+
+  // Boss adds 2 layers curse to LFA
+  if(lfa) {
+    if(!lfa.curseStacks) lfa.curseStacks = 0;
+    lfa.curseStacks +=2;
   }
 }
 
 // -------------------- Artifacts --------------------
 function applyArtifactOnHeroAction(hero){
-  if(hero.artifact==="db") tryGainEnergy(50, hero);
-  if(hero.artifact==="mirror") tryGainEnergy(75, hero);
+  if(hero.artifact==="db") tryApplyBuff({stat:"energy", value:50, duration:0, offsettable:false}, hero.buffs);
+  if(hero.artifact==="mirror") tryApplyBuff({stat:"energy", value:75, duration:0, offsettable:false}, hero.buffs);
 }
 
 // -------------------- Island Buffs --------------------
@@ -185,8 +176,11 @@ function applyIslandStartRound(){
     tryApplyBuff({stat:"HD", value:0.10, duration:15, offsettable:true}, h.buffs);
   });
 }
+
 function applyIslandEndRound(){
-  battleState.heroes.forEach(h=>tryGainEnergy(50, h));
+  battleState.heroes.forEach(h=>{
+    tryApplyBuff({stat:"energy", value:50, duration:0, offsettable:false}, h.buffs);
+  });
 }
 
 // -------------------- Timeline --------------------
@@ -216,27 +210,59 @@ function startSimulation(){
   battleState.timeline=[];
   const heroSelects = document.querySelectorAll(".heroSelect");
   const artifactSelects = document.querySelectorAll(".artifactSelect");
+
   for(let i=0;i<6;i++){
     const heroName = heroSelects[i].value;
     if(!heroName) continue;
     const h = {...heroTemplates[heroName], artifact:artifactSelects[i].value};
-    h.buffs={}; // each hero tracks own buffs
+    h.buffs={};
+    h.curseStacks = 0;
     battleState.heroes.push(h);
   }
+
   for(battleState.round=1;battleState.round<=15;battleState.round++){
     applyIslandStartRound();
+
+    // Hero phase
     battleState.heroes.forEach(h=>{
-      const actionType = h.energy>=100?"active":"basic";
-      applyHeroAction(h, actionType);
+      applyHeroAction(h);
     });
+
+    // Boss normal attack
     applySEBossNormalAttack();
+
+    // End of round
     applyIslandEndRound();
     battleState.heroes.forEach(h=>{
       if(h.artifact==="antlers") tryApplyBuff({stat:"ADD", value:0.09, duration:15, offsettable:false}, h.buffs);
     });
-    decrementBuffs(battleState.heroes.reduce((acc,h)=>({...acc,...h.buffs}),{}));
+
+    // Boss end-of-round effects
+    const lfa = battleState.heroes.find(h=>h.name==="LFA");
+    if(lfa){
+      // Drain 100 energy
+      setHeroEnergy(lfa, lfa.energy -100);
+
+      // Reduce attack by 35%
+      tryApplyBuff({stat:"atk", value:-0.35, duration:1, offsettable:true}, lfa.buffs);
+
+      // 25% chance to remove a random LFA buff
+      const buffKeys = Object.keys(lfa.buffs);
+      if(buffKeys.length>0 && Math.random()<0.25){
+        const key = buffKeys[Math.floor(Math.random()*buffKeys.length)];
+        lfa.buffs[key].shift();
+        if(lfa.buffs[key].length===0) delete lfa.buffs[key];
+      }
+    }
+
+    // Decrement buff durations
+    battleState.heroes.forEach(h=>{
+      decrementBuffs(h.buffs);
+    });
+
     logRound();
   }
+
   renderTimeline();
 }
 
