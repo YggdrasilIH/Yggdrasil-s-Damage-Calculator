@@ -1,231 +1,231 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>Battle Simulator with Hero Selection</title>
+<meta charset="utf-8" />
+<title>Battle Simulator</title>
 <style>
-body { font-family: Arial, sans-serif; background: #f5f4eb; padding: 20px; }
-select { margin-right: 10px; margin-bottom: 10px; }
-button { margin-top: 10px; padding: 5px 10px; }
-pre { background: #e0dcd0; padding: 10px; border-radius: 5px; margin-top: 20px; }
+  body { font-family: Arial, sans-serif; background: #f5f4eb; padding: 20px; }
+  h1 { color: #333; }
+  select, button { margin: 5px; }
+  pre { background: #ddd; padding: 10px; overflow-x: auto; }
 </style>
 </head>
 <body>
 
 <h1>Battle Simulator</h1>
 
-<h3>Select Heroes and Artifacts</h3>
-<div id="hero-selection">
-  <!-- 6 hero slots -->
-  <div>
-    Hero 1: 
-    <select class="hero-select">
-      <option value="">--Select--</option>
-      <option value="SQH">SQH</option>
-      <option value="Ely">Ely</option>
-      <option value="LFA">LFA</option>
-      <option value="LBRM">LBRM</option>
-      <option value="BDSM">BDSM</option>
-      <option value="Vespera">Vespera</option>
-      <option value="PDE">PDE</option>
-    </select>
-    Artifact:
-    <select class="artifact-select">
-      <option value="none">none</option>
-      <option value="mirror">mirror</option>
-      <option value="db">db</option>
-      <option value="scissors">scissors</option>
-      <option value="antiwarrior">antiwarrior</option>
-      <option value="antlers">antlers</option>
-    </select>
-  </div>
-  <div>
-    Hero 2: 
-    <select class="hero-select">
-      <option value="">--Select--</option>
-      <option value="SQH">SQH</option>
-      <option value="Ely">Ely</option>
-      <option value="LFA">LFA</option>
-      <option value="LBRM">LBRM</option>
-      <option value="BDSM">BDSM</option>
-      <option value="Vespera">Vespera</option>
-      <option value="PDE">PDE</option>
-    </select>
-    Artifact:
-    <select class="artifact-select">
-      <option value="none">none</option>
-      <option value="mirror">mirror</option>
-      <option value="db">db</option>
-      <option value="scissors">scissors</option>
-      <option value="antiwarrior">antiwarrior</option>
-      <option value="antlers">antlers</option>
-    </select>
-  </div>
-  <div>
-    Hero 3: 
-    <select class="hero-select">
-      <option value="">--Select--</option>
-      <option value="SQH">SQH</option>
-      <option value="Ely">Ely</option>
-      <option value="LFA">LFA</option>
-      <option value="LBRM">LBRM</option>
-      <option value="BDSM">BDSM</option>
-      <option value="Vespera">Vespera</option>
-      <option value="PDE">PDE</option>
-    </select>
-    Artifact:
-    <select class="artifact-select">
-      <option value="none">none</option>
-      <option value="mirror">mirror</option>
-      <option value="db">db</option>
-      <option value="scissors">scissors</option>
-      <option value="antiwarrior">antiwarrior</option>
-      <option value="antlers">antlers</option>
-    </select>
-  </div>
-  <div>
-    Hero 4: 
-    <select class="hero-select">
-      <option value="">--Select--</option>
-      <option value="SQH">SQH</option>
-      <option value="Ely">Ely</option>
-      <option value="LFA">LFA</option>
-      <option value="LBRM">LBRM</option>
-      <option value="BDSM">BDSM</option>
-      <option value="Vespera">Vespera</option>
-      <option value="PDE">PDE</option>
-    </select>
-    Artifact:
-    <select class="artifact-select">
-      <option value="none">none</option>
-      <option value="mirror">mirror</option>
-      <option value="db">db</option>
-      <option value="scissors">scissors</option>
-      <option value="antiwarrior">antiwarrior</option>
-      <option value="antlers">antlers</option>
-    </select>
-  </div>
-  <div>
-    Hero 5: 
-    <select class="hero-select">
-      <option value="">--Select--</option>
-      <option value="SQH">SQH</option>
-      <option value="Ely">Ely</option>
-      <option value="LFA">LFA</option>
-      <option value="LBRM">LBRM</option>
-      <option value="BDSM">BDSM</option>
-      <option value="Vespera">Vespera</option>
-      <option value="PDE">PDE</option>
-    </select>
-    Artifact:
-    <select class="artifact-select">
-      <option value="none">none</option>
-      <option value="mirror">mirror</option>
-      <option value="db">db</option>
-      <option value="scissors">scissors</option>
-      <option value="antiwarrior">antiwarrior</option>
-      <option value="antlers">antlers</option>
-    </select>
-  </div>
-  <div>
-    Hero 6: 
-    <select class="hero-select">
-      <option value="">--Select--</option>
-      <option value="SQH">SQH</option>
-      <option value="Ely">Ely</option>
-      <option value="LFA">LFA</option>
-      <option value="LBRM">LBRM</option>
-      <option value="BDSM">BDSM</option>
-      <option value="Vespera">Vespera</option>
-      <option value="PDE">PDE</option>
-    </select>
-    Artifact:
-    <select class="artifact-select">
-      <option value="none">none</option>
-      <option value="mirror">mirror</option>
-      <option value="db">db</option>
-      <option value="scissors">scissors</option>
-      <option value="antiwarrior">antiwarrior</option>
-      <option value="antlers">antlers</option>
-    </select>
-  </div>
+<div id="heroSelection">
+  <h2>Select Heroes (Speed Order)</h2>
+  <div id="heroes"></div>
+  <button onclick="startSimulation()">Start Simulation</button>
 </div>
 
-<button id="runBattle">Run Battle</button>
-
-<pre id="log"></pre>
+<h2>Round-by-Round Timeline (LFA)</h2>
+<pre id="timeline"></pre>
 
 <script>
-// ------------------------
-// Hero Templates (simplified)
-// ------------------------
+// -------------------- Hero & Artifact Definitions --------------------
 const heroTemplates = {
-  SQH: { name: "SQH" },
-  Ely: { name: "Ely" },
-  LFA: { name: "LFA" },
-  LBRM: { name: "LBRM" },
-  BDSM: { name: "BDSM" },
-  Vespera: { name: "Vespera" },
-  PDE: { name: "PDE" }
+  SQH: { name: "SQH", DTThreshold: 12, energy:0, transitionPoints:0, artifact:"none" },
+  Ely: { name: "Ely", DTThreshold:null, energy:0, transitionPoints:0, artifact:"none" },
+  LFA: { name: "LFA", DTThreshold:null, energy:0, transitionPoints:0, artifact:"none" },
+  LBRM: { name: "LBRM", DTThreshold:6, energy:0, transitionPoints:0, artifact:"none" },
+  BDSM: { name: "BDSM", DTThreshold:null, energy:0, transitionPoints:0, artifact:"none" },
+  Vespera: { name: "Vespera", DTThreshold:6, energy:0, transitionPoints:0, artifact:"none" },
+  PDE: { name: "PDE", DTThreshold:null, energy:0, transitionPoints:0, artifact:"none" }
+};
+const artifactOptions = ["mirror","db","scissors","antlers","none"];
+
+// -------------------- Utility Functions --------------------
+function setHeroEnergy(hero, value){ hero.energy = Math.max(0,value); }
+function tryApplyBuff(buff, buffPool){
+  if(!buffPool[buff.stat]) buffPool[buff.stat]=[];
+  buffPool[buff.stat].push({...buff});
+}
+function tryGainEnergy(amount, battleState){
+  if(battleState.lfaDebuffs.curseOfDecay.stacks>0){
+    battleState.lfaDebuffs.curseOfDecay.stacks--;
+    return;
+  }
+  battleState.heroes.forEach(h=>setHeroEnergy(h,(h.energy||0)+amount));
+}
+
+// -------------------- Battle State --------------------
+let battleState = {
+  round:1,
+  heroes:[],
+  lfa:null,
+  lfaBuffs:{},
+  lfaDebuffs:{ curseOfDecay:{stacks:0} },
+  boss:{ HDStacks:0, atkBuff:0, counterCount:0 },
+  timeline:[]
 };
 
-// ------------------------
-// Read user selections
-// ------------------------
-function getSelectedHeroes() {
-  const heroSelects = document.querySelectorAll(".hero-select");
-  const artifactSelects = document.querySelectorAll(".artifact-select");
-  const selectedHeroes = [];
-
-  heroSelects.forEach((sel, idx) => {
-    const name = sel.value;
-    if (!name) return; // skip empty
-    const hero = { ...heroTemplates[name], artifact: artifactSelects[idx].value };
-    selectedHeroes.push(hero);
-  });
-
-  return selectedHeroes;
+// -------------------- Hero Action Functions --------------------
+function applyPostActionBuffs(hero, actionType, battleState){
+  if(actionType==="basic"){
+    if(hero.name==="LFA") tryApplyBuff({stat:"critRate", value:0.24, duration:4, offsettable:true}, battleState.lfaBuffs);
+    tryGainEnergy(150,battleState);
+    tryApplyBuff({stat:"ADD", value:0.35, duration:15, offsettable:false}, battleState.lfaBuffs);
+  }
+  if(actionType==="active"){
+    if(hero.name==="LFA"){
+      tryApplyBuff({stat:"critRate", value:0.5, duration:2, offsettable:true}, battleState.lfaBuffs);
+      tryApplyBuff({stat:"critDamage", value:1.0, duration:2, offsettable:true}, battleState.lfaBuffs);
+      tryApplyBuff({stat:"atk", value:0.3, duration:15, offsettable:false}, battleState.lfaBuffs);
+    }
+  }
 }
 
-// ------------------------
-// Example Battle Loop (15 rounds)
-// ------------------------
-function runBattle() {
-  const heroes = getSelectedHeroes();
-  const battleState = {
-    round: 0,
-    heroes: heroes,
-    lfaBuffs: {},
-    lfaDebuffs: { curseOfDecay: { stacks: 0 } },
-    boss: { abyssalCorruptionStacks: 0, HDStacks: 0, atkBuff: 0, counterCount: 0 }
-  };
+function applyHeroAction(hero, actionType){
+  if(actionType==="active"){
+    setHeroEnergy(hero,0);
+    if(hero.name==="LBRM") tryGainEnergy(50,battleState);
+  }
+  // TODO: implement actual hero skill buffs & DT skills
+  applyPostActionBuffs(hero, actionType, battleState);
 
-  for (let r = 1; r <= 15; r++) {
-    battleState.round = r;
-
-    // Sort heroes by selection order (or you can add speed property later)
-    const orderedHeroes = [...battleState.heroes];
-
-    orderedHeroes.forEach(hero => {
-      // Placeholder: apply hero action (basic/active) and DT mechanics
-      // Buffs would be applied here
-    });
-
-    // Placeholder: SE boss actions
-    battleState.boss.HDStacks += 2;
-    battleState.boss.atkBuff += 0.15;
-    battleState.lfaDebuffs.curseOfDecay.stacks += 3;
-    battleState.boss.counterCount = 0;
-
-    // Placeholder: decrement buff durations
+  if(actionType==="active" && hero.transitionPoints!==undefined) hero.transitionPoints+=6;
+  if(hero.DTThreshold && hero.transitionPoints>=hero.DTThreshold){
+    // TODO: implement DT skill effects
   }
 
-  document.getElementById("log").textContent = JSON.stringify(battleState, null, 2);
+  seBossCounterattack(hero);
+  applyArtifactOnHeroAction(hero,battleState);
 }
 
-// ------------------------
-document.getElementById("runBattle").addEventListener("click", runBattle);
-</script>
+// -------------------- Boss Functions --------------------
+function seBossCounterattack(hero){
+  if(battleState.boss.counterCount>=6) return;
+  battleState.boss.counterCount++;
+  if(Math.random()<0.5) battleState.lfaDebuffs.curseOfDecay.stacks++;
+  battleState.lfaDebuffs.curseOfDecay.stacks+=2;
+  tryApplyBuff({stat:"atk", value:-0.08, duration:3, offsettable:true}, battleState.lfaBuffs);
+}
 
+function applySEBossNormalAttack(){
+  tryGainEnergy(10,battleState);
+  tryGainEnergy(10,battleState);
+  battleState.lfaDebuffs.curseOfDecay.stacks+=2;
+  tryApplyBuff({stat:"atk", value:-0.08, duration:3, offsettable:true}, battleState.lfaBuffs);
+}
+
+function bossGainBuff(stat,value){
+  if(stat==="HD") battleState.boss.HDStacks+=value;
+  if(stat==="atk") battleState.boss.atkBuff+=value;
+  if(battleState.lfaHasScissors && (stat==="HD"||stat==="atk")){
+    tryApplyBuff({stat,value:value*0.33,duration:15,offsettable:true},battleState.lfaBuffs);
+  }
+}
+
+function bossEndOfRound(){
+  bossGainBuff("HD",0.12);
+  bossGainBuff("HD",0.12);
+  bossGainBuff("atk",0.15);
+  battleState.lfaDebuffs.curseOfDecay.stacks+=3;
+  if(Math.random()<0.25) removeRandomBuffFromLFA();
+  setHeroEnergy(battleState.lfa,battleState.lfa.energy-100);
+  tryApplyBuff({stat:"atk", value:-0.35, duration:1, offsettable:true},battleState.lfaBuffs);
+}
+
+// -------------------- Island Buffs --------------------
+function applyIslandStartRound(){
+  tryApplyBuff({stat:"ADD", value:0.25, duration:2, offsettable:true},battleState.lfaBuffs);
+  tryApplyBuff({stat:"atk", value:0.35, duration:2, offsettable:true},battleState.lfaBuffs);
+  tryApplyBuff({stat:"HD", value:0.10, duration:15, offsettable:true},battleState.lfaBuffs);
+}
+function applyIslandEndRound(){ tryGainEnergy(50,battleState); }
+
+// -------------------- Artifact Functions --------------------
+function applyArtifactOnHeroAction(hero,battleState){
+  if(hero.artifact==="db") applyDB(hero,battleState);
+}
+function applyDB(hero,battleState){
+  tryGainEnergy(20,battleState);
+  if(Math.random()<0.5) tryGainEnergy(10,battleState);
+  battleState.heroes.forEach(h=>{
+    if(h.energy>=100 && h.name==="LFA") tryApplyBuff({stat:"speed", value:9,duration:4,offsettable:true},battleState.lfaBuffs);
+  });
+}
+function applyMirrorEndOfRound(hero,battleState){
+  tryGainEnergy(15,battleState);
+  if(battleState.round>=3){
+    const value=Math.max(0,4.5-1.5*(battleState.round-3));
+    if(value>0) tryApplyBuff({stat:"ADD",value:value/100,duration:15,offsettable:false},battleState.lfaBuffs);
+  }
+}
+function applyAntlersEndOfRound(hero,battleState){
+  tryApplyBuff({stat:"ADD", value:0.09, duration:15, offsettable:false},battleState.lfaBuffs);
+}
+
+// -------------------- Timeline --------------------
+function logRound(){
+  battleState.timeline.push({
+    round:battleState.round,
+    lfaBuffs:JSON.parse(JSON.stringify(battleState.lfaBuffs)),
+    curseStacks:battleState.lfaDebuffs.curseOfDecay.stacks,
+    bossHD:battleState.boss.HDStacks,
+    bossATK:battleState.boss.atkBuff,
+    lfaEnergy:battleState.lfa.energy
+  });
+}
+
+function renderTimeline(){
+  const pre=document.getElementById("timeline");
+  pre.textContent=battleState.timeline.map(r=>{
+    const buffs=Object.entries(r.lfaBuffs).map(([k,v])=>`${k}: ${(v.value*100).toFixed(1)}% (${v.duration})`).join(", ");
+    return `R${r.round}\nLFA Energy: ${r.lfaEnergy}\nCurse: ${r.curseStacks}\nBoss HD: ${r.bossHD}\nBoss ATK: ${(r.bossATK*100).toFixed(1)}%\nLFA Buffs: ${buffs||"none"}`;
+  }).join("\n\n");
+}
+
+// -------------------- Simulation --------------------
+function startSimulation(){
+  battleState.heroes=[];
+  const heroSelects=document.querySelectorAll(".heroSelect");
+  const artifactSelects=document.querySelectorAll(".artifactSelect");
+  for(let i=0;i<6;i++){
+    const heroName=heroSelects[i].value;
+    const artifact=artifactSelects[i].value;
+    battleState.heroes.push({...heroTemplates[heroName], artifact});
+  }
+  battleState.lfa=battleState.heroes.find(h=>h.name==="LFA");
+  battleState.lfaHasScissors=battleState.lfa.artifact==="scissors";
+
+  for(battleState.round=1;battleState.round<=15;battleState.round++){
+    applyIslandStartRound();
+    battleState.heroes.forEach(h=>{
+      const actionType=h.energy>=100?"active":"basic";
+      applyHeroAction(h,actionType);
+    });
+    applySEBossNormalAttack();
+    bossEndOfRound();
+    applyIslandEndRound();
+    battleState.heroes.forEach(h=>{
+      if(h.artifact==="mirror") applyMirrorEndOfRound(h,battleState);
+      if(h.artifact==="antlers") applyAntlersEndOfRound(h,battleState);
+    });
+    logRound();
+  }
+  renderTimeline();
+}
+
+// -------------------- Hero Selection UI --------------------
+const heroesDiv=document.getElementById("heroes");
+for(let i=0;i<6;i++){
+  const div=document.createElement("div");
+  div.innerHTML=`Hero:
+    <select class="heroSelect">
+      ${Object.keys(heroTemplates).map(h=>`<option value="${h}">${h}</option>`).join("")}
+    </select>
+    Artifact:
+    <select class="artifactSelect">
+      ${artifactOptions.map(a=>`<option value="${a}">${a}</option>`).join("")}
+    </select>`;
+  heroesDiv.appendChild(div);
+}
+
+// -------------------- Placeholder Functions --------------------
+function removeRandomBuffFromLFA(){ /* Implement random buff removal */ }
+</script>
 </body>
 </html>
