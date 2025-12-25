@@ -35,6 +35,7 @@ const heroTemplates = {
   PDE: { name: "PDE", DTThreshold:null, energy:0, transitionPoints:0, artifact:"none" }
 };
 const artifactOptions = ["mirror","db","scissors","antlers","none"];
+const buffsList = ["atk","speed","HD","CI","ADD","critRate","critDamage","DR","energy","armor"];
 
 // -------------------- Utility Functions --------------------
 function setHeroEnergy(hero, value){ hero.energy = Math.max(0,value); }
@@ -49,6 +50,21 @@ function tryGainEnergy(amount, battleState){
   }
   battleState.heroes.forEach(h=>setHeroEnergy(h,(h.energy||0)+amount));
 }
+function decrementBuffs(buffPool){
+  for(const stat in buffPool){
+    buffPool[stat] = buffPool[stat].filter(b=>{
+      if(b.duration>1){ b.duration--; return true; }
+      return false;
+    });
+  }
+}
+function removeRandomBuffFromLFA(){
+  const stats = Object.keys(battleState.lfaBuffs);
+  if(stats.length===0) return;
+  const statToRemove = stats[Math.floor(Math.random()*stats.length)];
+  battleState.lfaBuffs[statToRemove].shift();
+  if(battleState.lfaBuffs[statToRemove].length===0) delete battleState.lfaBuffs[statToRemove];
+}
 
 // -------------------- Battle State --------------------
 let battleState = {
@@ -57,41 +73,104 @@ let battleState = {
   lfa:null,
   lfaBuffs:{},
   lfaDebuffs:{ curseOfDecay:{stacks:0} },
-  boss:{ HDStacks:0, atkBuff:0, counterCount:0 },
+  boss:{ HDStacks:0, atkBuff:0, counterCount:0, abyssalCorruption:0 },
   timeline:[]
 };
 
 // -------------------- Hero Action Functions --------------------
-function applyPostActionBuffs(hero, actionType, battleState){
-  if(actionType==="basic"){
-    if(hero.name==="LFA") tryApplyBuff({stat:"critRate", value:0.24, duration:4, offsettable:true}, battleState.lfaBuffs);
-    tryGainEnergy(150,battleState);
-    tryApplyBuff({stat:"ADD", value:0.35, duration:15, offsettable:false}, battleState.lfaBuffs);
-  }
-  if(actionType==="active"){
-    if(hero.name==="LFA"){
-      tryApplyBuff({stat:"critRate", value:0.5, duration:2, offsettable:true}, battleState.lfaBuffs);
-      tryApplyBuff({stat:"critDamage", value:1.0, duration:2, offsettable:true}, battleState.lfaBuffs);
-      tryApplyBuff({stat:"atk", value:0.3, duration:15, offsettable:false}, battleState.lfaBuffs);
-    }
-  }
-}
-
 function applyHeroAction(hero, actionType){
+  // Active consumes all energy
   if(actionType==="active"){
-    setHeroEnergy(hero,0);
-    if(hero.name==="LBRM") tryGainEnergy(50,battleState);
+    if(hero.name==="LBRM"){ setHeroEnergy(hero,0); tryGainEnergy(50,battleState); } 
+    else setHeroEnergy(hero,0);
   }
-  // TODO: implement actual hero skill buffs & DT skills
-  applyPostActionBuffs(hero, actionType, battleState);
 
-  if(actionType==="active" && hero.transitionPoints!==undefined) hero.transitionPoints+=6;
-  if(hero.DTThreshold && hero.transitionPoints>=hero.DTThreshold){
-    // TODO: implement DT skill effects
+  // Hero-specific action buffs
+  switch(hero.name){
+    case "SQH":
+      if(actionType==="active"){
+        // Active: 1 abyssal corruption + 25% chance 1 more
+        battleState.boss.abyssalCorruption++;
+        if(Math.random()<0.25) battleState.boss.abyssalCorruption++;
+      }
+      if(hero.transitionPoints>=hero.DTThreshold){
+        hero.transitionPoints=0;
+        // DT skill: energy 20 all, armor 20%, DR 20%, atk 10%, ADD 10%
+        battleState.heroes.forEach(h=>{
+          tryApplyBuff({stat:"energy", value:20, duration:1, offsettable:true},battleState.lfaBuffs);
+          tryApplyBuff({stat:"armor", value:0.2, duration:2, offsettable:true},battleState.lfaBuffs);
+          tryApplyBuff({stat:"DR", value:0.2, duration:2, offsettable:true},battleState.lfaBuffs);
+          tryApplyBuff({stat:"atk", value:0.1, duration:2, offsettable:true},battleState.lfaBuffs);
+          tryApplyBuff({stat:"ADD", value:0.1, duration:2, offsettable:false},battleState.lfaBuffs);
+        });
+      }
+      break;
+    case "LBRM":
+      if(actionType==="basic" || actionType==="active"){
+        tryApplyBuff({stat:"ADD", value:0.12, duration:4, offsettable:false},battleState.lfaBuffs);
+      }
+      if(hero.transitionPoints>=hero.DTThreshold){
+        hero.transitionPoints=0;
+        tryApplyBuff({stat:"HD", value:0.1, duration:2, offsettable:true},battleState.lfaBuffs);
+        tryApplyBuff({stat:"ADD", value:0.15, duration:2, offsettable:false},battleState.lfaBuffs);
+        tryApplyBuff({stat:"ADD", value:0.1, duration:3, offsettable:false},battleState.lfaBuffs);
+      }
+      break;
+    case "Vespera":
+      if(actionType==="basic"){
+        tryApplyBuff({stat:"atk", value:0.1, duration:2, offsettable:true},battleState.lfaBuffs);
+        if(Math.random()<0.8) tryApplyBuff({stat:"ADD", value:0.08, duration:2, offsettable:false},battleState.lfaBuffs);
+      }
+      if(actionType==="active"){
+        battleState.heroes.forEach(h=>{
+          tryApplyBuff({stat:"atk", value:0.1, duration:2, offsettable:true},battleState.lfaBuffs);
+          tryApplyBuff({stat:"armor", value:0.1, duration:2, offsettable:true},battleState.lfaBuffs);
+          tryApplyBuff({stat:"DR", value:0.1, duration:2, offsettable:true},battleState.lfaBuffs);
+          tryApplyBuff({stat:"CI", value:0.1, duration:2, offsettable:true},battleState.lfaBuffs);
+          tryApplyBuff({stat:"speed", value:30, duration:2, offsettable:true},battleState.lfaBuffs);
+        });
+      }
+      if(hero.transitionPoints>=6){
+        hero.transitionPoints+=0; // DT skill does not consume at 6
+        battleState.heroes.forEach(h=>{
+          tryApplyBuff({stat:"energy", value:20, duration:1, offsettable:true},battleState.lfaBuffs);
+          tryApplyBuff({stat:"atk", value:0.1, duration:2, offsettable:true},battleState.lfaBuffs);
+        });
+      }
+      if(hero.transitionPoints>=12){
+        hero.transitionPoints=0;
+        battleState.heroes.forEach(h=>{
+          tryApplyBuff({stat:"ADD", value:0.1, duration:2, offsettable:false},battleState.lfaBuffs);
+        });
+      }
+      break;
+    case "LFA":
+      if(actionType==="basic") tryApplyBuff({stat:"critRate", value:0.24, duration:4, offsettable:true},battleState.lfaBuffs);
+      if(actionType==="active"){
+        tryApplyBuff({stat:"critRate", value:0.5, duration:2, offsettable:true},battleState.lfaBuffs);
+        tryApplyBuff({stat:"critDamage", value:1.0, duration:2, offsettable:true},battleState.lfaBuffs);
+        tryApplyBuff({stat:"atk", value:0.3, duration:15, offsettable:false},battleState.lfaBuffs);
+      }
+      break;
+    case "SQH": case "Ely": case "BDSM": case "PDE":
+      // Placeholder: implement later
+      break;
   }
+
+  // Post-action energy/buffs
+  if(actionType==="basic"){
+    tryGainEnergy(150,battleState);
+    tryApplyBuff({stat:"ADD", value:0.35, duration:15, offsettable:false},battleState.lfaBuffs);
+  }
+  if(actionType==="active"){
+    tryApplyBuff({stat:"critRate", value:0.5, duration:2, offsettable:true},battleState.lfaBuffs);
+    tryApplyBuff({stat:"critDamage", value:1.0, duration:2, offsettable:true},battleState.lfaBuffs);
+  }
+
+  if(hero.transitionPoints!==undefined && actionType==="active") hero.transitionPoints+=6;
 
   seBossCounterattack(hero);
-  applyArtifactOnHeroAction(hero,battleState);
+  applyArtifactOnHeroAction(hero);
 }
 
 // -------------------- Boss Functions --------------------
@@ -100,16 +179,14 @@ function seBossCounterattack(hero){
   battleState.boss.counterCount++;
   if(Math.random()<0.5) battleState.lfaDebuffs.curseOfDecay.stacks++;
   battleState.lfaDebuffs.curseOfDecay.stacks+=2;
-  tryApplyBuff({stat:"atk", value:-0.08, duration:3, offsettable:true}, battleState.lfaBuffs);
+  tryApplyBuff({stat:"atk", value:-0.08, duration:3, offsettable:true},battleState.lfaBuffs);
 }
-
 function applySEBossNormalAttack(){
   tryGainEnergy(10,battleState);
   tryGainEnergy(10,battleState);
   battleState.lfaDebuffs.curseOfDecay.stacks+=2;
-  tryApplyBuff({stat:"atk", value:-0.08, duration:3, offsettable:true}, battleState.lfaBuffs);
+  tryApplyBuff({stat:"atk", value:-0.08, duration:3, offsettable:true},battleState.lfaBuffs);
 }
-
 function bossGainBuff(stat,value){
   if(stat==="HD") battleState.boss.HDStacks+=value;
   if(stat==="atk") battleState.boss.atkBuff+=value;
@@ -117,7 +194,6 @@ function bossGainBuff(stat,value){
     tryApplyBuff({stat,value:value*0.33,duration:15,offsettable:true},battleState.lfaBuffs);
   }
 }
-
 function bossEndOfRound(){
   bossGainBuff("HD",0.12);
   bossGainBuff("HD",0.12);
@@ -137,24 +213,22 @@ function applyIslandStartRound(){
 function applyIslandEndRound(){ tryGainEnergy(50,battleState); }
 
 // -------------------- Artifact Functions --------------------
-function applyArtifactOnHeroAction(hero,battleState){
-  if(hero.artifact==="db") applyDB(hero,battleState);
-}
-function applyDB(hero,battleState){
-  tryGainEnergy(20,battleState);
-  if(Math.random()<0.5) tryGainEnergy(10,battleState);
-  battleState.heroes.forEach(h=>{
-    if(h.energy>=100 && h.name==="LFA") tryApplyBuff({stat:"speed", value:9,duration:4,offsettable:true},battleState.lfaBuffs);
-  });
-}
-function applyMirrorEndOfRound(hero,battleState){
-  tryGainEnergy(15,battleState);
-  if(battleState.round>=3){
-    const value=Math.max(0,4.5-1.5*(battleState.round-3));
-    if(value>0) tryApplyBuff({stat:"ADD",value:value/100,duration:15,offsettable:false},battleState.lfaBuffs);
+function applyArtifactOnHeroAction(hero){
+  if(hero.artifact==="db"){
+    tryGainEnergy(20,battleState);
+    if(Math.random()<0.5) tryGainEnergy(10,battleState);
+    if(battleState.lfa.energy>=100) tryApplyBuff({stat:"speed", value:9,duration:4,offsettable:true},battleState.lfaBuffs);
   }
 }
-function applyAntlersEndOfRound(hero,battleState){
+function applyMirrorEndOfRound(hero){
+  tryGainEnergy(15,battleState);
+  if([3,6,9,12].includes(battleState.round)){
+    let value=0.045;
+    for(let i=3;i<battleState.round;i++) value-=0.015;
+    tryApplyBuff({stat:"ADD",value:value,duration:15,offsettable:false},battleState.lfaBuffs);
+  }
+}
+function applyAntlersEndOfRound(hero){
   tryApplyBuff({stat:"ADD", value:0.09, duration:15, offsettable:false},battleState.lfaBuffs);
 }
 
@@ -169,7 +243,6 @@ function logRound(){
     lfaEnergy:battleState.lfa.energy
   });
 }
-
 function renderTimeline(){
   const pre=document.getElementById("timeline");
   pre.textContent=battleState.timeline.map(r=>{
@@ -186,6 +259,7 @@ function startSimulation(){
   for(let i=0;i<6;i++){
     const heroName=heroSelects[i].value;
     const artifact=artifactSelects[i].value;
+    if(!heroName) continue;
     battleState.heroes.push({...heroTemplates[heroName], artifact});
   }
   battleState.lfa=battleState.heroes.find(h=>h.name==="LFA");
@@ -201,9 +275,10 @@ function startSimulation(){
     bossEndOfRound();
     applyIslandEndRound();
     battleState.heroes.forEach(h=>{
-      if(h.artifact==="mirror") applyMirrorEndOfRound(h,battleState);
-      if(h.artifact==="antlers") applyAntlersEndOfRound(h,battleState);
+      if(h.artifact==="mirror") applyMirrorEndOfRound(h);
+      if(h.artifact==="antlers") applyAntlersEndOfRound(h);
     });
+    decrementBuffs(battleState.lfaBuffs);
     logRound();
   }
   renderTimeline();
@@ -223,9 +298,6 @@ for(let i=0;i<6;i++){
     </select>`;
   heroesDiv.appendChild(div);
 }
-
-// -------------------- Placeholder Functions --------------------
-function removeRandomBuffFromLFA(){ /* Implement random buff removal */ }
 </script>
 </body>
 </html>
