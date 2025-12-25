@@ -7,7 +7,7 @@
   body { font-family: Arial, sans-serif; background: #f5f4eb; padding: 20px; }
   h1 { color: #333; }
   select, button { margin: 5px; }
-  pre { background: #ddd; padding: 10px; overflow-x: auto; }
+  pre { background: #ddd; padding: 10px; overflow-x: auto; white-space: pre-wrap; }
 </style>
 </head>
 <body>
@@ -42,12 +42,34 @@ function setHeroEnergy(hero, value){
   hero.energy = Math.max(0,value);
 }
 function tryApplyBuff(buff, hero){
-  if(hero.curseStacks>0){
-    hero.curseStacks--;
-    return; // buff fully offset
+  if(hero.name==="LFA"){
+    if(hero.curseStacks>0 && buff.offsettable){
+      hero.curseStacks--;
+      hero.heroLog.push(`Buff ${buff.stat} +${(buff.value*100).toFixed(1)}% offset by Curse`);
+      return;
+    }
+    if(!hero.buffs[buff.stat]) hero.buffs[buff.stat]=[];
+    hero.buffs[buff.stat].push({...buff});
+    hero.heroLog.push(`Buff ${buff.stat} +${(buff.value*100).toFixed(1)}% (${buff.duration}) applied`);
+  } else {
+    if(buff.offsettable && hero.curseStacks>0) hero.curseStacks--;
+    if(!hero.buffs[buff.stat]) hero.buffs[buff.stat]=[];
+    hero.buffs[buff.stat].push({...buff});
   }
-  if(!hero.buffs[buff.stat]) hero.buffs[buff.stat]=[];
-  hero.buffs[buff.stat].push({...buff});
+}
+function tryGainEnergy(amount, hero){
+  if(hero.name==="LFA"){
+    if(hero.curseStacks>0){
+      hero.curseStacks--;
+      hero.heroLog.push(`Energy +${amount} offset by Curse`);
+      return; 
+    }
+    hero.energy += amount;
+    hero.heroLog.push(`Energy +${amount}`);
+  } else {
+    if(hero.curseStacks>0 && amount>0) hero.curseStacks--;
+    hero.energy += amount;
+  }
 }
 function getTotalBuff(hero, stat){
   if(!hero.buffs[stat]) return 0;
@@ -71,20 +93,20 @@ let battleState = {
   timeline: []
 };
 
-// -------------------- Hero Action Functions --------------------
+// -------------------- Hero Actions --------------------
 function applyHeroAction(hero){
   const actionType = hero.energy>=100 ? "active" : "basic";
 
+  // Active skill
   if(actionType==="active"){
-    // Consume all energy
     setHeroEnergy(hero,0);
-    // Every hero active grants all allies 3% ADD
+    // All allies gain 3% ADD
     battleState.heroes.forEach(h=>{
       tryApplyBuff({stat:"ADD", value:0.03, duration:1, offsettable:true}, h);
     });
   }
 
-  // Hero-specific buffs
+  // Hero-specific actions
   switch(hero.name){
     case "LFA":
       if(actionType==="active"){
@@ -117,7 +139,7 @@ function applyHeroAction(hero){
       break;
   }
 
-  // Post-action individual buffs
+  // Post-action buffs
   if(actionType==="basic"){
     tryApplyBuff({stat:"ADD", value:0.35, duration:15, offsettable:false}, hero);
     tryGainEnergy(100, hero);
@@ -125,28 +147,31 @@ function applyHeroAction(hero){
   if(actionType==="active"){
     tryApplyBuff({stat:"critRate", value:0.5, duration:2, offsettable:true}, hero);
     tryApplyBuff({stat:"critDamage", value:1.0, duration:2, offsettable:true}, hero);
-    // Apply DB / Mirror energy bonuses immediately
+    // Artifacts
     if(hero.artifact==="db") tryGainEnergy(50, hero);
     if(hero.artifact==="mirror") tryGainEnergy(75, hero);
   }
 
   if(hero.transitionPoints!==undefined && actionType==="active") hero.transitionPoints+=6;
 
-  // Boss counterattack after hero actives
+  // Boss counter after hero active
   if(actionType==="active") seBossCounterattack();
 }
 
 // -------------------- Boss Functions --------------------
 function seBossCounterattack(){
-  // Up to 6 per round
   if(battleState.boss.counterCount>=6) return;
   battleState.boss.counterCount++;
   const lfa = battleState.heroes.find(h=>h.name==="LFA");
   if(!lfa) return;
-  if(Math.random()<0.5) lfa.curseStacks++;
+  if(Math.random()<0.5){
+    lfa.curseStacks++;
+    lfa.heroLog.push("Boss counter adds 1 layer of Curse");
+  }
 }
 
 function applySEBossNormalAttack(){
+  const lfa = battleState.heroes.find(h=>h.name==="LFA");
   battleState.heroes.forEach(h=>{
     // PDE reactions
     if(h.name==="PDE"){
@@ -155,10 +180,7 @@ function applySEBossNormalAttack(){
         battleState.heroes.forEach(a=>tryApplyBuff({stat:"ADD", value:0.2, duration:3, offsettable:false}, a));
       }
       if(h.transitionPoints>=3){
-        battleState.heroes.forEach(a=>{
-          tryApplyBuff({stat:"HD", value:0.1, duration:2, offsettable:true}, a);
-        });
-        const lfa = battleState.heroes.find(h=>h.name==="LFA");
+        battleState.heroes.forEach(a=>tryApplyBuff({stat:"HD", value:0.1, duration:2, offsettable:true}, a));
         if(lfa) tryApplyBuff({stat:"ADD", value:0.15, duration:2, offsettable:false}, lfa);
       }
     }
@@ -167,24 +189,28 @@ function applySEBossNormalAttack(){
     tryApplyBuff({stat:"DR", value:0.1, duration:1, offsettable:true}, h);
   });
 
-  // LFA loses 100 energy
-  const lfa = battleState.heroes.find(h=>h.name==="LFA");
+  // LFA loses 100 energy at end of boss turn
   if(lfa) setHeroEnergy(lfa, lfa.energy-100);
+  if(lfa) lfa.heroLog.push("Boss steals 100 energy");
 
-  // Boss attack steal and curse
-  battleState.heroes.forEach(h=>{
-    if(h.name==="LFA") return;
-    // boss attack steal would apply here for other heroes if needed
-  });
+  // Boss attack steal or curse effects
+  if(lfa){
+    tryApplyBuff({stat:"atk", value:-0.08, duration:2, offsettable:true}, lfa);
+    lfa.heroLog.push("Boss reduces LFA attack by 8%");
+    if(Math.random()<0.5){
+      lfa.curseStacks += 2;
+      lfa.heroLog.push("Boss adds 2 layers of Curse of Decay");
+    }
+  }
 
-  // Apply Scissors: copy buffs to LFA
+  // Scissors artifact copies buffs to LFA
   if(battleState.heroes.some(h=>h.artifact==="scissors")){
-    const lfa = battleState.heroes.find(h=>h.name==="LFA");
     battleState.heroes.forEach(h=>{
       for(const stat in h.buffs){
         h.buffs[stat].forEach(b=>{
           if(!lfa.buffs[stat]) lfa.buffs[stat]=[];
           lfa.buffs[stat].push({...b});
+          lfa.heroLog.push(`Scissors copied ${stat} +${(b.value*100).toFixed(1)}% (${b.duration})`);
         });
       }
     });
@@ -200,7 +226,9 @@ function applyIslandStartRound(){
   });
 }
 function applyIslandEndRound(){
-  battleState.heroes.forEach(h=>tryGainEnergy(50, h));
+  battleState.heroes.forEach(h=>{
+    tryGainEnergy(50, h);
+  });
 }
 
 // -------------------- Timeline --------------------
@@ -208,15 +236,19 @@ function logRound(){
   const lfa = battleState.heroes.find(h=>h.name==="LFA");
   const buffsText = buffStats.map(stat=>`${stat}: ${(getTotalBuff(lfa,stat)*100).toFixed(1)}%`).join(", ");
   battleState.timeline.push({
-    round:battleState.round,
-    AbyssalCorruption:battleState.boss.abyssalCorruption,
-    lfaEnergy:lfa.energy,
-    lfaBuffsText:buffsText
+    round: battleState.round,
+    AbyssalCorruption: battleState.boss.abyssalCorruption,
+    lfaEnergy: lfa.energy,
+    lfaBuffsText: buffsText,
+    lfaEvents: lfa.heroLog.slice()
   });
 }
 function renderTimeline(){
   const pre = document.getElementById("timeline");
-  pre.textContent = battleState.timeline.map(r=>`R${r.round}\nAbyssal Corruption: ${r.AbyssalCorruption}\nLFA Energy: ${r.lfaEnergy}\nLFA Buffs: ${r.lfaBuffsText}`).join("\n\n");
+  pre.textContent = battleState.timeline.map(r=>{
+    const events = r.lfaEvents.join("; ");
+    return `R${r.round}\nAbyssal Corruption: ${r.AbyssalCorruption}\nLFA Energy: ${r.lfaEnergy}\nLFA Buffs: ${r.lfaBuffsText}\nEvents: ${events}`;
+  }).join("\n\n");
 }
 
 // -------------------- Simulation --------------------
@@ -231,11 +263,15 @@ function startSimulation(){
     const h = {...heroTemplates[heroName], artifact:artifactSelects[i].value};
     h.buffs={};
     h.curseStacks=0;
+    if(h.name==="LFA") h.heroLog=[];
     battleState.heroes.push(h);
   }
 
   for(battleState.round=1;battleState.round<=15;battleState.round++){
     battleState.boss.counterCount=0;
+    battleState.heroes.forEach(h=>{
+      if(h.name==="LFA") h.heroLog=[];
+    });
     applyIslandStartRound();
     battleState.heroes.forEach(h=>applyHeroAction(h));
     applySEBossNormalAttack();
