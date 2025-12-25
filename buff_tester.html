@@ -35,27 +35,31 @@ const heroTemplates = {
   PDE: { name: "PDE", DTThreshold:null, energy:50, transitionPoints:0, artifact:"none" }
 };
 const artifactOptions = ["mirror","db","scissors","antlers","none"];
-const buffStats = ["atk","speed","HD","CI","ADD","critRate","critDamage","DR","energy","armor","atkSteal"];
+const buffStats = ["atk","speed","HD","CI","ADD","critRate","critDamage","DR","armor"];
 
 // -------------------- Utility Functions --------------------
-function setHeroEnergy(hero, value){ hero.energy = Math.max(0,value); }
-function tryApplyBuff(buff, buffPool, curseStacks=0){
-  // Energy buffs can be offset by Curse of Decay
-  if(buff.stat==="energy" && curseStacks>0){
-    const offset = Math.min(curseStacks, buff.value);
-    buff.value -= offset;
-  }
-  if(buff.value<=0) return; // fully offset
-  if(!buffPool[buff.stat]) buffPool[buff.stat]=[];
-  buffPool[buff.stat].push({...buff});
+function setHeroEnergy(hero, value){
+  hero.energy = Math.max(0,value);
 }
-function totalBuffValue(buffArray){ return buffArray.reduce((sum,b)=>sum+b.value,0); }
-function decrementBuffs(buffPool){
-  for(const stat in buffPool){
-    buffPool[stat] = buffPool[stat].filter(b=>{
+function tryApplyBuff(buff, hero){
+  if(hero.curseStacks>0){
+    hero.curseStacks--;
+    return; // buff fully offset
+  }
+  if(!hero.buffs[buff.stat]) hero.buffs[buff.stat]=[];
+  hero.buffs[buff.stat].push({...buff});
+}
+function getTotalBuff(hero, stat){
+  if(!hero.buffs[stat]) return 0;
+  return hero.buffs[stat].reduce((sum,b)=>sum+b.value,0);
+}
+function decrementBuffs(hero){
+  for(const stat in hero.buffs){
+    hero.buffs[stat] = hero.buffs[stat].filter(b=>{
       if(b.duration>1){ b.duration--; return true; }
       return false;
     });
+    if(hero.buffs[stat].length===0) delete hero.buffs[stat];
   }
 }
 
@@ -69,144 +73,150 @@ let battleState = {
 
 // -------------------- Hero Action Functions --------------------
 function applyHeroAction(hero){
-  const actionType = hero.energy>=100?"active":"basic";
+  const actionType = hero.energy>=100 ? "active" : "basic";
 
-  // Consume energy for active
   if(actionType==="active"){
-    hero.energy=0;
+    // Consume all energy
+    setHeroEnergy(hero,0);
+    // Every hero active grants all allies 3% ADD
+    battleState.heroes.forEach(h=>{
+      tryApplyBuff({stat:"ADD", value:0.03, duration:1, offsettable:true}, h);
+    });
   }
 
-  // Hero-specific action buffs
+  // Hero-specific buffs
   switch(hero.name){
     case "LFA":
-      if(actionType==="basic") tryApplyBuff({stat:"critRate", value:0.24, duration:4, offsettable:true}, hero.buffs, hero.curseStacks);
       if(actionType==="active"){
-        tryApplyBuff({stat:"atkSteal", value:0.3, duration:15, offsettable:false}, hero.buffs);
+        tryApplyBuff({stat:"atkSteal", value:0.3, duration:15, offsettable:false}, hero);
       }
       break;
     case "LBRM":
-      tryApplyBuff({stat:"ADD", value:0.12, duration:4, offsettable:false}, hero.buffs, hero.curseStacks);
+      tryApplyBuff({stat:"ADD", value:0.12, duration:4, offsettable:false}, hero);
       if(hero.transitionPoints>=6){
         hero.transitionPoints=0;
-        tryApplyBuff({stat:"HD", value:0.1, duration:2, offsettable:true}, hero.buffs, hero.curseStacks);
-        tryApplyBuff({stat:"ADD", value:0.25, duration:2, offsettable:false}, hero.buffs, hero.curseStacks);
+        tryApplyBuff({stat:"HD", value:0.1, duration:2, offsettable:true}, hero);
+        tryApplyBuff({stat:"ADD", value:0.15, duration:2, offsettable:false}, hero);
+        tryApplyBuff({stat:"ADD", value:0.1, duration:3, offsettable:false}, hero);
       }
       break;
     case "Vespera":
       if(actionType==="basic"){
-        tryApplyBuff({stat:"atk", value:0.1, duration:2, offsettable:true}, hero.buffs, hero.curseStacks);
-        if(Math.random()<0.8) tryApplyBuff({stat:"ADD", value:0.08, duration:2, offsettable:false}, hero.buffs, hero.curseStacks);
+        tryApplyBuff({stat:"atk", value:0.1, duration:2, offsettable:true}, hero);
+        if(Math.random()<0.8) tryApplyBuff({stat:"ADD", value:0.08, duration:2, offsettable:false}, hero);
       }
       if(actionType==="active"){
         battleState.heroes.forEach(h=>{
-          tryApplyBuff({stat:"atk", value:0.1, duration:2, offsettable:true}, h.buffs, h.curseStacks);
-          tryApplyBuff({stat:"armor", value:0.1, duration:2, offsettable:true}, h.buffs, h.curseStacks);
-          tryApplyBuff({stat:"DR", value:0.1, duration:2, offsettable:true}, h.buffs, h.curseStacks);
-          tryApplyBuff({stat:"CI", value:0.1, duration:2, offsettable:true}, h.buffs, h.curseStacks);
-          tryApplyBuff({stat:"speed", value:30, duration:2, offsettable:true}, h.buffs, h.curseStacks);
+          tryApplyBuff({stat:"atk", value:0.1, duration:2, offsettable:true}, h);
+          tryApplyBuff({stat:"armor", value:0.1, duration:2, offsettable:true}, h);
+          tryApplyBuff({stat:"DR", value:0.1, duration:2, offsettable:true}, h);
+          tryApplyBuff({stat:"CI", value:0.1, duration:2, offsettable:true}, h);
+          tryApplyBuff({stat:"speed", value:30, duration:2, offsettable:true}, h);
         });
       }
       break;
-    case "PDE":
-      break;
-    default: break;
   }
 
-  // Post-action buffs for the hero themselves
+  // Post-action individual buffs
   if(actionType==="basic"){
-    tryApplyBuff({stat:"ADD", value:0.35, duration:15, offsettable:false}, hero.buffs, hero.curseStacks);
-    tryApplyBuff({stat:"energy", value:100, duration:1, offsettable:true}, hero.buffs, hero.curseStacks);
+    tryApplyBuff({stat:"ADD", value:0.35, duration:15, offsettable:false}, hero);
+    tryGainEnergy(100, hero);
   }
   if(actionType==="active"){
-    tryApplyBuff({stat:"critRate", value:0.5, duration:2, offsettable:true}, hero.buffs, hero.curseStacks);
-    tryApplyBuff({stat:"critDamage", value:1.0, duration:2, offsettable:true}, hero.buffs, hero.curseStacks);
-    // Allies ADD from hero actives
-    battleState.heroes.forEach(h=>{
-      if(h!==hero) tryApplyBuff({stat:"ADD", value:0.03, duration:1, offsettable:true}, h.buffs, h.curseStacks);
-    });
+    tryApplyBuff({stat:"critRate", value:0.5, duration:2, offsettable:true}, hero);
+    tryApplyBuff({stat:"critDamage", value:1.0, duration:2, offsettable:true}, hero);
+    // Apply DB / Mirror energy bonuses immediately
+    if(hero.artifact==="db") tryGainEnergy(50, hero);
+    if(hero.artifact==="mirror") tryGainEnergy(75, hero);
   }
 
   if(hero.transitionPoints!==undefined && actionType==="active") hero.transitionPoints+=6;
 
-  // Artifact effects immediately after hero action
-  if(hero.artifact==="db") tryApplyBuff({stat:"energy", value:50, duration:1, offsettable:true}, hero.buffs, hero.curseStacks);
-  if(hero.artifact==="mirror") tryApplyBuff({stat:"energy", value:75, duration:1, offsettable:true}, hero.buffs, hero.curseStacks);
-
-  // Boss counterattack after hero active
-  if(actionType==="active") bossCounterattack(hero);
+  // Boss counterattack after hero actives
+  if(actionType==="active") seBossCounterattack();
 }
 
-// -------------------- Boss Counterattack --------------------
-function bossCounterattack(hero){
+// -------------------- Boss Functions --------------------
+function seBossCounterattack(){
+  // Up to 6 per round
   if(battleState.boss.counterCount>=6) return;
   battleState.boss.counterCount++;
-  // 50% chance to add a curse stack
-  if(Math.random()<0.5) hero.curseStacks++;
+  const lfa = battleState.heroes.find(h=>h.name==="LFA");
+  if(!lfa) return;
+  if(Math.random()<0.5) lfa.curseStacks++;
 }
 
-// -------------------- Boss Normal Attack --------------------
 function applySEBossNormalAttack(){
   battleState.heroes.forEach(h=>{
-    // 8% attack steal only on normal attack
-    if(h.name==="LFA") tryApplyBuff({stat:"atk", value:-0.08, duration:2, offsettable:true}, h.buffs, 0);
-    h.curseStacks +=2;
-
-    // PDE reacts
+    // PDE reactions
     if(h.name==="PDE"){
-      if(h.transitionPoints>=18) h.transitionPoints -=18;
-      if(h.transitionPoints>=6) battleState.heroes.forEach(a=>tryApplyBuff({stat:"ADD", value:0.2, duration:3, offsettable:false}, a.buffs, a.curseStacks));
-      if(h.transitionPoints>=3) battleState.heroes.forEach(a=>{
-        tryApplyBuff({stat:"HD", value:0.1, duration:2, offsettable:true}, a.buffs, a.curseStacks);
-        tryApplyBuff({stat:"ADD", value:0.15, duration:2, offsettable:false}, battleState.heroes.find(x=>x.name==="LFA").buffs, a.curseStacks);
-      });
+      if(h.transitionPoints>=18) h.transitionPoints-=18;
+      if(h.transitionPoints>=6){
+        battleState.heroes.forEach(a=>tryApplyBuff({stat:"ADD", value:0.2, duration:3, offsettable:false}, a));
+      }
+      if(h.transitionPoints>=3){
+        battleState.heroes.forEach(a=>{
+          tryApplyBuff({stat:"HD", value:0.1, duration:2, offsettable:true}, a);
+        });
+        const lfa = battleState.heroes.find(h=>h.name==="LFA");
+        if(lfa) tryApplyBuff({stat:"ADD", value:0.15, duration:2, offsettable:false}, lfa);
+      }
     }
-
-    // CI and DR for all heroes
-    tryApplyBuff({stat:"CI", value:0.15, duration:3, offsettable:true}, h.buffs, h.curseStacks);
-    tryApplyBuff({stat:"DR", value:0.1, duration:1, offsettable:true}, h.buffs, h.curseStacks);
+    // CI and DR
+    tryApplyBuff({stat:"CI", value:0.15, duration:3, offsettable:true}, h);
+    tryApplyBuff({stat:"DR", value:0.1, duration:1, offsettable:true}, h);
   });
 
   // LFA loses 100 energy
   const lfa = battleState.heroes.find(h=>h.name==="LFA");
   if(lfa) setHeroEnergy(lfa, lfa.energy-100);
+
+  // Boss attack steal and curse
+  battleState.heroes.forEach(h=>{
+    if(h.name==="LFA") return;
+    // boss attack steal would apply here for other heroes if needed
+  });
+
+  // Apply Scissors: copy buffs to LFA
+  if(battleState.heroes.some(h=>h.artifact==="scissors")){
+    const lfa = battleState.heroes.find(h=>h.name==="LFA");
+    battleState.heroes.forEach(h=>{
+      for(const stat in h.buffs){
+        h.buffs[stat].forEach(b=>{
+          if(!lfa.buffs[stat]) lfa.buffs[stat]=[];
+          lfa.buffs[stat].push({...b});
+        });
+      }
+    });
+  }
 }
 
 // -------------------- Island Buffs --------------------
 function applyIslandStartRound(){
   battleState.heroes.forEach(h=>{
-    tryApplyBuff({stat:"ADD", value:0.25, duration:2, offsettable:true}, h.buffs, h.curseStacks);
-    tryApplyBuff({stat:"atk", value:0.35, duration:2, offsettable:true}, h.buffs, h.curseStacks);
-    tryApplyBuff({stat:"HD", value:0.10, duration:15, offsettable:true}, h.buffs, h.curseStacks);
+    tryApplyBuff({stat:"ADD", value:0.25, duration:2, offsettable:true}, h);
+    tryApplyBuff({stat:"atk", value:0.35, duration:2, offsettable:true}, h);
+    tryApplyBuff({stat:"HD", value:0.10, duration:15, offsettable:true}, h);
   });
 }
 function applyIslandEndRound(){
-  battleState.heroes.forEach(h=>{
-    tryApplyBuff({stat:"energy", value:50, duration:1, offsettable:true}, h.buffs, h.curseStacks);
-    if(h.artifact==="antlers") tryApplyBuff({stat:"ADD", value:0.09, duration:15, offsettable:false}, h.buffs, h.curseStacks);
-  });
+  battleState.heroes.forEach(h=>tryGainEnergy(50, h));
 }
 
 // -------------------- Timeline --------------------
 function logRound(){
   const lfa = battleState.heroes.find(h=>h.name==="LFA");
-  let buffSummary = {};
-  for(const stat in lfa.buffs){
-    buffSummary[stat] = totalBuffValue(lfa.buffs[stat]);
-  }
+  const buffsText = buffStats.map(stat=>`${stat}: ${(getTotalBuff(lfa,stat)*100).toFixed(1)}%`).join(", ");
   battleState.timeline.push({
     round:battleState.round,
     AbyssalCorruption:battleState.boss.abyssalCorruption,
     lfaEnergy:lfa.energy,
-    lfaBuffs:buffSummary
+    lfaBuffsText:buffsText
   });
 }
-
 function renderTimeline(){
   const pre = document.getElementById("timeline");
-  pre.textContent = battleState.timeline.map(r=>{
-    const buffsText = Object.entries(r.lfaBuffs).map(([k,v])=>`${(v*100).toFixed(1)}% ${k}`).join(", ");
-    return `R${r.round}\nAbyssal Corruption: ${r.AbyssalCorruption}\nLFA Energy: ${r.lfaEnergy}\nLFA Buffs: ${buffsText||"none"}`;
-  }).join("\n\n");
+  pre.textContent = battleState.timeline.map(r=>`R${r.round}\nAbyssal Corruption: ${r.AbyssalCorruption}\nLFA Energy: ${r.lfaEnergy}\nLFA Buffs: ${r.lfaBuffsText}`).join("\n\n");
 }
 
 // -------------------- Simulation --------------------
@@ -219,8 +229,8 @@ function startSimulation(){
     const heroName = heroSelects[i].value;
     if(!heroName) continue;
     const h = {...heroTemplates[heroName], artifact:artifactSelects[i].value};
-    h.buffs={}; // track buffs per hero
-    h.curseStacks=0; // track curse
+    h.buffs={};
+    h.curseStacks=0;
     battleState.heroes.push(h);
   }
 
@@ -230,8 +240,10 @@ function startSimulation(){
     battleState.heroes.forEach(h=>applyHeroAction(h));
     applySEBossNormalAttack();
     applyIslandEndRound();
-    // Decrement buffs at end of round
-    battleState.heroes.forEach(h=>decrementBuffs(h.buffs));
+    battleState.heroes.forEach(h=>{
+      if(h.artifact==="antlers") tryApplyBuff({stat:"ADD", value:0.09, duration:15, offsettable:false}, h);
+      decrementBuffs(h);
+    });
     logRound();
   }
   renderTimeline();
