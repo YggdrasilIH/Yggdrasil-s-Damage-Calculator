@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Idle Hero Simulator - Final Artifact Logic</title>
+    <title>Idle Hero Logic Simulator - Full Version</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; padding: 20px; font-size: 14px; }
         .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
@@ -14,7 +14,9 @@
         .round-head { color: #ff4757; border-bottom: 2px solid #ff4757; margin-top: 25px; font-weight: bold; font-size: 1.3em; background: #2d142c; padding: 5px; }
         .phase-name { color: #eccc68; margin-top: 15px; font-weight: bold; text-transform: uppercase; border-left: 4px solid #eccc68; padding-left: 10px; background: #222; }
         .curse-offset { color: #ff7f50; font-style: italic; }
+        .buff-gain { color: #2ed573; font-weight: bold; }
         .boss-msg { color: #ff4757; font-weight: bold; }
+        .nrg-badge { background: #1e90ff; color: white; padding: 1px 4px; border-radius: 3px; font-weight: bold; }
         select, button, input { padding: 5px; border-radius: 4px; border: 1px solid #57606f; background: #2f3542; color: white; width: 100%; box-sizing: border-box; }
         button { background: #ff4757; font-weight: bold; cursor: pointer; border: none; font-size: 1.1em; margin-top: 10px; width: 100%; }
         input[type="number"] { width: 65px; }
@@ -51,15 +53,21 @@ function log(msg, cls = "") { logEl.innerHTML += `<div class="${cls}">${msg}</di
 function checkCurse(hero, type, amount = "") {
     if (hero.curseLayers > 0) {
         hero.curseLayers--;
-        log(`&nbsp;&nbsp;&nbsp;✨ Curse Offset: ${hero.name} ${type} ${amount}. (Layers Left: ${hero.curseLayers})`, "curse-offset");
+        log(`&nbsp;&nbsp;&nbsp;✨ [CURSE OFFSET] ${hero.name}: ${type} ${amount} (Layers Left: ${hero.curseLayers})`, "curse-offset");
         return false;
     }
+    log(`&nbsp;&nbsp;&nbsp;✅ [BUFF GAINED] ${hero.name}: ${type} ${amount}`, "buff-gain");
     return true;
 }
 
 function bossGlobalCounter() {
-    log(`&nbsp;&nbsp;&nbsp;☄️ <span class="boss-msg">BOSS GLOBAL COUNTER!</span>`);
-    heroes.forEach(h => { if (Math.random() < 0.50) h.curseLayers += 1; });
+    log(`&nbsp;&nbsp;&nbsp;☄️ <span class="boss-msg">BOSS GLOBAL COUNTER!</span> (50% Curse Chance)`);
+    heroes.forEach(h => { 
+        if (Math.random() < 0.50) {
+            h.curseLayers += 1;
+            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;💀 ${h.name} +1 Curse Layer (Total: ${h.curseLayers})`);
+        }
+    });
 }
 
 function simulate() {
@@ -83,69 +91,122 @@ function simulate() {
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "round-head");
 
-        // PART 1: SOR
+        // PART 1: START OF ROUND (SOR)
         log("Part 1: Start of Round", "phase-name");
         heroes.forEach(h => {
             checkCurse(h, "Global ATK Buff");
             if (h.name === "STV" && h.transition >= 6) {
+                log(`&nbsp;&nbsp;&nbsp;💎 STV SOR Payoff Triggered`);
                 h.transition -= 6;
-                heroes.forEach(ally => { if(checkCurse(ally, "Energy", "20")) ally.energy += 20; });
+                heroes.forEach(ally => { if(checkCurse(ally, "Payoff Energy", "20")) ally.energy += 20; });
             }
         });
 
-        // PART 2: Actions
+        // PART 2: ACTIONS
         log("Part 2: Attacking Phase", "phase-name");
         let speedOrder = [...heroes].sort((a, b) => (b.spd !== a.spd) ? b.spd - a.spd : a.pos - b.pos);
         speedOrder.forEach(h => {
+            log(`--- ${h.name} P${h.pos} Moves (Energy: ${h.energy}, Curse: ${h.curseLayers}) ---`);
             let usedActive = false;
+            
             if (h.energy >= 100) {
                 log(`🔥 ${h.name} uses ACTIVE!`);
                 h.energy = 0; usedActive = true; h.activeCount++;
+                
+                // Hero-Specific Logic
+                if (h.name === "LFA") { h.transition += 6; checkCurse(h, "Self ATK Buff"); }
+                if (h.name === "SQH") h.transition += 6;
                 if (h.name === "STV") { 
                     h.transition += 6;
                     heroes.forEach(a => { ["ATK","Armor","DR","CI","Speed"].forEach(b => checkCurse(a, b+" Buff")); });
                 }
-                if (h.name === "LBRM") { h.transition += 6; h.energy += 50; if(h.transition >= 6) { h.transition -= 6; heroes.forEach(a => checkCurse(a, "Holy Dmg Buff")); }}
-                if (h.name === "SQH") h.transition += 6;
+                if (h.name === "FQV") { h.transition += 6; heroes.forEach(a => checkCurse(a, "Armor Buff")); }
+                if (h.name === "BDSM") {
+                    h.transition += 6;
+                    if(checkCurse(h, "Self Energy", "3")) h.energy += 3;
+                    if(Math.random() < 0.4) heroes.forEach(a => { if(checkCurse(a, "Team Energy", "10")) a.energy += 10; });
+                }
+                if (h.name === "LBRM") { 
+                    h.transition += 6; 
+                    log(`&nbsp;&nbsp;&nbsp;🛡️ [CURSE-PROOF] LBRM Refund: +50 NRG`);
+                    h.energy += 50; 
+                    if(h.transition >= 6) { 
+                        h.transition -= 6; 
+                        log(`&nbsp;&nbsp;&nbsp;💎 LBRM Holy Damage Payoff Triggered`);
+                        heroes.forEach(a => checkCurse(a, "Holy Dmg Buff")); 
+                    }
+                }
             } else {
                 log(`⚔️ ${h.name} uses Basic Attack.`);
+                log(`&nbsp;&nbsp;&nbsp;🛡️ [CURSE-PROOF] Basic Attack: +50 NRG`);
                 h.energy += 50;
+                if (h.name === "SQH") { checkCurse(h, "Crit Buff"); checkCurse(h, "Crit Dmg Buff"); }
             }
 
+            // Global Payoffs for 12 stacks
+            if (h.transition >= 12 && ["SQH", "BDSM", "FQV", "LFA"].includes(h.name)) {
+                h.transition -= 12;
+                log(`&nbsp;&nbsp;&nbsp;💎 ${h.name} 12-Stack Payoff Triggered`);
+                if (h.name === "LFA") checkCurse(h, "Control Immunity Buff");
+                else {
+                    heroes.forEach(ally => {
+                        if (h.name === "SQH" && ally !== h) { checkCurse(ally, "ATK"); checkCurse(ally, "DR"); if(checkCurse(ally, "Energy", "20")) ally.energy += 20; }
+                        if (h.name === "BDSM") { if(checkCurse(ally, "Energy", "20")) ally.energy += 20; }
+                        if (h.name === "FQV") { checkCurse(ally, "ATK"); checkCurse(ally, "Armor"); if(checkCurse(ally, "Energy", "20")) ally.energy += 20; }
+                    });
+                }
+            }
+
+            // BOSS REACTS
             bossGlobalCounter();
 
+            // Artifact Proc (Post-Counter)
             if (h.artifact === "Demon Bell" && usedActive) {
+                log(`&nbsp;&nbsp;&nbsp;🔔 Demon Bell Activation`);
                 heroes.forEach(a => { 
                     if(checkCurse(a, "DB Energy", "20")) a.energy += 20;
-                    if(Math.random() < 0.50) { if(checkCurse(a, "DB Bonus Energy", "10")) a.energy += 10; }
+                    if(Math.random() < 0.50) { if(checkCurse(a, "DB Extra Energy", "10")) a.energy += 10; }
                 });
             }
         });
 
-        // PART 4: EOR
+        // PART 4: END OF ROUND (EOR)
         log("Part 4: End of Round", "phase-name");
         heroes.forEach(h => {
             if (h.artifact === "Mirror") {
+                log(`&nbsp;&nbsp;&nbsp;🪞 Mirror Trigger (Hero Pos ${h.pos})`);
                 heroes.forEach(a => { 
                     checkCurse(a, "Mirror DR Buff"); 
                     if(checkCurse(a, "Mirror Energy", "15")) a.energy += 15; 
                 });
             }
-            if (h.artifact === "Antlers") checkCurse(h, "Antlers DR Buff");
-            if (h.artifact === "Scissors") {
-                heroes.forEach(a => { if(a.isFrontLine === h.isFrontLine) { checkCurse(a, "Scissors ATK"); checkCurse(a, "Scissors Holy Dmg"); }});
+            if (h.artifact === "Antlers") {
+                log(`&nbsp;&nbsp;&nbsp;🦌 Antlers Trigger (Hero Pos ${h.pos})`);
+                checkCurse(h, "Antlers DR Buff");
             }
-            log(`&nbsp;&nbsp;&nbsp;🔋 P${h.pos}: ${h.name} Global 50 NRG surge`);
-            if(checkCurse(h, "Global Energy", "50")) h.energy += 50;
+            if (h.artifact === "Scissors") {
+                log(`&nbsp;&nbsp;&nbsp;✂️ Scissors Trigger (Line: ${h.isFrontLine ? 'Front' : 'Back'})`);
+                heroes.forEach(a => { 
+                    if(a.isFrontLine === h.isFrontLine) { 
+                        checkCurse(a, "Scissors ATK"); 
+                        checkCurse(a, "Scissors Holy Dmg"); 
+                    }
+                });
+            }
+            log(`&nbsp;&nbsp;&nbsp;🔋 P${h.pos} Global Energy Step`);
+            if(checkCurse(h, "Global 50 NRG", "")) h.energy += 50;
         });
 
+        // Boss Final Drain
         let t = heroes.find(h => h.isHighestAtk);
-        t.energy = Math.max(0, t.energy - 100); t.curseLayers += 3;
+        log(`🎯 Boss Finisher: Drain ${t.name}`, "boss-msg");
+        t.energy = Math.max(0, t.energy - 100); 
+        t.curseLayers += 3;
     }
 
     const summaryEl = document.getElementById('summary');
     summaryEl.style.display = "block";
-    let tableHtml = `<h3>Battle Statistics</h3><table class="summary-table"><tr><th>Pos</th><th>Hero</th><th>Actives</th><th>Final Curse</th></tr>`;
+    let tableHtml = `<h3>Final Summary</h3><table class="summary-table"><tr><th>Pos</th><th>Hero</th><th>Actives Used</th><th>End Curse</th></tr>`;
     heroes.forEach(h => { tableHtml += `<tr><td>${h.pos}</td><td><b>${h.name}</b></td><td>${h.activeCount}</td><td>${h.curseLayers}</td></tr>`; });
     summaryEl.innerHTML = tableHtml + `</table>`;
     logEl.scrollTop = logEl.scrollHeight;
