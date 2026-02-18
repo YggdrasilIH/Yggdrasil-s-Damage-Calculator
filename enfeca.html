@@ -1,41 +1,66 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Idle Mechanic Estimator - Sequence Logic</title>
+    <title>Idle Mechanic Estimator - Hero Selection</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; padding: 20px; }
-        .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
-        .hero-box { border: 1px solid #474787; padding: 10px; border-radius: 4px; background: #1a1a2e; }
-        .log { background: #000; border: 2px solid #474787; padding: 15px; height: 550px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 13px; color: #f1f2f6; }
-        .round-head { color: #ff4757; border-bottom: 2px solid #ff4757; margin-top: 25px; font-weight: bold; font-size: 1.3em; }
-        .phase-name { color: #eccc68; margin-top: 15px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
-        .status-line { font-size: 11px; margin-bottom: 4px; border-left: 3px solid #1e90ff; padding-left: 5px; background: #1a1a2e; }
+        .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
+        .hero-box { border: 1px solid #474787; padding: 10px; border-radius: 4px; background: #1a1a2e; position: relative; }
+        .log { background: #000; border: 2px solid #474787; padding: 15px; height: 500px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px; color: #f1f2f6; }
+        
+        .round-head { color: #ff4757; border-bottom: 2px solid #ff4757; margin-top: 20px; font-weight: bold; font-size: 1.2em; }
+        .phase-name { color: #eccc68; margin-top: 10px; font-weight: bold; text-transform: uppercase; border-left: 4px solid #eccc68; padding-left: 10px; }
+        
         .nrg-badge { background: #1e90ff; color: white; padding: 1px 4px; border-radius: 3px; font-weight: bold; }
         .curse-badge { background: #747d8c; color: #ffa502; padding: 1px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #ffa502; }
-        .event-step { color: #a29bfe; font-size: 11px; font-style: italic; margin-left: 10px; }
-        .success { color: #2ed573; margin-left: 20px; }
-        .curse-offset { color: #ff7f50; font-style: italic; margin-left: 20px; }
-        button { background: #ff4757; color: white; border: none; padding: 12px 25px; cursor: pointer; font-weight: bold; border-radius: 5px; }
-        select { background: #2f3542; color: white; border: 1px solid #57606f; padding: 3px; width: 100%; }
+        
+        .boss-action { color: #ff4757; font-weight: bold; background: rgba(255, 71, 87, 0.1); }
+        .success { color: #2ed573; }
+        
+        select, button { padding: 8px; border-radius: 4px; border: 1px solid #57606f; background: #2f3542; color: white; width: 100%; margin-top: 5px; }
+        button { background: #ff4757; font-weight: bold; cursor: pointer; border: none; margin-top: 15px; }
+        
+        .target-label { font-size: 10px; color: #ff4757; display: block; margin-top: 5px; }
+        .is-target { border: 2px solid #ff4757; background: #2d142c; }
     </style>
 </head>
 <body>
 
+    <h2>Battle Setup</h2>
     <div class="setup" id="heroSetup"></div>
-    <button onclick="simulate()">Simulate 15 Rounds</button>
+    <button onclick="simulate()">Start 15-Round Battle</button>
+    
     <div id="log" class="log"></div>
 
 <script>
-const ARTIFACTS = { NONE: "None", DB: "Demon Bell", MIRROR: "Mirror", ANTLERS: "Antlers", SCISSORS: "Scissors" };
+const HERO_LIST = ["LFA", "SQH", "STV", "BDSM", "FQV", "LBRM", "ELY", "HW"];
+const ARTIFACTS = ["None", "Demon Bell", "Mirror", "Antlers", "Scissors"];
+
+// Initialize UI
 const setupEl = document.getElementById('heroSetup');
 for(let i=1; i<=6; i++) {
-    setupEl.innerHTML += `<div class="hero-box"><strong>Pos ${i}</strong><br><select id="art${i}">${Object.values(ARTIFACTS).map(a => `<option value="${a}">${a}</option>`).join('')}</select></div>`;
+    setupEl.innerHTML += `
+        <div class="hero-box" id="box${i}">
+            <strong>Position ${i}</strong><br>
+            Hero: <select id="hero${i}">${HERO_LIST.map(h => `<option value="${h}">${h}</option>`).join('')}</select>
+            Artifact: <select id="art${i}">${ARTIFACTS.map(a => `<option value="${a}">${a}</option>`).join('')}</select>
+            <label class="target-label">
+                <input type="radio" name="highestAtk" value="${i}" ${i===1 ? 'checked' : ''} onclick="updateTargeting()"> Highest ATK
+            </label>
+        </div>`;
 }
+
+function updateTargeting() {
+    const selected = document.querySelector('input[name="highestAtk"]:checked').value;
+    for(let i=1; i<=6; i++) {
+        document.getElementById(`box${i}`).classList.toggle('is-target', i == selected);
+    }
+}
+updateTargeting();
 
 let heroes = [];
 const logEl = document.getElementById('log');
 function log(msg, cls = "") { logEl.innerHTML += `<div class="${cls}">${msg}</div>`; }
-function getStatus(h) { return `<div class="status-line">${h.name} | <span class="nrg-badge">NRG: ${h.energy}</span> <span class="curse-badge">CURSE: ${h.curseLayers}</span></div>`; }
 
 function checkCurse(hero, type, amount = "") {
     if (hero.curseLayers > 0) {
@@ -49,12 +74,18 @@ function checkCurse(hero, type, amount = "") {
 function simulate() {
     logEl.innerHTML = "";
     heroes = [];
+    const targetPos = parseInt(document.querySelector('input[name="highestAtk"]:checked').value);
+    
     for(let i=1; i<=6; i++) {
         let art = document.getElementById(`art${i}`).value;
         heroes.push({
-            pos: i, name: "Hero " + i, spd: 1000 - (i * 10),
-            energy: (art === ARTIFACTS.DB || art === ARTIFACTS.MIRROR) ? 100 : 50,
-            curseLayers: 0, artifact: art, isFrontLine: i <= 2
+            pos: i,
+            name: document.getElementById(`hero${i}`).value,
+            energy: (art === "Demon Bell" || art === "Mirror") ? 100 : 50,
+            curseLayers: 0,
+            artifact: art,
+            isHighestAtk: (i === targetPos),
+            isFrontLine: i <= 2
         });
     }
 
@@ -63,70 +94,52 @@ function simulate() {
 
         // PART 2: Attacking Phase
         log("Part 2: Attacking Phase", "phase-name");
-        let speedOrder = [...heroes].sort((a, b) => b.spd - a.spd);
-        
-        speedOrder.forEach(h => {
-            log(getStatus(h));
+        // Heroes act in order (assuming spd same as pos for simplicity here, can re-add speed later)
+        heroes.forEach(h => {
+            log(`[${h.name}] <span class="nrg-badge">NRG: ${h.energy}</span> <span class="curse-badge">CURSE: ${h.curseLayers}</span>`);
             
-            // --- EVENT 1: The Action ---
             if (h.energy >= 100) {
-                log(`<span class="event-step">Step 1: Active Skill</span>`);
-                log(`🔥 ${h.name} releases ACTIVE!`);
-                h.energy = 0; // Reset happens IMMEDIATELY after skill release
+                log(`🔥 ${h.name} uses ACTIVE!`);
+                h.energy = 0; // The Action
+                
+                // Step 3: Artifact Trigger (Demon Bell)
+                if (h.artifact === "Demon Bell") {
+                    heroes.forEach(ally => {
+                        let gain = 20 + (Math.random() < 0.5 ? 10 : 0);
+                        if (checkCurse(ally, "Energy", gain)) {
+                            ally.energy += gain;
+                            log(`&nbsp;&nbsp;&nbsp;<span class="success">⚡ ${ally.name} +${gain} NRG (DB)</span>`);
+                        }
+                    });
+                }
             } else {
-                log(`<span class="event-step">Step 1: Basic Attack</span>`);
                 log(`⚔️ ${h.name} uses Basic Attack.`);
                 if (checkCurse(h, "Energy", "50")) h.energy += 50;
             }
-
-            // --- EVENT 2: Skill Buffs (Placeholder for now) ---
-            // log(`<span class="event-step">Step 2: Skill Buffs Applied</span>`);
-
-            // --- EVENT 3: Artifact Trigger ---
-            if (h.artifact === ARTIFACTS.DB && h.energy === 0) { // check if just used active
-                log(`<span class="event-step">Step 3: Artifact (Demon Bell)</span>`);
-                // Process in Position Order 1-6
-                heroes.forEach(ally => {
-                    let gain = 20 + (Math.random() < 0.5 ? 10 : 0);
-                    if (checkCurse(ally, "Energy", gain)) {
-                        ally.energy += gain;
-                        log(`&nbsp;&nbsp;&nbsp;<span class="success">⚡ ${ally.name} gained ${gain} NRG</span>`);
-                    }
-                    if (ally.pos !== h.pos) checkCurse(ally, "Speed Buff");
-                });
-            }
-            
-            // Boss Reaction
-            if (Math.random() < 0.5) {
-                log(`👾 Boss: Reactive Curse Layer!`, "curse-offset");
-                heroes.forEach(all => all.curseLayers++);
-            }
         });
 
-        // Boss Turn in Part 2
-        log(`👾 Boss Turn`, "phase-name");
+        // Boss Attack
+        log(`👾 Boss Attacks`, "phase-name");
         heroes.forEach(h => {
             if (checkCurse(h, "Energy", "10")) h.energy += 10;
         });
-        // Boss Active (2 layers)
-        heroes.forEach(h => h.curseLayers += 2);
+        heroes.forEach(h => h.curseLayers += 2); // Boss Active
 
         // PART 4: End of Round
         log("Part 4: End of Round", "phase-name");
-        // Similar order applies here: Position 1 acts, then 2...
         heroes.forEach(h => {
-            if (h.artifact === ARTIFACTS.MIRROR) {
-                log(`🪞 ${h.name} Artifact: Mirror`);
-                heroes.forEach(ally => {
-                    if (checkCurse(ally, "Energy", "15")) ally.energy += 15;
-                    checkCurse(ally, "Damage Reduction Buff");
-                });
+            if (h.artifact === "Mirror") {
+                heroes.forEach(ally => { if (checkCurse(ally, "Energy", "15")) ally.energy += 15; });
             }
-            // (Other artifacts here)
         });
+
+        // Boss Logic
+        let target = heroes.find(h => h.isHighestAtk);
+        log(`🎯 Boss targets ${target.name} (Highest ATK)`, "boss-action");
+        target.energy = Math.max(0, target.energy - 100);
+        target.curseLayers += 2;
         
-        // EOR Curse
-        heroes.forEach(h => h.curseLayers += 3);
+        heroes.forEach(h => h.curseLayers += 3); // Global EOR Curse
         logEl.scrollTop = logEl.scrollHeight;
     }
 }
