@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Idle Hero Logic Simulator - Precision Targeting</title>
+    <title>Idle Hero Logic Simulator - Positional Global Buffs</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; padding: 20px; font-size: 14px; }
         .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
@@ -48,7 +48,7 @@ function log(msg, cls = "") { logEl.innerHTML += `<div class="${cls}">${msg}</di
 function checkCurse(hero, type, amount = "") {
     if (hero.curseLayers > 0) {
         hero.curseLayers--;
-        log(`&nbsp;&nbsp;&nbsp;✨ Curse Offset: ${type} ${amount}. (Layers left: ${hero.curseLayers})`, "curse-offset");
+        log(`&nbsp;&nbsp;&nbsp;✨ Curse Offset: ${hero.name} ${type} ${amount}. (Layers: ${hero.curseLayers})`, "curse-offset");
         return false;
     }
     return true;
@@ -78,12 +78,14 @@ function simulate() {
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "round-head");
 
-        // PART 1: Start of Round
+        // PART 1: Start of Round (Position Order 1-6)
         log("Part 1: Start of Round", "phase-name");
-        log(`&nbsp;&nbsp;&nbsp;⚔️ Global Moral: All allies gain ATK Buff`);
-        heroes.forEach(h => checkCurse(h, "Global ATK Buff"));
-
         heroes.forEach(h => {
+            // 1. Global Start-of-Round Buff
+            log(`&nbsp;&nbsp;&nbsp;⚔️ Position ${h.pos}: ${h.name} gains Global ATK Buff`);
+            checkCurse(h, "Global ATK Buff");
+
+            // 2. Hero-Specific Start-of-Round Skills
             if (h.name === "STV" && h.transition >= 6) {
                 log(`&nbsp;&nbsp;&nbsp;✨ STV Payoff: Energy to all!`, "hero-msg");
                 h.transition -= 6;
@@ -91,7 +93,7 @@ function simulate() {
             }
         });
 
-        // PART 2: Attacking Phase
+        // PART 2: Attacking Phase (Speed Order)
         log("Part 2: Attacking Phase", "phase-name");
         let speedOrder = [...heroes].sort((a, b) => (b.spd !== a.spd) ? b.spd - a.spd : a.pos - b.pos);
 
@@ -134,6 +136,7 @@ function simulate() {
                 }
             }
 
+            // Payoffs (SQH, BDSM, FQV, LFA)
             if ((h.name === "SQH" || h.name === "BDSM" || h.name === "FQV") && h.transition >= 12) {
                 log(`&nbsp;&nbsp;&nbsp;<span class="hero-msg">✨ ${h.name} Transition Payoff!</span>`);
                 h.transition -= 12;
@@ -159,12 +162,10 @@ function simulate() {
         heroes.forEach(h => { if (checkCurse(h, "Energy", "10")) h.energy += 10; });
         heroes.forEach(h => h.curseLayers += 2);
 
-        // PART 4: End of Round
+        // PART 4: End of Round (Position Order 1-6)
         log("Part 4: End of Round", "phase-name");
-        log(`&nbsp;&nbsp;&nbsp;🔋 Global Energy Surge: All allies gain 50 NRG`);
-        heroes.forEach(h => { if(checkCurse(h, "Global Energy", "50")) h.energy += 50; });
-
         heroes.forEach(h => {
+            // 1. Artifact/Skill End-of-Round
             if (h.artifact === "Mirror") {
                 heroes.forEach(a => { if(checkCurse(a, "Energy", "15")) a.energy += 15; checkCurse(a, "DR Buff"); });
             }
@@ -177,14 +178,17 @@ function simulate() {
                 log(`&nbsp;&nbsp;&nbsp;✨ ELY EOR Speed Buff to ${target.name}`);
                 checkCurse(target, "Speed Buff");
             }
+
+            // 2. Global End-of-Round Buff (Now Position Specific)
+            log(`&nbsp;&nbsp;&nbsp;🔋 Position ${h.pos}: ${h.name} receives Global 50 NRG surge`);
+            if(checkCurse(h, "Global Energy", "50")) h.energy += 50;
         });
 
-        // CORRECTED BOSS ACTION: Highest ATK only
+        // Boss Finisher
         let t = heroes.find(h => h.isHighestAtk);
         log(`🎯 Boss Finisher: Targeted ${t.name} (Highest ATK)`, "hero-msg");
         t.energy = Math.max(0, t.energy - 100);
         t.curseLayers += 3; 
-        log(`&nbsp;&nbsp;&nbsp;💀 Energy Drained to ${t.energy}. Added 3 Curse Layers to ${t.name}.`);
 
         logEl.scrollTop = logEl.scrollHeight;
     }
