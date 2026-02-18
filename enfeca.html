@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Idle Hero Simulator - Specter Passive Corrected</title>
+    <title>Idle Hero Simulator - Star Imprints Update</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; padding: 20px; font-size: 14px; }
         .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
+        .imprint-setup { background: #1a1a2e; padding: 15px; border-radius: 8px; border: 2px solid #eccc68; margin-bottom: 10px; display: flex; gap: 20px; align-items: center; }
         .hero-box { border: 1px solid #474787; padding: 10px; border-radius: 4px; background: #1a1a2e; }
         .log { background: #000; border: 2px solid #474787; padding: 15px; height: 650px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px; color: #f1f2f6; line-height: 1.5; margin-bottom: 20px;}
         .summary-card { background: #161b33; padding: 20px; border-radius: 8px; border: 2px solid #2ed573; margin-top: 20px; }
@@ -16,6 +17,7 @@
         .curse-offset { color: #ff7f50; font-style: italic; }
         .buff-gain { color: #2ed573; font-weight: bold; }
         .specter-msg { color: #a55eea; font-weight: bold; }
+        .imprint-msg { color: #00d2d3; font-weight: bold; }
         .boss-msg { color: #ff4757; font-weight: bold; }
         select, button, input { padding: 5px; border-radius: 4px; border: 1px solid #57606f; background: #2f3542; color: white; width: 100%; box-sizing: border-box; }
         button { background: #ff4757; font-weight: bold; cursor: pointer; border: none; font-size: 1.1em; margin-top: 10px; width: 100%; }
@@ -23,6 +25,13 @@
     </style>
 </head>
 <body>
+
+    <div class="imprint-setup">
+        <strong>Global Star Imprint:</strong>
+        <label><input type="radio" name="imprint" value="none" checked> None</label>
+        <label><input type="radio" name="imprint" value="foresight"> Foresight</label>
+        <label><input type="radio" name="imprint" value="destiny"> Destiny</label>
+    </div>
 
     <div class="setup" id="heroSetup"></div>
     <button onclick="simulate()">Simulate 15-Round Battle</button>
@@ -76,6 +85,7 @@ function simulate() {
     document.getElementById('summary').style.display = "none";
     heroes = [];
     const targetPos = parseInt(document.querySelector('input[name="highestAtk"]:checked').value);
+    const globalImprint = document.querySelector('input[name="imprint"]:checked').value;
     
     for(let i=1; i<=6; i++) {
         let art = document.getElementById(`art${i}`).value;
@@ -106,7 +116,6 @@ function simulate() {
         heroes.forEach(h => {
             checkCurse(h, "Global Round ATK Buff");
             if (h.name === "STV" && h.transition >= 6) {
-                log(`&nbsp;&nbsp;&nbsp;💎 STV Payoff (6 Stacks)`);
                 h.transition -= 6;
                 heroes.forEach(ally => { if(checkCurse(ally, "STV Energy Share", "+20")) ally.energy += 20; });
             }
@@ -117,52 +126,35 @@ function simulate() {
         speedOrder.forEach(h => {
             log(`--- ${h.name} P${h.pos} Logic ---`);
             let usedActive = false;
+            let usedBasic = false;
             
             if (h.energy >= 100) {
                 log(`🔥 ${h.name} uses ACTIVE!`);
                 h.energy = 0; usedActive = true; h.activeCount++;
-                
-                if (h.name === "LFA") { h.transition += 6; checkCurse(h, "Self ATK Buff"); }
-                if (h.name === "SQH") { h.transition += 6; }
+                if (h.name === "LFA") h.transition += 6;
+                if (h.name === "SQH") h.transition += 6;
                 if (h.name === "STV") { 
                     h.transition += 6;
-                    heroes.forEach(a => { 
-                        checkCurse(a, "STV ATK Buff"); checkCurse(a, "STV Armor Buff"); 
-                        checkCurse(a, "STV DR Buff"); checkCurse(a, "STV CI Buff"); checkCurse(a, "STV Speed Buff");
-                    });
+                    heroes.forEach(a => { checkCurse(a, "STV ATK Buff"); checkCurse(a, "STV Speed Buff"); });
                 }
-                if (h.name === "FQV") { h.transition += 6; heroes.forEach(a => checkCurse(a, "FQV Armor Buff")); }
-                if (h.name === "BDSM") { h.transition += 6; if(checkCurse(h, "BDSM Self Energy", "+3")) h.energy += 3; }
-                if (h.name === "LBRM") { h.transition += 6; log(`&nbsp;&nbsp;&nbsp;🛡️ [CURSE-PROOF] LBRM Refund: +50`); h.energy += 50; }
+                if (h.name === "FQV") h.transition += 6;
+                if (h.name === "BDSM") h.transition += 6;
+                if (h.name === "LBRM") { h.transition += 6; h.energy += 50; }
             } else {
                 log(`⚔️ ${h.name} uses Basic Attack.`);
-                log(`&nbsp;&nbsp;&nbsp;🛡️ [CURSE-PROOF] Basic: +50`);
-                h.energy += 50;
+                h.energy += 50; usedBasic = true;
             }
 
+            // Expanded Transition 12 Payoffs
             if (h.transition >= 12) {
-                log(`&nbsp;&nbsp;&nbsp;💎 ${h.name} REACHED 12 STACKS!`);
                 h.transition -= 12;
-                if (h.name === "LFA") { checkCurse(h, "LFA CI Buff"); }
-                if (h.name === "SQH") { 
-                    heroes.forEach(ally => { 
-                        if(ally !== h) {
-                            checkCurse(ally, "SQH ATK"); checkCurse(ally, "SQH DR"); 
-                            if(checkCurse(ally, "SQH Energy", "+20")) ally.energy += 20; 
-                        }
-                    }); 
-                }
-                if (h.name === "FQV") { 
-                    heroes.forEach(ally => { 
-                        checkCurse(ally, "FQV ATK"); checkCurse(ally, "FQV Armor"); 
-                        if(checkCurse(ally, "FQV Energy", "+20")) ally.energy += 20; 
-                    });
-                }
-                if (h.name === "BDSM") { 
-                    heroes.forEach(ally => { if(checkCurse(ally, "BDSM Energy Share", "+20")) ally.energy += 20; });
-                }
+                log(`&nbsp;&nbsp;&nbsp;💎 ${h.name} 12-Stack Payoff!`);
+                if (h.name === "SQH") heroes.forEach(ally => { if(ally !== h) { checkCurse(ally, "SQH ATK"); if(checkCurse(ally, "SQH Energy", "+20")) ally.energy += 20; }});
+                if (h.name === "FQV") heroes.forEach(ally => { checkCurse(ally, "FQV ATK"); if(checkCurse(ally, "FQV Energy", "+20")) ally.energy += 20; });
+                if (h.name === "BDSM") heroes.forEach(ally => { if(checkCurse(ally, "BDSM Energy", "+20")) ally.energy += 20; });
             }
 
+            // Specter Star Soul
             if (h.hasSpecter) {
                 let procChance = (h.specterCount >= 3) ? 1.0 : 0.333;
                 if (Math.random() < procChance) {
@@ -171,65 +163,72 @@ function simulate() {
                     let fastest = [...heroes].sort((a, b) => b.spd - a.spd)[0];
                     if(checkCurse(fastest, "Specter Energy", "+100")) fastest.energy += 100;
                     if(checkCurse(h, "Specter Self Buff", "+50")) h.energy += 50;
-                } else {
-                    h.specterCount++;
-                    log(`&nbsp;&nbsp;&nbsp;🔮 Specter Stack Added (${h.specterCount}/3)`);
+                } else { h.specterCount++; }
+            }
+
+            // --- STAR IMPRINT LOGIC (FINAL BUFFS BEFORE COUNTER) ---
+            if (globalImprint === "foresight") {
+                if (usedBasic) {
+                    log(`&nbsp;&nbsp;&nbsp;🔭 <span class="imprint-msg">FORESIGHT BASIC PROC</span>`);
+                    if(checkCurse(h, "Foresight Energy", "+50")) h.energy += 50;
+                }
+                if (usedActive) {
+                    log(`&nbsp;&nbsp;&nbsp;🔭 <span class="imprint-msg">FORESIGHT ACTIVE PROC</span>`);
+                    checkCurse(h, "Foresight Crit Buff");
+                    checkCurse(h, "Foresight Crit Dmg Buff");
+                }
+            } else if (globalImprint === "destiny") {
+                if (usedBasic || (h.name === "LBRM" && usedActive)) {
+                    log(`&nbsp;&nbsp;&nbsp;🌌 <span class="imprint-msg">DESTINY TRIGGERED</span>`);
+                    heroes.forEach(ally => {
+                        if (Math.random() < 0.75) {
+                            if(checkCurse(ally, "Destiny Energy", "+20")) ally.energy += 20;
+                            if(Math.random() < 0.50) {
+                                if(checkCurse(ally, "Destiny Bonus Energy", "+20")) ally.energy += 20;
+                            }
+                        }
+                    });
                 }
             }
 
             bossGlobalCounter();
 
             if (h.artifact === "Demon Bell" && usedActive) {
-                log(`&nbsp;&nbsp;&nbsp;🔔 DB Proc`);
                 heroes.forEach(a => { 
                     if(checkCurse(a, "DB Energy", "+20")) a.energy += 20;
-                    if(Math.random() < 0.50) { if(checkCurse(a, "DB Bonus", "+10")) a.energy += 10; }
+                    if(Math.random() < 0.50) if(checkCurse(a, "DB Bonus", "+10")) a.energy += 10;
                 });
             }
         });
 
-        // --- PART 3: BOSS ACTIVE PHASE ---
+        // Boss Action Phase
         log("Part 3: Boss Action Phase", "phase-name");
         let target = heroes.find(h => h.isHighestAtk);
-        log(`🎯 Boss uses Active Skill on ${target.name}`, "boss-msg");
+        log(`🎯 Boss uses Active on ${target.name}`, "boss-msg");
         target.energy = Math.max(0, target.energy - 100); 
         target.curseLayers += 3;
         
-        // RELOCATED: Specter Passive Energy Burst (Reaction to Boss Active)
         log(`&nbsp;&nbsp;&nbsp;🔮 Specter Passive: Reactive Energy Burst`);
-        heroes.forEach(h => {
-            if(checkCurse(h, "Specter Passive Energy", "+10")) h.energy += 10;
-        });
+        heroes.forEach(h => { if(checkCurse(h, "Specter Passive Energy", "+10")) h.energy += 10; });
 
         log("Part 4: End of Round (EOR)", "phase-name");
         heroes.forEach(h => {
-            if (h.artifact === "Mirror") {
-                log(`&nbsp;&nbsp;&nbsp;🪞 Mirror (Pos ${h.pos})`);
-                heroes.forEach(a => { checkCurse(a, "Mirror DR"); if(checkCurse(a, "Mirror Energy", "+15")) a.energy += 15; });
-            }
-            if (h.artifact === "Antlers") { log(`&nbsp;&nbsp;&nbsp;🦌 Antlers (Pos ${h.pos})`); checkCurse(h, "Antlers DR"); }
-            if (h.artifact === "Scissors") {
-                log(`&nbsp;&nbsp;&nbsp;✂️ Scissors (Pos ${h.pos})`);
-                heroes.forEach(a => { if(a.isFrontLine === h.isFrontLine) { checkCurse(a, "Scissors ATK"); checkCurse(a, "Scissors Holy Dmg"); }});
-            }
+            if (h.artifact === "Mirror") heroes.forEach(a => { checkCurse(a, "Mirror DR"); if(checkCurse(a, "Mirror Energy", "+15")) a.energy += 15; });
+            if (h.artifact === "Antlers") checkCurse(h, "Antlers DR");
+            if (h.artifact === "Scissors") heroes.forEach(a => { if(a.isFrontLine === h.isFrontLine) { checkCurse(a, "Scissors ATK"); checkCurse(a, "Scissors Holy Dmg"); }});
             if (h.hasSpecter && r <= 5) {
-                log(`&nbsp;&nbsp;&nbsp;🔮 Specter EOR (Round ${r}/5)`);
                 if(checkCurse(h, "Specter EOR Self", "+50")) h.energy += 50;
                 let randAlly = heroes[Math.floor(Math.random() * 6)];
                 if(checkCurse(randAlly, "Specter EOR Team", "+50")) randAlly.energy += 50;
             }
-            log(`&nbsp;&nbsp;&nbsp;🔋 Global Energy Surge`);
             if(checkCurse(h, "Global Surge", "+50")) h.energy += 50;
         });
     }
 
     document.getElementById('summary').style.display = "block";
-    let tableHtml = `<h3>Full Battle Summary</h3><table class="summary-table"><tr><th>Pos</th><th>Hero</th><th>Specter</th><th>Actives</th><th>End Curse</th></tr>`;
-    heroes.forEach(h => { 
-        tableHtml += `<tr><td>${h.pos}</td><td><b>${h.name}</b></td><td>${h.hasSpecter?'✅':'❌'}</td><td>${h.activeCount}</td><td>${h.curseLayers}</td></tr>`; 
-    });
+    let tableHtml = `<h3>Summary</h3><table class="summary-table"><tr><th>Pos</th><th>Hero</th><th>Actives</th><th>End Curse</th></tr>`;
+    heroes.forEach(h => { tableHtml += `<tr><td>${h.pos}</td><td><b>${h.name}</b></td><td>${h.activeCount}</td><td>${h.curseLayers}</td></tr>`; });
     document.getElementById('summary').innerHTML = tableHtml + `</table>`;
-    logEl.scrollTop = logEl.scrollHeight;
 }
 </script>
 </body>
