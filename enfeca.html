@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Idle Hero Logic Simulator - Summary & Fixed Global Buffs</title>
+    <title>Idle Hero Logic Simulator - Scissors & LBRM Fixed</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; padding: 20px; font-size: 14px; }
         .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
@@ -11,13 +11,11 @@
         .summary-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .summary-table th, .summary-table td { padding: 10px; border: 1px solid #2f3542; text-align: left; }
         .summary-table th { background: #2f3542; color: #2ed573; }
-        
         .round-head { color: #ff4757; border-bottom: 2px solid #ff4757; margin-top: 25px; font-weight: bold; font-size: 1.3em; background: #2d142c; padding: 5px; }
         .phase-name { color: #eccc68; margin-top: 15px; font-weight: bold; text-transform: uppercase; border-left: 4px solid #eccc68; padding-left: 10px; background: #222; }
         .nrg-badge { background: #1e90ff; color: white; padding: 1px 4px; border-radius: 3px; font-weight: bold; }
         .curse-badge { background: #747d8c; color: #ffa502; padding: 1px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #ffa502; }
         .curse-offset { color: #ff7f50; font-style: italic; }
-        
         select, button, input { padding: 5px; border-radius: 4px; border: 1px solid #57606f; background: #2f3542; color: white; width: 100%; margin-top: 2px; box-sizing: border-box; }
         button { background: #ff4757; font-weight: bold; cursor: pointer; border: none; font-size: 1.1em; margin-top: 10px;}
         input[type="number"] { width: 60px; display: inline-block; }
@@ -87,22 +85,19 @@ function simulate() {
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "round-head");
 
-        // PART 1: Start of Round (POSITION ORDER 1-6)
+        // PART 1: SOR (Position Order)
         log("Part 1: Start of Round", "phase-name");
         heroes.forEach(h => {
-            // 1. Global ATK Buff first
             log(`&nbsp;&nbsp;&nbsp;⚔️ P${h.pos}: ${h.name} Global ATK Buff`);
             checkCurse(h, "Global ATK Buff");
-
-            // 2. Then SOR Skill Payoffs
             if (h.name === "STV" && h.transition >= 6) {
-                log(`&nbsp;&nbsp;&nbsp;✨ STV Start-of-Round Payoff Trigger!`);
+                log(`&nbsp;&nbsp;&nbsp;✨ STV Start-of-Round Payoff!`);
                 h.transition -= 6;
                 heroes.forEach(ally => { if(checkCurse(ally, "Energy", "20")) ally.energy += 20; });
             }
         });
 
-        // PART 2: Actions (SPEED ORDER)
+        // PART 2: Actions (Speed Order)
         log("Part 2: Attacking Phase", "phase-name");
         let speedOrder = [...heroes].sort((a, b) => (b.spd !== a.spd) ? b.spd - a.spd : a.pos - b.pos);
         speedOrder.forEach(h => {
@@ -112,7 +107,7 @@ function simulate() {
                 log(`🔥 ${h.name} uses ACTIVE!`);
                 h.energy = 0; usedActive = true; h.activeCount++;
                 if (h.name === "LFA") { h.transition += 6; checkCurse(h, "Self ATK Buff"); }
-                if (h.name === "SQH") { h.transition += 6; }
+                if (h.name === "SQH") h.transition += 6;
                 if (h.name === "STV") { 
                     h.transition += 6;
                     heroes.forEach(a => { ["ATK","Armor","DR","CI","Speed"].forEach(b => checkCurse(a, b+" Buff")); });
@@ -126,9 +121,13 @@ function simulate() {
                 }
                 if (h.name === "FQV") { h.transition += 6; heroes.forEach(a => checkCurse(a, "Armor Buff")); }
                 if (h.name === "LBRM") {
-                    h.transition += 6;
-                    if(checkCurse(h, "Energy", "50")) { h.energy += 50; }
-                    if(h.transition >= 6) { h.transition -= 6; heroes.forEach(a => checkCurse(a, "Holy Dmg Buff")); }
+                    h.transition += 6; // Gaining 6 layers on Active
+                    if(checkCurse(h, "Energy", "50")) h.energy += 50;
+                    if(h.transition >= 6) { 
+                        log(`&nbsp;&nbsp;&nbsp;✨ LBRM Holy Damage Payoff (6 Stacks)`);
+                        h.transition -= 6; 
+                        heroes.forEach(a => checkCurse(a, "Holy Dmg Buff")); 
+                    }
                 }
             } else {
                 log(`⚔️ ${h.name} uses Basic Attack.`);
@@ -138,9 +137,9 @@ function simulate() {
                 if (h.name === "STV") heroes.forEach(a => { if(a.isFrontLine){ checkCurse(a, "DR Buff"); checkCurse(a, "CI Buff"); } else { checkCurse(a, "ATK Buff"); } });
             }
 
-            // Payoffs (SQH/BDSM/FQV/LFA)
             if (h.transition >= 12 && ["SQH", "BDSM", "FQV"].includes(h.name)) {
                 h.transition -= 12;
+                log(`&nbsp;&nbsp;&nbsp;✨ ${h.name} Transition Payoff Trigger!`);
                 heroes.forEach(ally => {
                     if (h.name === "SQH" && ally !== h) { checkCurse(ally, "ATK"); checkCurse(ally, "DR"); if(checkCurse(ally, "Energy", "20")) ally.energy += 20; }
                     if (h.name === "BDSM") { if(checkCurse(ally, "Energy", "20")) { ally.energy += 20; if(ally.name === "BDSM" && ally.energy > 100) triggerBDSMOverload(ally); } }
@@ -152,26 +151,27 @@ function simulate() {
             }
         });
 
-        // BOSS ATTACK (MID-ROUND)
+        // BOSS ATTACK
         log("👾 Boss Attacks Team", "phase-name");
         heroes.forEach(h => {
-            if (Math.random() * 100 < h.dodge) {
-                log(`&nbsp;&nbsp;&nbsp;💨 ${h.name} DODGED!`);
-            } else {
-                if (checkCurse(h, "Energy", "10")) h.energy += 10;
-                h.curseLayers += 2;
-            }
+            if (Math.random() * 100 < h.dodge) log(`&nbsp;&nbsp;&nbsp;💨 ${h.name} DODGED!`);
+            else { if (checkCurse(h, "Energy", "10")) h.energy += 10; h.curseLayers += 2; }
         });
 
-        // PART 4: End of Round (POSITION ORDER 1-6)
+        // PART 4: EOR (Position Order)
         log("Part 4: End of Round", "phase-name");
         heroes.forEach(h => {
-            // 1. Hero EOR Trigger (Skill/Artifact) first
-            if (h.artifact === "Mirror") { heroes.forEach(a => { if(checkCurse(a, "Energy", "15")) a.energy += 15; }); }
-            if (h.name === "ELY") { checkCurse(heroes[Math.floor(Math.random()*6)], "Speed Buff"); }
-            if (h.artifact === "Scissors") { heroes.forEach(a => { if(a.isFrontLine === h.isFrontLine) { checkCurse(a, "ATK"); checkCurse(a, "Holy Dmg"); } }); }
+            // Artifacts/Skill EOR
+            if (h.artifact === "Mirror") heroes.forEach(a => { if(checkCurse(a, "Energy", "15")) a.energy += 15; });
+            if (h.artifact === "Scissors") {
+                log(`&nbsp;&nbsp;&nbsp;✂️ ${h.name} Scissors Trigger (Line: ${h.isFrontLine ? 'Front' : 'Back'})`);
+                heroes.forEach(a => { 
+                    if(a.isFrontLine === h.isFrontLine) { checkCurse(a, "Scissors ATK"); checkCurse(a, "Scissors Holy Dmg"); } 
+                });
+            }
+            if (h.name === "ELY") checkCurse(heroes[Math.floor(Math.random()*6)], "Speed Buff");
             
-            // 2. Global Energy surge happens AFTER individual EOR triggers
+            // Global Energy surge
             log(`&nbsp;&nbsp;&nbsp;🔋 P${h.pos}: ${h.name} Global 50 NRG surge`);
             if(checkCurse(h, "Global Energy", "50")) h.energy += 50;
         });
@@ -186,7 +186,6 @@ function simulate() {
     let tableHtml = `<h3>Battle Statistics</h3><table class="summary-table"><tr><th>Pos</th><th>Hero</th><th>Actives</th><th>Final Curse</th></tr>`;
     heroes.forEach(h => { tableHtml += `<tr><td>${h.pos}</td><td><b>${h.name}</b></td><td>${h.activeCount}</td><td>${h.curseLayers}</td></tr>`; });
     summaryEl.innerHTML = tableHtml + `</table>`;
-    logEl.scrollTop = logEl.scrollHeight;
 }
 </script>
 </body>
