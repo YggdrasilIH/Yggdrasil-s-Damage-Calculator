@@ -1,22 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Idle Hero Logic Simulator - High Energy Edition</title>
+    <title>Idle Hero Logic Simulator - Precision Targeting</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; padding: 20px; font-size: 14px; }
         .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
         .hero-box { border: 1px solid #474787; padding: 10px; border-radius: 4px; background: #1a1a2e; }
-        .log { background: #000; border: 2px solid #474787; padding: 15px; height: 700px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px; color: #f1f2f6; line-height: 1.5; }
-        
+        .log { background: #000; border: 2px solid #474787; padding: 15px; height: 750px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px; color: #f1f2f6; line-height: 1.5; }
         .round-head { color: #ff4757; border-bottom: 2px solid #ff4757; margin-top: 25px; font-weight: bold; font-size: 1.3em; background: #2d142c; padding: 5px; }
         .phase-name { color: #eccc68; margin-top: 15px; font-weight: bold; text-transform: uppercase; border-left: 4px solid #eccc68; padding-left: 10px; background: #222; }
-        
         .nrg-badge { background: #1e90ff; color: white; padding: 1px 4px; border-radius: 3px; font-weight: bold; }
         .curse-badge { background: #747d8c; color: #ffa502; padding: 1px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #ffa502; }
         .hero-msg { color: #a29bfe; font-weight: bold; }
         .success { color: #2ed573; }
         .curse-offset { color: #ff7f50; font-style: italic; }
-        
         select, button, input { padding: 5px; border-radius: 4px; border: 1px solid #57606f; background: #2f3542; color: white; width: 100%; margin-top: 2px; box-sizing: border-box; }
         button { background: #ff4757; font-weight: bold; cursor: pointer; border: none; font-size: 1.1em; margin-top: 10px;}
         input[type="number"] { width: 70px; display: inline-block; }
@@ -83,8 +80,6 @@ function simulate() {
 
         // PART 1: Start of Round
         log("Part 1: Start of Round", "phase-name");
-        
-        // Global ATK Buff
         log(`&nbsp;&nbsp;&nbsp;⚔️ Global Moral: All allies gain ATK Buff`);
         heroes.forEach(h => checkCurse(h, "Global ATK Buff"));
 
@@ -98,19 +93,15 @@ function simulate() {
 
         // PART 2: Attacking Phase
         log("Part 2: Attacking Phase", "phase-name");
-        let speedOrder = [...heroes].sort((a, b) => {
-            if (b.spd !== a.spd) return b.spd - a.spd;
-            return a.pos - b.pos;
-        });
+        let speedOrder = [...heroes].sort((a, b) => (b.spd !== a.spd) ? b.spd - a.spd : a.pos - b.pos);
 
         speedOrder.forEach(h => {
             log(`[${h.name} P${h.pos} | SPD: ${h.spd}] <span class="nrg-badge">NRG: ${h.energy}</span> <span class="curse-badge">CURSE: ${h.curseLayers}</span>`);
-            
             let usedActive = false;
+            
             if (h.energy >= 100) {
                 log(`🔥 ${h.name} uses ACTIVE!`);
                 h.energy = 0; usedActive = true;
-                
                 if (h.name === "LFA") { h.transition += 6; checkCurse(h, "Self ATK Buff"); }
                 if (h.name === "SQH") { h.transition += 6; }
                 if (h.name === "STV") { 
@@ -163,15 +154,13 @@ function simulate() {
             }
         });
 
-        // Boss Combat
+        // Boss Attack (Mid-round)
         log("👾 Boss Attacks Team", "phase-name");
         heroes.forEach(h => { if (checkCurse(h, "Energy", "10")) h.energy += 10; });
         heroes.forEach(h => h.curseLayers += 2);
 
         // PART 4: End of Round
         log("Part 4: End of Round", "phase-name");
-
-        // Global EOR Energy Gain
         log(`&nbsp;&nbsp;&nbsp;🔋 Global Energy Surge: All allies gain 50 NRG`);
         heroes.forEach(h => { if(checkCurse(h, "Global Energy", "50")) h.energy += 50; });
 
@@ -190,12 +179,13 @@ function simulate() {
             }
         });
 
+        // CORRECTED BOSS ACTION: Highest ATK only
         let t = heroes.find(h => h.isHighestAtk);
-        log(`🎯 Boss Drains ${t.name} (Highest ATK)`, "hero-msg");
+        log(`🎯 Boss Finisher: Targeted ${t.name} (Highest ATK)`, "hero-msg");
         t.energy = Math.max(0, t.energy - 100);
-        t.curseLayers += 2;
-        
-        heroes.forEach(h => h.curseLayers += 3);
+        t.curseLayers += 3; 
+        log(`&nbsp;&nbsp;&nbsp;💀 Energy Drained to ${t.energy}. Added 3 Curse Layers to ${t.name}.`);
+
         logEl.scrollTop = logEl.scrollHeight;
     }
 }
