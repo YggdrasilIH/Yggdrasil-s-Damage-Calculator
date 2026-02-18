@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Idle Hero Simulator - Full Uncompressed Logic</title>
+    <title>Idle Hero Simulator - Specter Passive Corrected</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; padding: 20px; font-size: 14px; }
         .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
@@ -140,7 +140,6 @@ function simulate() {
                 h.energy += 50;
             }
 
-            // Expanded Transition 12 Payoffs (Uncompressed)
             if (h.transition >= 12) {
                 log(`&nbsp;&nbsp;&nbsp;💎 ${h.name} REACHED 12 STACKS!`);
                 h.transition -= 12;
@@ -164,10 +163,8 @@ function simulate() {
                 }
             }
 
-            // Specter Star Soul Check (Before Boss Counter)
             if (h.hasSpecter) {
                 let procChance = (h.specterCount >= 3) ? 1.0 : 0.333;
-                log(`&nbsp;&nbsp;&nbsp;🔮 Specter Check (Roll vs ${procChance.toFixed(3)})...`);
                 if (Math.random() < procChance) {
                     log(`&nbsp;&nbsp;&nbsp;🔮 <span class="specter-msg">STAR SOUL TRIGGERED!</span>`);
                     h.specterCount = 0;
@@ -191,6 +188,19 @@ function simulate() {
             }
         });
 
+        // --- PART 3: BOSS ACTIVE PHASE ---
+        log("Part 3: Boss Action Phase", "phase-name");
+        let target = heroes.find(h => h.isHighestAtk);
+        log(`🎯 Boss uses Active Skill on ${target.name}`, "boss-msg");
+        target.energy = Math.max(0, target.energy - 100); 
+        target.curseLayers += 3;
+        
+        // RELOCATED: Specter Passive Energy Burst (Reaction to Boss Active)
+        log(`&nbsp;&nbsp;&nbsp;🔮 Specter Passive: Reactive Energy Burst`);
+        heroes.forEach(h => {
+            if(checkCurse(h, "Specter Passive Energy", "+10")) h.energy += 10;
+        });
+
         log("Part 4: End of Round (EOR)", "phase-name");
         heroes.forEach(h => {
             if (h.artifact === "Mirror") {
@@ -211,13 +221,6 @@ function simulate() {
             log(`&nbsp;&nbsp;&nbsp;🔋 Global Energy Surge`);
             if(checkCurse(h, "Global Surge", "+50")) h.energy += 50;
         });
-
-        let t = heroes.find(h => h.isHighestAtk);
-        log(`🎯 Boss Finisher: Drain ${t.name}`, "boss-msg");
-        t.energy = Math.max(0, t.energy - 100); 
-        t.curseLayers += 3;
-        
-        heroes.forEach(h => { if(checkCurse(h, "Specter Passive Energy", "+10")) h.energy += 10; });
     }
 
     document.getElementById('summary').style.display = "block";
