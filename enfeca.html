@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Idle Mechanic Estimator - Sequence Logic</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; padding: 20px; }
+        .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
+        .hero-box { border: 1px solid #474787; padding: 10px; border-radius: 4px; background: #1a1a2e; }
+        .log { background: #000; border: 2px solid #474787; padding: 15px; height: 550px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 13px; color: #f1f2f6; }
+        .round-head { color: #ff4757; border-bottom: 2px solid #ff4757; margin-top: 25px; font-weight: bold; font-size: 1.3em; }
+        .phase-name { color: #eccc68; margin-top: 15px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .status-line { font-size: 11px; margin-bottom: 4px; border-left: 3px solid #1e90ff; padding-left: 5px; background: #1a1a2e; }
+        .nrg-badge { background: #1e90ff; color: white; padding: 1px 4px; border-radius: 3px; font-weight: bold; }
+        .curse-badge { background: #747d8c; color: #ffa502; padding: 1px 4px; border-radius: 3px; font-weight: bold; border: 1px solid #ffa502; }
+        .event-step { color: #a29bfe; font-size: 11px; font-style: italic; margin-left: 10px; }
+        .success { color: #2ed573; margin-left: 20px; }
+        .curse-offset { color: #ff7f50; font-style: italic; margin-left: 20px; }
+        button { background: #ff4757; color: white; border: none; padding: 12px 25px; cursor: pointer; font-weight: bold; border-radius: 5px; }
+        select { background: #2f3542; color: white; border: 1px solid #57606f; padding: 3px; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <div class="setup" id="heroSetup"></div>
+    <button onclick="simulate()">Simulate 15 Rounds</button>
+    <div id="log" class="log"></div>
+
+<script>
+const ARTIFACTS = { NONE: "None", DB: "Demon Bell", MIRROR: "Mirror", ANTLERS: "Antlers", SCISSORS: "Scissors" };
+const setupEl = document.getElementById('heroSetup');
+for(let i=1; i<=6; i++) {
+    setupEl.innerHTML += `<div class="hero-box"><strong>Pos ${i}</strong><br><select id="art${i}">${Object.values(ARTIFACTS).map(a => `<option value="${a}">${a}</option>`).join('')}</select></div>`;
+}
+
+let heroes = [];
+const logEl = document.getElementById('log');
+function log(msg, cls = "") { logEl.innerHTML += `<div class="${cls}">${msg}</div>`; }
+function getStatus(h) { return `<div class="status-line">${h.name} | <span class="nrg-badge">NRG: ${h.energy}</span> <span class="curse-badge">CURSE: ${h.curseLayers}</span></div>`; }
+
+function checkCurse(hero, type, amount = "") {
+    if (hero.curseLayers > 0) {
+        hero.curseLayers--;
+        log(`&nbsp;&nbsp;&nbsp;✨ Curse: Offset ${type} ${amount}. (Layers: ${hero.curseLayers})`, "curse-offset");
+        return false;
+    }
+    return true;
+}
+
+function simulate() {
+    logEl.innerHTML = "";
+    heroes = [];
+    for(let i=1; i<=6; i++) {
+        let art = document.getElementById(`art${i}`).value;
+        heroes.push({
+            pos: i, name: "Hero " + i, spd: 1000 - (i * 10),
+            energy: (art === ARTIFACTS.DB || art === ARTIFACTS.MIRROR) ? 100 : 50,
+            curseLayers: 0, artifact: art, isFrontLine: i <= 2
+        });
+    }
+
+    for (let r = 1; r <= 15; r++) {
+        log(`ROUND ${r}`, "round-head");
+
+        // PART 2: Attacking Phase
+        log("Part 2: Attacking Phase", "phase-name");
+        let speedOrder = [...heroes].sort((a, b) => b.spd - a.spd);
+        
+        speedOrder.forEach(h => {
+            log(getStatus(h));
+            
+            // --- EVENT 1: The Action ---
+            if (h.energy >= 100) {
+                log(`<span class="event-step">Step 1: Active Skill</span>`);
+                log(`🔥 ${h.name} releases ACTIVE!`);
+                h.energy = 0; // Reset happens IMMEDIATELY after skill release
+            } else {
+                log(`<span class="event-step">Step 1: Basic Attack</span>`);
+                log(`⚔️ ${h.name} uses Basic Attack.`);
+                if (checkCurse(h, "Energy", "50")) h.energy += 50;
+            }
+
+            // --- EVENT 2: Skill Buffs (Placeholder for now) ---
+            // log(`<span class="event-step">Step 2: Skill Buffs Applied</span>`);
+
+            // --- EVENT 3: Artifact Trigger ---
+            if (h.artifact === ARTIFACTS.DB && h.energy === 0) { // check if just used active
+                log(`<span class="event-step">Step 3: Artifact (Demon Bell)</span>`);
+                // Process in Position Order 1-6
+                heroes.forEach(ally => {
+                    let gain = 20 + (Math.random() < 0.5 ? 10 : 0);
+                    if (checkCurse(ally, "Energy", gain)) {
+                        ally.energy += gain;
+                        log(`&nbsp;&nbsp;&nbsp;<span class="success">⚡ ${ally.name} gained ${gain} NRG</span>`);
+                    }
+                    if (ally.pos !== h.pos) checkCurse(ally, "Speed Buff");
+                });
+            }
+            
+            // Boss Reaction
+            if (Math.random() < 0.5) {
+                log(`👾 Boss: Reactive Curse Layer!`, "curse-offset");
+                heroes.forEach(all => all.curseLayers++);
+            }
+        });
+
+        // Boss Turn in Part 2
+        log(`👾 Boss Turn`, "phase-name");
+        heroes.forEach(h => {
+            if (checkCurse(h, "Energy", "10")) h.energy += 10;
+        });
+        // Boss Active (2 layers)
+        heroes.forEach(h => h.curseLayers += 2);
+
+        // PART 4: End of Round
+        log("Part 4: End of Round", "phase-name");
+        // Similar order applies here: Position 1 acts, then 2...
+        heroes.forEach(h => {
+            if (h.artifact === ARTIFACTS.MIRROR) {
+                log(`🪞 ${h.name} Artifact: Mirror`);
+                heroes.forEach(ally => {
+                    if (checkCurse(ally, "Energy", "15")) ally.energy += 15;
+                    checkCurse(ally, "Damage Reduction Buff");
+                });
+            }
+            // (Other artifacts here)
+        });
+        
+        // EOR Curse
+        heroes.forEach(h => h.curseLayers += 3);
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+}
+</script>
+</body>
+</html>
