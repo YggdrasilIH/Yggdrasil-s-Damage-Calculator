@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Idle Hero Logic Simulator - Speed Tuned</title>
+    <title>Idle Hero Logic Simulator - High Energy Edition</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; padding: 20px; font-size: 14px; }
         .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
         .hero-box { border: 1px solid #474787; padding: 10px; border-radius: 4px; background: #1a1a2e; }
-        .log { background: #000; border: 2px solid #474787; padding: 15px; height: 650px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px; color: #f1f2f6; line-height: 1.5; }
+        .log { background: #000; border: 2px solid #474787; padding: 15px; height: 700px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px; color: #f1f2f6; line-height: 1.5; }
         
         .round-head { color: #ff4757; border-bottom: 2px solid #ff4757; margin-top: 25px; font-weight: bold; font-size: 1.3em; background: #2d142c; padding: 5px; }
         .phase-name { color: #eccc68; margin-top: 15px; font-weight: bold; text-transform: uppercase; border-left: 4px solid #eccc68; padding-left: 10px; background: #222; }
@@ -20,7 +20,6 @@
         select, button, input { padding: 5px; border-radius: 4px; border: 1px solid #57606f; background: #2f3542; color: white; width: 100%; margin-top: 2px; box-sizing: border-box; }
         button { background: #ff4757; font-weight: bold; cursor: pointer; border: none; font-size: 1.1em; margin-top: 10px;}
         input[type="number"] { width: 70px; display: inline-block; }
-        .is-target { border: 2px solid #ff4757; background: #2d142c; }
     </style>
 </head>
 <body>
@@ -82,8 +81,13 @@ function simulate() {
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "round-head");
 
-        // PART 1
+        // PART 1: Start of Round
         log("Part 1: Start of Round", "phase-name");
+        
+        // Global ATK Buff
+        log(`&nbsp;&nbsp;&nbsp;⚔️ Global Moral: All allies gain ATK Buff`);
+        heroes.forEach(h => checkCurse(h, "Global ATK Buff"));
+
         heroes.forEach(h => {
             if (h.name === "STV" && h.transition >= 6) {
                 log(`&nbsp;&nbsp;&nbsp;✨ STV Payoff: Energy to all!`, "hero-msg");
@@ -92,11 +96,11 @@ function simulate() {
             }
         });
 
-        // PART 2: Attacking Phase (Sorted by SPD)
+        // PART 2: Attacking Phase
         log("Part 2: Attacking Phase", "phase-name");
         let speedOrder = [...heroes].sort((a, b) => {
             if (b.spd !== a.spd) return b.spd - a.spd;
-            return a.pos - b.pos; // Tie-breaker: lower position index goes first
+            return a.pos - b.pos;
         });
 
         speedOrder.forEach(h => {
@@ -165,7 +169,12 @@ function simulate() {
         heroes.forEach(h => h.curseLayers += 2);
 
         // PART 4: End of Round
-        log("Part 4: End of Round Checks", "phase-name");
+        log("Part 4: End of Round", "phase-name");
+
+        // Global EOR Energy Gain
+        log(`&nbsp;&nbsp;&nbsp;🔋 Global Energy Surge: All allies gain 50 NRG`);
+        heroes.forEach(h => { if(checkCurse(h, "Global Energy", "50")) h.energy += 50; });
+
         heroes.forEach(h => {
             if (h.artifact === "Mirror") {
                 heroes.forEach(a => { if(checkCurse(a, "Energy", "15")) a.energy += 15; checkCurse(a, "DR Buff"); });
@@ -176,7 +185,7 @@ function simulate() {
             }
             if (h.name === "ELY") {
                 let target = heroes[Math.floor(Math.random()*6)];
-                log(`&nbsp;&nbsp;&nbsp;✨ ELY End-of-Round Speed Buff to ${target.name}`);
+                log(`&nbsp;&nbsp;&nbsp;✨ ELY EOR Speed Buff to ${target.name}`);
                 checkCurse(target, "Speed Buff");
             }
         });
