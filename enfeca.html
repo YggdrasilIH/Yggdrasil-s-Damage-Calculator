@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Idle Hero Logic Simulator</title>
+    <title>Idle Hero Logic Simulator - Speed Tuned</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; padding: 20px; font-size: 14px; }
-        .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
+        .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
         .hero-box { border: 1px solid #474787; padding: 10px; border-radius: 4px; background: #1a1a2e; }
         .log { background: #000; border: 2px solid #474787; padding: 15px; height: 650px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 12px; color: #f1f2f6; line-height: 1.5; }
         
@@ -17,8 +17,9 @@
         .success { color: #2ed573; }
         .curse-offset { color: #ff7f50; font-style: italic; }
         
-        select, button { padding: 8px; border-radius: 4px; border: 1px solid #57606f; background: #2f3542; color: white; width: 100%; margin-top: 5px; }
-        button { background: #ff4757; font-weight: bold; cursor: pointer; border: none; font-size: 1.1em; }
+        select, button, input { padding: 5px; border-radius: 4px; border: 1px solid #57606f; background: #2f3542; color: white; width: 100%; margin-top: 2px; box-sizing: border-box; }
+        button { background: #ff4757; font-weight: bold; cursor: pointer; border: none; font-size: 1.1em; margin-top: 10px;}
+        input[type="number"] { width: 70px; display: inline-block; }
         .is-target { border: 2px solid #ff4757; background: #2d142c; }
     </style>
 </head>
@@ -35,11 +36,12 @@ const ARTIFACTS = ["None", "Demon Bell", "Mirror", "Antlers", "Scissors"];
 const setupEl = document.getElementById('heroSetup');
 for(let i=1; i<=6; i++) {
     setupEl.innerHTML += `
-        <div class="hero-box" id="box${i}">
+        <div class="hero-box">
             <strong>Pos ${i}</strong><br>
             Hero: <select id="hero${i}">${HERO_LIST.map(h => `<option value="${h}" ${i===1 && h==='LFA'?'selected':''}>${h}</option>`).join('')}</select>
             Art: <select id="art${i}">${ARTIFACTS.map(a => `<option value="${a}">${a}</option>`).join('')}</select>
-            <label style="font-size:10px; color:#ff4757;"><input type="radio" name="highestAtk" value="${i}" ${i===1?'checked':''}> Highest ATK</label>
+            SPD: <input type="number" id="spd${i}" value="${2000 - (i*10)}">
+            <label style="font-size:10px; color:#ff4757; display:block;"><input type="radio" name="highestAtk" value="${i}" ${i===1?'checked':''}> Highest ATK</label>
         </div>`;
 }
 
@@ -68,10 +70,11 @@ function simulate() {
     
     for(let i=1; i<=6; i++) {
         let art = document.getElementById(`art${i}`).value;
+        let spd = parseInt(document.getElementById(`spd${i}`).value);
         heroes.push({
             pos: i, name: document.getElementById(`hero${i}`).value,
             energy: (art === "Demon Bell" || art === "Mirror") ? 100 : 50,
-            curseLayers: 0, artifact: art, transition: 0,
+            curseLayers: 0, artifact: art, transition: 0, spd: spd,
             isHighestAtk: (i === targetPos), isFrontLine: i <= 2
         });
     }
@@ -79,8 +82,8 @@ function simulate() {
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "round-head");
 
-        // PART 1: Start of Round
-        log("Part 1: Round Start Triggers", "phase-name");
+        // PART 1
+        log("Part 1: Start of Round", "phase-name");
         heroes.forEach(h => {
             if (h.name === "STV" && h.transition >= 6) {
                 log(`&nbsp;&nbsp;&nbsp;✨ STV Payoff: Energy to all!`, "hero-msg");
@@ -89,18 +92,21 @@ function simulate() {
             }
         });
 
-        // PART 2: Attacking Phase
+        // PART 2: Attacking Phase (Sorted by SPD)
         log("Part 2: Attacking Phase", "phase-name");
-        [...heroes].forEach(h => {
-            log(`[${h.name} P${h.pos}] <span class="nrg-badge">NRG: ${h.energy}</span> <span class="curse-badge">CURSE: ${h.curseLayers}</span>`);
+        let speedOrder = [...heroes].sort((a, b) => {
+            if (b.spd !== a.spd) return b.spd - a.spd;
+            return a.pos - b.pos; // Tie-breaker: lower position index goes first
+        });
+
+        speedOrder.forEach(h => {
+            log(`[${h.name} P${h.pos} | SPD: ${h.spd}] <span class="nrg-badge">NRG: ${h.energy}</span> <span class="curse-badge">CURSE: ${h.curseLayers}</span>`);
             
-            // ACTION STEP
             let usedActive = false;
             if (h.energy >= 100) {
                 log(`🔥 ${h.name} uses ACTIVE!`);
                 h.energy = 0; usedActive = true;
                 
-                // Hero-Specific Active Logic
                 if (h.name === "LFA") { h.transition += 6; checkCurse(h, "Self ATK Buff"); }
                 if (h.name === "SQH") { h.transition += 6; }
                 if (h.name === "STV") { 
@@ -123,7 +129,6 @@ function simulate() {
             } else {
                 log(`⚔️ ${h.name} uses Basic Attack.`);
                 if (checkCurse(h, "Energy", "50")) h.energy += 50;
-                // Basic Logic
                 if (h.name === "LFA") checkCurse(h, "Self Crit Buff");
                 if (h.name === "SQH") { checkCurse(h, "Crit Buff"); checkCurse(h, "Crit Dmg Buff"); }
                 if (h.name === "BDSM" && Math.random() < 0.5) {
@@ -134,7 +139,6 @@ function simulate() {
                 }
             }
 
-            // PAYOFF STEP
             if ((h.name === "SQH" || h.name === "BDSM" || h.name === "FQV") && h.transition >= 12) {
                 log(`&nbsp;&nbsp;&nbsp;<span class="hero-msg">✨ ${h.name} Transition Payoff!</span>`);
                 h.transition -= 12;
@@ -146,7 +150,6 @@ function simulate() {
             }
             if (h.name === "LFA" && h.transition >= 12) { h.transition -= 12; checkCurse(h, "Control Immunity Buff"); }
 
-            // ARTIFACT STEP
             if (h.artifact === "Demon Bell" && usedActive) {
                 heroes.forEach(a => { 
                     let g = 20 + (Math.random() < 0.5 ? 10 : 0);
@@ -178,7 +181,6 @@ function simulate() {
             }
         });
 
-        // Boss Drain
         let t = heroes.find(h => h.isHighestAtk);
         log(`🎯 Boss Drains ${t.name} (Highest ATK)`, "hero-msg");
         t.energy = Math.max(0, t.energy - 100);
