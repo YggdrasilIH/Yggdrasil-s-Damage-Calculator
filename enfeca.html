@@ -80,14 +80,12 @@ function triggerStarSoul(hero) {
     
     if (Math.random() < chance) {
         log(`&nbsp;&nbsp;&nbsp;✨ <span class="specter-msg">STAR SOUL TRIGGERED!</span>`);
-        hero.starSoulStacks = 0; // Reset stacks
+        hero.starSoulStacks = 0; 
         
-        // Find ally with highest speed
         let highestSpdAlly = [...heroes].sort((a, b) => b.spd - a.spd)[0];
         
-        // Ally +100 Energy
         if(checkCurse(highestSpdAlly, "Star Soul Team", "+100")) highestSpdAlly.energy += 100;
-        // Self +50 Energy (50% of the buff)
+
         if(checkCurse(hero, "Star Soul Self", "+50")) hero.energy += 50;
     } else {
         hero.starSoulStacks++;
@@ -129,7 +127,7 @@ function simulate() {
         heroes.forEach(h => {
             checkCurse(h, "Global Round ATK Buff");
             if (h.name === "STV" && h.transition >= 6) {
-                log(`&nbsp;&nbsp;&nbsp;💎 STV 6-Stack Energy Payoff`);
+                log(`&nbsp;&nbsp;&nbsp;💎 STV 6-Stack Transition Skill Triggered`);
                 h.transition -= 6;
                 heroes.forEach(ally => { if(checkCurse(ally, "STV Energy Share", "+20")) ally.energy += 20; });
             }
@@ -163,10 +161,10 @@ function simulate() {
             }
 
             if (h.transition >= 12) {
-                log(`&nbsp;&nbsp;&nbsp;💎 ${h.name} 12-Stack Payoff Trigger!`);
+                log(`&nbsp;&nbsp;&nbsp;💎 ${h.name} 12-Stack Transition Skill Triggered`);
                 h.transition -= 12;
                 if (h.name === "SQH") {
-                    heroes.forEach(ally => { if(ally !== h) { checkCurse(ally, "SQH ATK"); checkCurse(ally, "SQH DR"); if(checkCurse(ally, "SQH Energy", "+20")) ally.energy += 20; }});
+                    heroes.forEach(ally => { if(ally !== h) { checkCurse(ally, "SQH ATK"); if(checkCurse(ally, "SQH Energy", "+20")) ally.energy += 20; checkCurse(ally, "SQH DR"); }});
                 }
                 if (h.name === "FQV") {
                     heroes.forEach(ally => { checkCurse(ally, "FQV ATK"); checkCurse(ally, "FQV Armor"); if(checkCurse(ally, "FQV Energy", "+20")) ally.energy += 20; });
@@ -177,18 +175,16 @@ function simulate() {
                 if (h.name === "LFA") { checkCurse(h, "LFA CI Buff"); }
             }
 
-            // Artifact Buffs occur here (demon bell)
             if (h.artifact === "Demon Bell" && usedActive) {
                 heroes.forEach(a => { 
                     if(checkCurse(a, "DB Energy", "+20")) a.energy += 20;
                     if(Math.random() < 0.50) if(checkCurse(a, "DB Bonus", "+10")) a.energy += 10;
+                    checkCurse(a, "DB Speed Buff");
                 });
             }
 
-            // SPECTER STAR SOUL (After hero acts, after artifact buffs, before counterattack)
             triggerStarSoul(h);
 
-            // Boss Counterattack
             bossGlobalCounter();
 
             if (globalImprint === "foresight") {
@@ -211,7 +207,8 @@ function simulate() {
         log(`&nbsp;&nbsp;&nbsp;☄️ <span class="boss-msg">BOSS ACTIVE SKILL: ALL HEROES HIT</span>`);
         heroes.forEach(h => {
             h.curseLayers += 2;
-            // SPECTER PASSIVE BONUS: When hit by active, +10 energy
+            log(`&nbsp;&nbsp;&nbsp;🛡️ ${h.name} Hit by Active: +10 Energy`);
+            if(checkCurse(h, "Hit by Active", "+10")) h.energy += 10;
             log(`&nbsp;&nbsp;&nbsp;🔮 <span class="specter-msg">${h.name} Specter Passive: Hit by Active</span>`);
             if(checkCurse(h, "Spec Passive", "+10")) h.energy += 10;
         });
@@ -220,7 +217,7 @@ function simulate() {
         heroes.forEach(h => {
             if (h.artifact === "Mirror") {
                 log(`&nbsp;&nbsp;&nbsp;🪞 Mirror Trigger (Pos ${h.pos})`);
-                heroes.forEach(a => { checkCurse(a, "Mirror DR"); if(checkCurse(a, "Mirror Energy", "+15")) a.energy += 15; });
+                heroes.forEach(a => { if(checkCurse(a, "Mirror Energy", "+15")) a.energy += 15; checkCurse(a, "Mirror DR"); });
             }
             if (h.artifact === "Antlers") checkCurse(h, "Antlers DR");
             if (h.artifact === "Scissors") {
