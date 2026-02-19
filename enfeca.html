@@ -169,6 +169,16 @@ function simulate() {
                     heroes.forEach(a => {
                         for(let i=0; i<5; i++) { checkCurse(a, "BDSM Active CI"); }
                     });
+
+                    // 40% chance to give all allies 10 energy
+                    if (Math.random() < 0.40) {
+                        log(`&nbsp;&nbsp;&nbsp;🎲 BDSM 40% Active Energy Proc! (+10 to all)`);
+                        heroes.forEach(a => {
+                            if (checkCurse(a, "BDSM Active Team Energy", "+10")) {
+                                a.energy += 10;
+                            }
+                        });
+                    }
                 }
                 if (h.name === "FQV") { heroes.forEach(a => checkCurse(a, "FQV Armor Buff")); }
                 if (h.name === "LBRM") { log(`&nbsp;&nbsp;&nbsp;🛡️ LBRM Active Refund: +50`); h.energy += 50; }
