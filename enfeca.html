@@ -106,7 +106,8 @@ function simulate() {
             energy: (["Demon Bell", "Mirror"].includes(art)) ? 100 : 50,
             curseLayers: 0, artifact: art, transition: 0, spd: parseInt(document.getElementById(`spd${i}`).value),
             hasSpecter: document.getElementById(`spec${i}`).checked, starSoulStacks: 0, 
-            isHighestAtk: (i === targetPos), isFrontLine: i <= 2, activeCount: 0
+            isHighestAtk: (i === targetPos), isFrontLine: i <= 2, activeCount: 0,
+            bdsmCIGiven: false
         });
     }
 
@@ -125,6 +126,7 @@ function simulate() {
 
         log("Part 1: Start of Round", "phase-name");
         heroes.forEach(h => {
+            if (h.name === "BDSM") h.bdsmCIGiven = false;
             checkCurse(h, "Global Round ATK Buff");
             if (h.name === "STV" && h.transition >= 6) {
                 log(`&nbsp;&nbsp;&nbsp;💎 STV 6-Stack Transition Skill Triggered`);
@@ -139,10 +141,22 @@ function simulate() {
             log(`--- ${h.name} Moves (Nrg: ${h.energy}) ---`);
             let usedActive = false; let usedBasic = false;
             
+            if (h.name === "BDSM" && h.energy >= 100 && !h.bdsmCIGiven) {
+                log(`&nbsp;&nbsp;&nbsp;🛡️ BDSM Energy Threshold: Backline CI Buff`);
+                heroes.forEach(a => { if(!a.isFrontLine) checkCurse(a, "BDSM Threshold CI"); });
+                h.bdsmCIGiven = true;
+            }
+
             if (h.energy >= 100) {
                 log(`🔥 ${h.name} uses ACTIVE!`);
                 h.energy = 0; usedActive = true; h.activeCount++;
                 h.transition += 6;
+
+                heroes.forEach(target => {
+                    if (target.name === "BDSM" && h.name !== "BDSM") {
+                        if(checkCurse(target, "BDSM Passive Energy", "+3")) target.energy += 3;
+                    }
+                });
                 
                 if (h.name === "STV") {
                     heroes.forEach(a => { 
@@ -150,16 +164,20 @@ function simulate() {
                         checkCurse(a, "STV DR"); checkCurse(a, "STV CI"); checkCurse(a, "STV Speed"); 
                     });
                 }
+                if (h.name === "BDSM") {
+                    log(`&nbsp;&nbsp;&nbsp;✨ BDSM Active: 5x CI Buff to All Allies`);
+                    heroes.forEach(a => {
+                        for(let i=0; i<5; i++) { checkCurse(a, "BDSM Active CI"); }
+                    });
+                }
                 if (h.name === "FQV") { heroes.forEach(a => checkCurse(a, "FQV Armor Buff")); }
                 if (h.name === "LBRM") { log(`&nbsp;&nbsp;&nbsp;🛡️ LBRM Active Refund: +50`); h.energy += 50; }
-                if (h.name === "BDSM") { if(checkCurse(h, "BDSM Self Energy", "+3")) h.energy += 3; }
                 if (h.name === "LFA") { checkCurse(h, "LFA Active ATK Buff"); }
 
-} else {
+            } else {
                 log(`⚔️ ${h.name} uses Basic Attack.`);
                 h.energy += 50; usedBasic = true;
 
-                // --- STV Basic: Row-based Buffs ---
                 if (h.name === "STV") {
                     heroes.forEach(a => {
                         if (a.isFrontLine) {
@@ -170,19 +188,13 @@ function simulate() {
                         }
                     });
                 }
-
-                // --- SQH Basic: Self Crit & Crit Dmg ---
                 if (h.name === "SQH") {
                     checkCurse(h, "SQH Self Crit");
                     checkCurse(h, "SQH Self Crit Dmg");
                 }
-
-                // --- LFA Basic: Self Crit ---
                 if (h.name === "LFA") {
                     checkCurse(h, "LFA Self Crit");
                 }
-
-                // --- BDSM Basic: 50% Chance for +20 Energy ---
                 if (h.name === "BDSM") {
                     if (Math.random() < 0.50) {
                         log(`&nbsp;&nbsp;&nbsp;🎲 BDSM 50% Energy Proc!`);
@@ -215,7 +227,6 @@ function simulate() {
             }
 
             triggerStarSoul(h);
-
             bossGlobalCounter();
 
             if (globalImprint === "foresight") {
@@ -255,7 +266,6 @@ function simulate() {
                 heroes.forEach(a => { if(a.isFrontLine === h.isFrontLine) { checkCurse(a, "Scissors ATK"); checkCurse(a, "Scissors Holy Dmg"); }});
             }
             
-            // First 5 rounds end of round specter
             if (h.hasSpecter && r <= 5) {
                 log(`&nbsp;&nbsp;&nbsp;🔮 ${h.name} Specter R1-5 End: +50 Self & Random Ally`);
                 if(checkCurse(h, "Spec EOR Self", "+50")) h.energy += 50;
