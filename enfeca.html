@@ -155,9 +155,40 @@ function simulate() {
                 if (h.name === "BDSM") { if(checkCurse(h, "BDSM Self Energy", "+3")) h.energy += 3; }
                 if (h.name === "LFA") { checkCurse(h, "LFA Active ATK Buff"); }
 
-            } else {
+} else {
                 log(`⚔️ ${h.name} uses Basic Attack.`);
                 h.energy += 50; usedBasic = true;
+
+                // --- STV Basic: Row-based Buffs ---
+                if (h.name === "STV") {
+                    heroes.forEach(a => {
+                        if (a.isFrontLine) {
+                            checkCurse(a, "STV Basic: Front DR");
+                            checkCurse(a, "STV Basic: Front CI");
+                        } else {
+                            checkCurse(a, "STV Basic: Back ATK");
+                        }
+                    });
+                }
+
+                // --- SQH Basic: Self Crit & Crit Dmg ---
+                if (h.name === "SQH") {
+                    checkCurse(h, "SQH Self Crit");
+                    checkCurse(h, "SQH Self Crit Dmg");
+                }
+
+                // --- LFA Basic: Self Crit ---
+                if (h.name === "LFA") {
+                    checkCurse(h, "LFA Self Crit");
+                }
+
+                // --- BDSM Basic: 50% Chance for +20 Energy ---
+                if (h.name === "BDSM") {
+                    if (Math.random() < 0.50) {
+                        log(`&nbsp;&nbsp;&nbsp;🎲 BDSM 50% Energy Proc!`);
+                        if(checkCurse(h, "BDSM Basic Energy", "+20")) h.energy += 20;
+                    }
+                }
             }
 
             if (h.transition >= 12) {
