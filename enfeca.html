@@ -237,7 +237,7 @@ function simulate() {
             }
 
             triggerStarSoul(h);
-            bossGlobalCounter();
+
 
             if (globalImprint === "foresight") {
                 if (usedBasic) { if(checkCurse(h, "Foresight Energy", "+50")) h.energy += 50; }
@@ -254,7 +254,8 @@ function simulate() {
                 }
             }
         });
-
+            bossGlobalCounter();
+        
         log("Part 3: Boss Active Phase", "phase-name");
         log(`&nbsp;&nbsp;&nbsp;☄️ <span class="boss-msg">BOSS ACTIVE SKILL: ALL HEROES HIT</span>`);
         heroes.forEach(h => {
