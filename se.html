@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Curse of Decay Simulator - Restored Logic</title>
+    <title>Curse of Decay Simulator - Fully Integrated</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; padding: 20px; font-size: 14px; }
         .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
@@ -26,8 +26,8 @@
 <body>
 
     <div class="imprint-setup">
-        <strong>Global Settings:</strong>
-        <label><input type="radio" name="imprint" value="none" checked> No Imprint</label>
+        <strong>Global Star Imprint:</strong>
+        <label><input type="radio" name="imprint" value="none" checked> None</label>
         <label><input type="radio" name="imprint" value="foresight"> Foresight</label>
         <label><input type="radio" name="imprint" value="destiny"> Destiny</label>
         <span style="margin-left: 20px; padding-left: 20px; border-left: 1px solid #444;">
@@ -78,15 +78,15 @@ function checkCalamityTrigger(hero) {
     if (hero.calamity >= 5) {
         let effectiveCI = hero.baseCI - 1.0; 
         let applyChance = Math.max(0, 1.0 - effectiveCI);
-        log(`&nbsp;&nbsp;&nbsp;🎲 ${hero.name} Calamity Check: CI ${(hero.baseCI*100).toFixed(0)}%, Chance ${(applyChance*100).toFixed(0)}%`);
+        log(`&nbsp;&nbsp;&nbsp;🎲 ${hero.name} Calamity Check (Eff CI: ${(effectiveCI*100).toFixed(0)}%)`);
 
         if (Math.random() < applyChance) {
-            log(`&nbsp;&nbsp;&nbsp;⚠️ <span class="boss-msg">${hero.name} REACHED 5 CALAMITY!</span>`, "boss-msg");
-            if (hero.immuneTo !== "silence") hero.cc.silence = 2; else log(`&nbsp;&nbsp;&nbsp;🏝️ Immune to SILENCE`, "island-msg");
-            if (hero.immuneTo !== "fear") hero.cc.fear = 2; else log(`&nbsp;&nbsp;&nbsp;🏝️ Immune to FEAR`, "island-msg");
-            if (hero.immuneTo !== "sealOfLight") hero.cc.sealOfLight = 2; else log(`&nbsp;&nbsp;&nbsp;🏝️ Immune to SEAL OF LIGHT`, "island-msg");
+            log(`&nbsp;&nbsp;&nbsp;⚠️ <span class="boss-msg">${hero.name} TRIGGERED CALAMITY CONTROL!</span>`, "boss-msg");
+            if (hero.immuneTo !== "silence") hero.cc.silence = 2;
+            if (hero.immuneTo !== "fear") hero.cc.fear = 2;
+            if (hero.immuneTo !== "sealOfLight") hero.cc.sealOfLight = 2;
         } else {
-            log(`&nbsp;&nbsp;&nbsp;🛡️ ${hero.name} RESISTED Calamity Effects!`);
+            log(`&nbsp;&nbsp;&nbsp;🛡️ ${hero.name} RESISTED via CI!`);
         }
         hero.calamity = 0;
     }
@@ -96,12 +96,8 @@ function bossGlobalCounter() {
     log(`&nbsp;&nbsp;&nbsp;☄️ <span class="boss-msg">BOSS GLOBAL COUNTER!</span>`);
     heroes.forEach(h => { 
         h.calamity += 1;
-        if (Math.random() < 0.50) {
-            h.curseLayers += 1;
-            log(`&nbsp;&nbsp;&nbsp;💥 ${h.name} hit: +1 Calamity, +1 Curse`);
-        } else {
-            log(`&nbsp;&nbsp;&nbsp;💥 ${h.name} hit: +1 Calamity`);
-        }
+        if (Math.random() < 0.50) { h.curseLayers += 1; log(`&nbsp;&nbsp;&nbsp;💥 ${h.name}: +1 Calamity, +1 Curse`); }
+        else { log(`&nbsp;&nbsp;&nbsp;💥 ${h.name}: +1 Calamity`); }
         checkCalamityTrigger(h);
     });
 }
@@ -115,9 +111,7 @@ function triggerStarSoul(hero) {
         let highestSpdAlly = [...heroes].sort((a, b) => b.spd - a.spd)[0];
         if(checkCurse(highestSpdAlly, "Star Soul Team", "+100")) highestSpdAlly.energy += 100;
         if(checkCurse(hero, "Star Soul Self", "+50")) hero.energy += 50;
-    } else {
-        hero.starSoulStacks++;
-    }
+    } else { hero.starSoulStacks++; }
 }
 
 function simulate() {
@@ -148,7 +142,6 @@ function simulate() {
     log("PRE-BATTLE: Specter Start", "phase-name");
     heroes.forEach(h => {
         if (h.hasSpecter) {
-            log(`&nbsp;&nbsp;&nbsp;🔮 ${h.name} Specter Battle-Start`);
             if(checkCurse(h, "Spec Start Self", "+50")) h.energy += 50;
             let randAlly = heroes[Math.floor(Math.random() * 6)];
             if(checkCurse(randAlly, "Spec Start Team", "+50")) randAlly.energy += 50;
@@ -163,9 +156,8 @@ function simulate() {
             if (h.name === "BDSM") h.bdsmCIGiven = false;
             checkCurse(h, "Global Round ATK Buff");
             if (h.name === "STV" && h.transition >= 6 && h.cc.sealOfLight <= 0) {
-                log(`&nbsp;&nbsp;&nbsp;💎 STV 6-Stack Transition`);
-                heroes.forEach(ally => { if(checkCurse(ally, "STV Energy Share", "+20")) ally.energy += 20; });
                 h.transition -= 6;
+                heroes.forEach(ally => { if(checkCurse(ally, "STV Share", "+20")) ally.energy += 20; });
             }
         });
 
@@ -177,82 +169,60 @@ function simulate() {
             let usedActive = false; let usedBasic = false;
 
             if (h.name === "BDSM" && h.energy >= 100 && !h.bdsmCIGiven && !isSealed) {
-                log(`&nbsp;&nbsp;&nbsp;🛡️ BDSM Energy Threshold: Backline CI Buff`);
-                heroes.forEach(a => { if(!a.isFrontLine) checkCurse(a, "BDSM Threshold CI"); });
+                heroes.forEach(a => { if(!a.isFrontLine) checkCurse(a, "BDSM SOR CI"); });
                 h.bdsmCIGiven = true;
             }
 
-            if (h.energy >= 100) {
-                if (h.cc.silence > 0) {
-                    log(`&nbsp;&nbsp;&nbsp;🚫 ${h.name} is SILENCED!`, "boss-msg");
-                } else {
-                    log(`🔥 ${h.name} uses ACTIVE!`);
-                    h.energy = 0; usedActive = true; h.activeCount++; h.transition += 6;
-                    
-                    // BDSM Passive check on others
-                    heroes.forEach(target => {
-                        if (target.name === "BDSM" && h.name !== "BDSM") {
-                            if(checkCurse(target, "BDSM Passive Energy", "+3")) target.energy += 3;
-                        }
-                    });
+            if (h.energy >= 100 && h.cc.silence <= 0) {
+                log(`🔥 ${h.name} ACTIVE!`);
+                h.energy = 0; usedActive = true; h.activeCount++; h.transition += 6;
+                
+                // BDSM Passive Trigger
+                heroes.forEach(target => {
+                    if (target.name === "BDSM" && h.name !== "BDSM") {
+                        if(checkCurse(target, "BDSM Passive Energy", "+3")) target.energy += 3;
+                    }
+                });
 
+                if (h.name === "STV") {
+                    heroes.forEach(a => { 
+                        checkCurse(a, "STV ATK"); checkCurse(a, "STV Armor");
+                        checkCurse(a, "STV DR"); checkCurse(a, "STV CI"); checkCurse(a, "STV Speed");
+                    });
+                }
+                if (h.name === "BDSM") {
+                    heroes.forEach(a => { for(let k=0; k<5; k++) checkCurse(a, "BDSM Active CI"); });
+                    if (Math.random() < 0.40) {
+                        heroes.forEach(a => { if (checkCurse(a, "BDSM Active Team Energy", "+10")) a.energy += 10; });
+                    }
+                }
+                if (h.name === "FQV") heroes.forEach(a => checkCurse(a, "FQV Armor"));
+                if (h.name === "LBRM") h.energy += 50;
+                if (h.name === "LFA") checkCurse(h, "LFA Active ATK");
+            } else if (h.cc.fear <= 0 && !usedActive) {
+                log(`⚔️ ${h.name} Basic`);
+                usedBasic = true; h.energy += 50; 
+                if (!isSealed) {
                     if (h.name === "STV") {
-                        heroes.forEach(a => { 
-                            checkCurse(a, "STV ATK"); checkCurse(a, "STV Armor");
-                            checkCurse(a, "STV DR"); checkCurse(a, "STV CI");
-                            checkCurse(a, "STV Speed");
+                        heroes.forEach(a => {
+                            if (a.isFrontLine) { checkCurse(a, "STV Front DR"); checkCurse(a, "STV Front CI"); }
+                            else { checkCurse(a, "STV Back ATK"); }
                         });
                     }
-                    if (h.name === "BDSM") {
-                        heroes.forEach(a => { for(let i=0; i<5; i++) checkCurse(a, "BDSM Active CI"); });
-                        if (Math.random() < 0.40) {
-                            heroes.forEach(a => { if (checkCurse(a, "BDSM Active Team Energy", "+10")) a.energy += 10; });
-                        }
-                    }
-                    if (h.name === "FQV") heroes.forEach(a => checkCurse(a, "FQV Armor Buff"));
-                    if (h.name === "LBRM") h.energy += 50;
-                    if (h.name === "LFA") checkCurse(h, "LFA Active ATK Buff");
+                    if (h.name === "SQH") { checkCurse(h, "SQH Crit"); checkCurse(h, "SQH CD"); }
+                    if (h.name === "LFA") checkCurse(h, "LFA Crit");
+                    if (h.name === "BDSM" && Math.random() < 0.50) { if(checkCurse(h, "BDSM Basic Energy", "+20")) h.energy += 20; }
                 }
             } else {
-                if (h.cc.fear > 0) {
-                    bossHD += 12; log(`&nbsp;&nbsp;&nbsp;🚫 ${h.name} is FEARED!`, "boss-msg");
-                } else {
-                    log(`⚔️ ${h.name} uses Basic Attack.`);
-                    usedBasic = true;
-                    h.energy += 50; // Basic gain unblocked
-                    if (!isSealed) {
-                        if (h.name === "STV") {
-                            heroes.forEach(a => {
-                                if (a.isFrontLine) { checkCurse(a, "STV Front DR"); checkCurse(a, "STV Front CI"); }
-                                else { checkCurse(a, "STV Back ATK"); }
-                            });
-                        }
-                        if (h.name === "SQH") { checkCurse(h, "SQH Crit"); checkCurse(h, "SQH CD"); }
-                        if (h.name === "LFA") checkCurse(h, "LFA Crit");
-                        if (h.name === "BDSM" && Math.random() < 0.50) {
-                            if(checkCurse(h, "BDSM Basic Energy", "+20")) h.energy += 20;
-                        }
-                    }
-                }
+                if (h.cc.fear > 0) bossHD += 12;
+                log(`&nbsp;&nbsp;&nbsp;🚫 ${h.name} Blocked by CC`, "boss-msg");
             }
 
             if (h.transition >= 12 && !isSealed) {
                 h.transition -= 12;
-                if (h.name === "SQH") {
-                    heroes.forEach(ally => { if(ally !== h) { 
-                        checkCurse(ally, "SQH ATK"); checkCurse(ally, "SQH DR"); 
-                        if(checkCurse(ally, "SQH Energy", "+20")) ally.energy += 20; 
-                    }});
-                }
-                if (h.name === "FQV") {
-                    heroes.forEach(ally => { 
-                        checkCurse(ally, "FQV ATK"); checkCurse(ally, "FQV Armor"); 
-                        if(checkCurse(ally, "FQV Energy", "+20")) ally.energy += 20; 
-                    });
-                }
-                if (h.name === "BDSM") {
-                    heroes.forEach(ally => { if(checkCurse(ally, "BDSM Energy Share", "+20")) ally.energy += 20; });
-                }
+                if (h.name === "SQH") heroes.forEach(ally => { if(ally !== h) { checkCurse(ally, "SQH ATK"); checkCurse(ally, "SQH DR"); if(checkCurse(ally, "SQH Energy", "+20")) ally.energy += 20; }});
+                if (h.name === "FQV") heroes.forEach(ally => { checkCurse(ally, "FQV ATK"); checkCurse(ally, "FQV Armor"); if(checkCurse(ally, "FQV Energy", "+20")) ally.energy += 20; });
+                if (h.name === "BDSM") heroes.forEach(ally => { if(checkCurse(ally, "BDSM Share", "+20")) ally.energy += 20; });
                 if (h.name === "LFA") checkCurse(h, "LFA CI Buff");
             }
 
@@ -263,8 +233,6 @@ function simulate() {
                     checkCurse(a, "DB Speed");
                 });
             }
-
-            triggerStarSoul(h);
 
             if (globalImprint === "foresight" && !isSealed) {
                 if (usedBasic) { if(checkCurse(h, "Foresight Energy", "+50")) h.energy += 50; }
@@ -279,20 +247,17 @@ function simulate() {
                     });
                 }
             }
+            triggerStarSoul(h);
             bossGlobalCounter();
         });
 
         log("Part 3: Boss Active Phase", "phase-name");
         heroes.forEach(h => {
-            if (Math.random() < h.dodge) {
-                log(`&nbsp;&nbsp;&nbsp;💨 ${h.name} DODGED Boss Active!`);
-            } else {
+            if (Math.random() < h.dodge) { log(`&nbsp;&nbsp;&nbsp;💨 ${h.name} DODGED!`); }
+            else {
                 h.curseLayers += 2; h.calamity += 2;
-                log(`&nbsp;&nbsp;&nbsp;🛡️ ${h.name} Hit: +10 Energy, +2 Calamity, +2 Curse`);
-                if(checkCurse(h, "Hit by Active", "+10")) h.energy += 10;
-                if (h.cc.sealOfLight <= 0) {
-                    if(checkCurse(h, "Spec Passive", "+10")) h.energy += 10;
-                }
+                if(checkCurse(h, "Boss Hit Energy", "+10")) h.energy += 10;
+                if (h.cc.sealOfLight <= 0) { if(checkCurse(h, "Spec Passive", "+10")) h.energy += 10; }
                 checkCalamityTrigger(h);
             }
         });
@@ -310,7 +275,7 @@ function simulate() {
                 if (h.hasSpecter && r <= 5) {
                     if(checkCurse(h, "Spec EOR Self", "+50")) h.energy += 50;
                     let randAlly = heroes[Math.floor(Math.random() * 6)];
-                    if(checkCurse(randAlly, "Spec EOR Ally", "+50")) randAlly.energy += 50;
+                    if(checkCurse(randAlly, "Spec EOR Team", "+50")) randAlly.energy += 50;
                 }
                 if(checkCurse(h, "Global Surge", "+50")) h.energy += 50;
             }
@@ -326,10 +291,11 @@ function simulate() {
         let target = heroes.find(h => h.isHighestAtk);
         target.energy = Math.max(0, target.energy - 100); 
         target.curseLayers += 3;
+        log(`🎯 Boss Drained ${target.name} (-100 Energy, +3 Curse)`);
     }
 
     document.getElementById('summary').style.display = "block";
-    let tableHtml = `<h3>Final Summary</h3><table class="summary-table"><tr><th>Pos</th><th>Hero</th><th>Actives</th><th>Curse/Calamity</th><th>Protection</th></tr>`;
+    let tableHtml = `<h3>Final Summary</h3><table class="summary-table"><tr><th>Pos</th><th>Hero</th><th>Actives</th><th>C/L Stats</th><th>Soul Prot</th></tr>`;
     heroes.forEach(h => { tableHtml += `<tr><td>${h.pos}</td><td><b>${h.name}</b></td><td>${h.activeCount}</td><td>C:${h.curseLayers} / L:${h.calamity}</td><td>${h.immuneTo.toUpperCase()}</td></tr>`; });
     tableHtml += `</table><p><strong>Total Boss Holy Damage: ${bossHD}%</strong></p>`;
     document.getElementById('summary').innerHTML = tableHtml;
