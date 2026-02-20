@@ -48,7 +48,7 @@ for(let i=1; i<=6; i++) {
             Hero: <select id="hero${i}">${HERO_LIST.map(h => `<option value="${h}" ${i===1?'selected':''}>${h}</option>`).join('')}</select>
             Art: <select id="art${i}">${ARTIFACTS.map(a => `<option value="${a}">${a}</option>`).join('')}</select>
             SPD: <input type="number" id="spd${i}" value="${2000 - (i*10)}">
-            CI (%): <input type="number" id="ci${i}" value="0" min="0" max="100">
+            CI (%): <input type="number" id="ci${i}" value="0" min="0" max="400">
             <label><input type="checkbox" id="spec${i}"> Specter</label>
             <label style="font-size:10px; color:#ff4757; display:block;"><input type="radio" name="highestAtk" value="${i}" ${i===1?'checked':''}> Highest ATK</label>
         </div>`;
@@ -71,10 +71,19 @@ function checkCurse(hero, type, amount = "") {
 
 function checkCalamityTrigger(hero) {
     if (hero.calamity >= 5) {
-        log(`&nbsp;&nbsp;&nbsp;⚠️ <span class="boss-msg">${hero.name} REACHED 5 CALAMITY!</span> Applying Silence, Fear, Seal of Light (2 Rounds).`, "boss-msg");
-        hero.cc.silence = 2;
-        hero.cc.fear = 2;
-        hero.cc.sealOfLight = 2;
+        let effectiveCI = hero.baseCI - 1.0; 
+        let applyChance = Math.max(0, 1.0 - effectiveCI);
+        
+        log(`&nbsp;&nbsp;&nbsp;🎲 ${hero.name} Calamity Check: CI ${(hero.baseCI*100).toFixed(0)}% (Effective ${(effectiveCI*100).toFixed(0)}%), Apply Chance ${(applyChance*100).toFixed(0)}%`);
+
+        if (Math.random() < applyChance) {
+            log(`&nbsp;&nbsp;&nbsp;⚠️ <span class="boss-msg">${hero.name} REACHED 5 CALAMITY!</span> Control effects applied (2 rounds).`, "boss-msg");
+            hero.cc.silence = 2;
+            hero.cc.fear = 2;
+            hero.cc.sealOfLight = 2;
+        } else {
+            log(`&nbsp;&nbsp;&nbsp;🛡️ ${hero.name} RESISTED Calamity Control effects!`);
+        }
         hero.calamity = 0;
     }
 }
@@ -203,8 +212,10 @@ function simulate() {
                 } else {
                     log(`⚔️ ${h.name} uses Basic Attack.`);
                     usedBasic = true;
+                    // Seal of Light does NOT block basic attack +50 energy gain
+                    h.energy += 50; 
+                    
                     if (!isSealed) {
-                        h.energy += 50;
                         if (h.name === "STV") {
                             heroes.forEach(a => {
                                 if (a.isFrontLine) { checkCurse(a, "STV Basic: Front DR"); checkCurse(a, "STV Basic: Front CI"); }
@@ -218,7 +229,7 @@ function simulate() {
                             if(checkCurse(h, "BDSM Basic Energy", "+20")) h.energy += 20;
                         }
                     } else {
-                        log(`&nbsp;&nbsp;&nbsp;🚫 Seal of Light: Basic Attack buffs/energy blocked.`);
+                        log(`&nbsp;&nbsp;&nbsp;🚫 Seal of Light: Basic Attack secondary buffs/energy procs blocked.`);
                     }
                 }
             }
@@ -288,7 +299,7 @@ function simulate() {
             if (activeCCs.length > 0) {
                 let choice = activeCCs[Math.floor(Math.random() * activeCCs.length)];
                 h.cc[choice] = 0;
-                log(`&nbsp;&nbsp;&nbsp;🛡️ ${h.name} cleared [${choice.toUpperCase()}] randomly.`);
+                log(`&nbsp;&nbsp;&nbsp;🛡️ ${h.name} cleared [${choice.toUpperCase()}] via Round-End Cleanup.`);
             }
 
             if (h.calamity > 0) {
