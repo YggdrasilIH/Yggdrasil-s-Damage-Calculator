@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Curse of Decay Simulator</title>
+    <title>Curse of Decay Simulator - Restored Logic</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0f0f1a; color: #e0e0e0; padding: 20px; font-size: 14px; }
         .setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; background: #161b33; padding: 15px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2f3542; }
@@ -78,8 +78,7 @@ function checkCalamityTrigger(hero) {
     if (hero.calamity >= 5) {
         let effectiveCI = hero.baseCI - 1.0; 
         let applyChance = Math.max(0, 1.0 - effectiveCI);
-        
-        log(`&nbsp;&nbsp;&nbsp;🎲 ${hero.name} Calamity Check: CI ${(hero.baseCI*100).toFixed(0)}% (Eff ${(effectiveCI*100).toFixed(0)}%), Chance ${(applyChance*100).toFixed(0)}%`);
+        log(`&nbsp;&nbsp;&nbsp;🎲 ${hero.name} Calamity Check: CI ${(hero.baseCI*100).toFixed(0)}%, Chance ${(applyChance*100).toFixed(0)}%`);
 
         if (Math.random() < applyChance) {
             log(`&nbsp;&nbsp;&nbsp;⚠️ <span class="boss-msg">${hero.name} REACHED 5 CALAMITY!</span>`, "boss-msg");
@@ -87,7 +86,7 @@ function checkCalamityTrigger(hero) {
             if (hero.immuneTo !== "fear") hero.cc.fear = 2; else log(`&nbsp;&nbsp;&nbsp;🏝️ Immune to FEAR`, "island-msg");
             if (hero.immuneTo !== "sealOfLight") hero.cc.sealOfLight = 2; else log(`&nbsp;&nbsp;&nbsp;🏝️ Immune to SEAL OF LIGHT`, "island-msg");
         } else {
-            log(`&nbsp;&nbsp;&nbsp;🛡️ ${hero.name} RESISTED Calamity Control!`);
+            log(`&nbsp;&nbsp;&nbsp;🛡️ ${hero.name} RESISTED Calamity Effects!`);
         }
         hero.calamity = 0;
     }
@@ -97,14 +96,28 @@ function bossGlobalCounter() {
     log(`&nbsp;&nbsp;&nbsp;☄️ <span class="boss-msg">BOSS GLOBAL COUNTER!</span>`);
     heroes.forEach(h => { 
         h.calamity += 1;
-        let curseMsg = "";
         if (Math.random() < 0.50) {
             h.curseLayers += 1;
-            curseMsg = " + 💀 1 Curse";
+            log(`&nbsp;&nbsp;&nbsp;💥 ${h.name} hit: +1 Calamity, +1 Curse`);
+        } else {
+            log(`&nbsp;&nbsp;&nbsp;💥 ${h.name} hit: +1 Calamity`);
         }
-        log(`&nbsp;&nbsp;&nbsp;💥 ${h.name} hit: +1 Calamity${curseMsg}`);
         checkCalamityTrigger(h);
     });
+}
+
+function triggerStarSoul(hero) {
+    if (!hero.hasSpecter || hero.cc.sealOfLight > 0) return;
+    let chance = (hero.starSoulStacks >= 3) ? 1.0 : 0.333;
+    if (Math.random() < chance) {
+        log(`&nbsp;&nbsp;&nbsp;✨ <span class="specter-msg">STAR SOUL TRIGGERED!</span>`);
+        hero.starSoulStacks = 0; 
+        let highestSpdAlly = [...heroes].sort((a, b) => b.spd - a.spd)[0];
+        if(checkCurse(highestSpdAlly, "Star Soul Team", "+100")) highestSpdAlly.energy += 100;
+        if(checkCurse(hero, "Star Soul Self", "+50")) hero.energy += 50;
+    } else {
+        hero.starSoulStacks++;
+    }
 }
 
 function simulate() {
@@ -127,15 +140,24 @@ function simulate() {
             dodge: parseInt(document.getElementById(`dodge${i}`).value) / 100,
             cc: { silence: 0, fear: 0, sealOfLight: 0 },
             immuneTo: immunity, artifact: art, transition: 0, spd: parseInt(document.getElementById(`spd${i}`).value),
-            hasSpecter: document.getElementById(`spec${i}`).checked,
+            hasSpecter: document.getElementById(`spec${i}`).checked, starSoulStacks: 0,
             isHighestAtk: (i === targetPos), isFrontLine: i <= 2, activeCount: 0, bdsmCIGiven: false
         });
     }
 
+    log("PRE-BATTLE: Specter Start", "phase-name");
+    heroes.forEach(h => {
+        if (h.hasSpecter) {
+            log(`&nbsp;&nbsp;&nbsp;🔮 ${h.name} Specter Battle-Start`);
+            if(checkCurse(h, "Spec Start Self", "+50")) h.energy += 50;
+            let randAlly = heroes[Math.floor(Math.random() * 6)];
+            if(checkCurse(randAlly, "Spec Start Team", "+50")) randAlly.energy += 50;
+        }
+    });
+
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "round-head");
         
-        // --- Part 1: Start of Round ---
         log("Part 1: Start of Round", "phase-name");
         heroes.forEach(h => {
             if (h.name === "BDSM") h.bdsmCIGiven = false;
@@ -147,7 +169,6 @@ function simulate() {
             }
         });
 
-        // --- Part 2: Attacking Phase ---
         log("Part 2: Attacking Phase", "phase-name");
         let speedOrder = [...heroes].sort((a, b) => b.spd - a.spd);
         speedOrder.forEach(h => {
@@ -168,7 +189,7 @@ function simulate() {
                     log(`🔥 ${h.name} uses ACTIVE!`);
                     h.energy = 0; usedActive = true; h.activeCount++; h.transition += 6;
                     
-                    // BDSM Buff Trigger on other hero active
+                    // BDSM Passive check on others
                     heroes.forEach(target => {
                         if (target.name === "BDSM" && h.name !== "BDSM") {
                             if(checkCurse(target, "BDSM Passive Energy", "+3")) target.energy += 3;
@@ -183,9 +204,7 @@ function simulate() {
                         });
                     }
                     if (h.name === "BDSM") {
-                        heroes.forEach(a => { 
-                            for(let i=0; i<5; i++) checkCurse(a, "BDSM Active CI"); 
-                        });
+                        heroes.forEach(a => { for(let i=0; i<5; i++) checkCurse(a, "BDSM Active CI"); });
                         if (Math.random() < 0.40) {
                             heroes.forEach(a => { if (checkCurse(a, "BDSM Active Team Energy", "+10")) a.energy += 10; });
                         }
@@ -200,7 +219,7 @@ function simulate() {
                 } else {
                     log(`⚔️ ${h.name} uses Basic Attack.`);
                     usedBasic = true;
-                    h.energy += 50; // Basic Energy gain is UNBLOCKED by Seal
+                    h.energy += 50; // Basic gain unblocked
                     if (!isSealed) {
                         if (h.name === "STV") {
                             heroes.forEach(a => {
@@ -217,7 +236,6 @@ function simulate() {
                 }
             }
 
-            // Transition Skills (12 Stacks)
             if (h.transition >= 12 && !isSealed) {
                 h.transition -= 12;
                 if (h.name === "SQH") {
@@ -238,7 +256,6 @@ function simulate() {
                 if (h.name === "LFA") checkCurse(h, "LFA CI Buff");
             }
 
-            // Demon Bell Trigger
             if (h.artifact === "Demon Bell" && usedActive && !isSealed) {
                 heroes.forEach(a => { 
                     if(checkCurse(a, "DB Energy", "+20")) a.energy += 20;
@@ -247,7 +264,8 @@ function simulate() {
                 });
             }
 
-            // Global Imprints
+            triggerStarSoul(h);
+
             if (globalImprint === "foresight" && !isSealed) {
                 if (usedBasic) { if(checkCurse(h, "Foresight Energy", "+50")) h.energy += 50; }
                 if (usedActive) { checkCurse(h, "Foresight Crit"); checkCurse(h, "Foresight CD"); }
@@ -264,13 +282,13 @@ function simulate() {
             bossGlobalCounter();
         });
 
-        // --- Part 3: Boss Active Phase ---
         log("Part 3: Boss Active Phase", "phase-name");
         heroes.forEach(h => {
             if (Math.random() < h.dodge) {
                 log(`&nbsp;&nbsp;&nbsp;💨 ${h.name} DODGED Boss Active!`);
             } else {
                 h.curseLayers += 2; h.calamity += 2;
+                log(`&nbsp;&nbsp;&nbsp;🛡️ ${h.name} Hit: +10 Energy, +2 Calamity, +2 Curse`);
                 if(checkCurse(h, "Hit by Active", "+10")) h.energy += 10;
                 if (h.cc.sealOfLight <= 0) {
                     if(checkCurse(h, "Spec Passive", "+10")) h.energy += 10;
@@ -279,22 +297,15 @@ function simulate() {
             }
         });
 
-        // --- Part 4: End of Round Phase ---
         log("Part 4: End of Round Phase", "phase-name");
         heroes.forEach(h => {
-            // Artifact Passives
             if (h.cc.sealOfLight <= 0) {
                 if (h.artifact === "Mirror") {
-                    heroes.forEach(a => { 
-                        if(checkCurse(a, "Mirror Energy", "+15")) a.energy += 15; 
-                        checkCurse(a, "Mirror DR");
-                    });
+                    heroes.forEach(a => { if(checkCurse(a, "Mirror Energy", "+15")) a.energy += 15; checkCurse(a, "Mirror DR"); });
                 }
                 if (h.artifact === "Antlers") checkCurse(h, "Antlers DR");
                 if (h.artifact === "Scissors") {
-                    heroes.forEach(a => { 
-                        if(a.isFrontLine === h.isFrontLine) { checkCurse(a, "Scissors ATK"); checkCurse(a, "Scissors Holy"); }
-                    });
+                    heroes.forEach(a => { if(a.isFrontLine === h.isFrontLine) { checkCurse(a, "Scissors ATK"); checkCurse(a, "Scissors Holy"); }});
                 }
                 if (h.hasSpecter && r <= 5) {
                     if(checkCurse(h, "Spec EOR Self", "+50")) h.energy += 50;
@@ -304,25 +315,21 @@ function simulate() {
                 if(checkCurse(h, "Global Surge", "+50")) h.energy += 50;
             }
 
-            // CC Tick Down
             let activeCCs = Object.keys(h.cc).filter(k => h.cc[k] > 0);
-            if (activeCCs.length > 0) {
-                h.cc[activeCCs[Math.floor(Math.random() * activeCCs.length)]] = 0;
-            }
+            if (activeCCs.length > 0) h.cc[activeCCs[Math.floor(Math.random() * activeCCs.length)]] = 0;
             if (h.calamity > 0) h.calamity--;
             if (h.cc.silence > 0) h.cc.silence--;
             if (h.cc.fear > 0) h.cc.fear--;
             if (h.cc.sealOfLight > 0) h.cc.sealOfLight--;
         });
 
-        // Boss Finisher
         let target = heroes.find(h => h.isHighestAtk);
         target.energy = Math.max(0, target.energy - 100); 
         target.curseLayers += 3;
     }
 
     document.getElementById('summary').style.display = "block";
-    let tableHtml = `<h3>Final Summary</h3><table class="summary-table"><tr><th>Pos</th><th>Hero</th><th>Actives</th><th>End Status</th><th>Soul Protection</th></tr>`;
+    let tableHtml = `<h3>Final Summary</h3><table class="summary-table"><tr><th>Pos</th><th>Hero</th><th>Actives</th><th>Curse/Calamity</th><th>Protection</th></tr>`;
     heroes.forEach(h => { tableHtml += `<tr><td>${h.pos}</td><td><b>${h.name}</b></td><td>${h.activeCount}</td><td>C:${h.curseLayers} / L:${h.calamity}</td><td>${h.immuneTo.toUpperCase()}</td></tr>`; });
     tableHtml += `</table><p><strong>Total Boss Holy Damage: ${bossHD}%</strong></p>`;
     document.getElementById('summary').innerHTML = tableHtml;
