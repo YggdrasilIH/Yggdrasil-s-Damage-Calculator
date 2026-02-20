@@ -18,6 +18,7 @@
         .buff-gain { color: #2ed573; font-weight: bold; }
         .specter-msg { color: #a55eea; font-weight: bold; }
         .boss-msg { color: #ff4757; font-weight: bold; }
+        .island-msg { color: #00d2ff; font-weight: bold; }
         select, button, input { padding: 5px; border-radius: 4px; border: 1px solid #57606f; background: #2f3542; color: white; width: 100%; box-sizing: border-box; }
         button { background: #ff4757; font-weight: bold; cursor: pointer; border: none; font-size: 1.1em; margin-top: 10px; width: 100%; }
     </style>
@@ -25,10 +26,13 @@
 <body>
 
     <div class="imprint-setup">
-        <strong>Global Star Imprint:</strong>
-        <label><input type="radio" name="imprint" value="none" checked> None</label>
+        <strong>Global Settings:</strong>
+        <label><input type="radio" name="imprint" value="none" checked> No Imprint</label>
         <label><input type="radio" name="imprint" value="foresight"> Foresight</label>
         <label><input type="radio" name="imprint" value="destiny"> Destiny</label>
+        <span style="margin-left: 20px; padding-left: 20px; border-left: 1px solid #444;">
+            <label><input type="checkbox" id="island9"> 🏝️ Island 9 (Soul Protection)</label>
+        </span>
     </div>
 
     <div class="setup" id="heroSetup"></div>
@@ -78,10 +82,18 @@ function checkCalamityTrigger(hero) {
         log(`&nbsp;&nbsp;&nbsp;🎲 ${hero.name} Calamity Check: CI ${(hero.baseCI*100).toFixed(0)}% (Eff ${(effectiveCI*100).toFixed(0)}%), Chance ${(applyChance*100).toFixed(0)}%`);
 
         if (Math.random() < applyChance) {
-            log(`&nbsp;&nbsp;&nbsp;⚠️ <span class="boss-msg">${hero.name} REACHED 5 CALAMITY!</span> Control effects applied.`, "boss-msg");
-            hero.cc.silence = 2;
-            hero.cc.fear = 2;
-            hero.cc.sealOfLight = 2;
+            log(`&nbsp;&nbsp;&nbsp;⚠️ <span class="boss-msg">${hero.name} REACHED 5 CALAMITY!</span> Attempting to apply control effects.`, "boss-msg");
+            
+            // Apply effects if NOT immune via Island 9
+            if (hero.immuneTo !== "silence") hero.cc.silence = 2;
+            else log(`&nbsp;&nbsp;&nbsp;🏝️ ${hero.name} Island 9: Immune to SILENCE!`, "island-msg");
+            
+            if (hero.immuneTo !== "fear") hero.cc.fear = 2;
+            else log(`&nbsp;&nbsp;&nbsp;🏝️ ${hero.name} Island 9: Immune to FEAR!`, "island-msg");
+            
+            if (hero.immuneTo !== "sealOfLight") hero.cc.sealOfLight = 2;
+            else log(`&nbsp;&nbsp;&nbsp;🏝️ ${hero.name} Island 9: Immune to SEAL OF LIGHT!`, "island-msg");
+            
         } else {
             log(`&nbsp;&nbsp;&nbsp;🛡️ ${hero.name} RESISTED Calamity Control effects!`);
         }
@@ -123,9 +135,14 @@ function simulate() {
     heroes = []; bossHD = 0;
     const targetPos = parseInt(document.querySelector('input[name="highestAtk"]:checked').value);
     const globalImprint = document.querySelector('input[name="imprint"]:checked').value;
+    const isIsland9 = document.getElementById('island9').checked;
     
+    const ccTypes = ["silence", "fear", "sealOfLight"];
+
     for(let i=1; i<=6; i++) {
         let art = document.getElementById(`art${i}`).value;
+        let immunity = isIsland9 ? ccTypes[Math.floor(Math.random() * 3)] : "none";
+        
         heroes.push({
             pos: i, name: document.getElementById(`hero${i}`).value,
             energy: (["Demon Bell", "Mirror"].includes(art)) ? 100 : 50,
@@ -133,11 +150,17 @@ function simulate() {
             baseCI: parseInt(document.getElementById(`ci${i}`).value) / 100,
             dodge: parseInt(document.getElementById(`dodge${i}`).value) / 100,
             cc: { silence: 0, fear: 0, sealOfLight: 0 },
+            immuneTo: immunity,
             artifact: art, transition: 0, spd: parseInt(document.getElementById(`spd${i}`).value),
             hasSpecter: document.getElementById(`spec${i}`).checked, starSoulStacks: 0, 
             isHighestAtk: (i === targetPos), isFrontLine: i <= 2, activeCount: 0,
             bdsmCIGiven: false
         });
+    }
+
+    if (isIsland9) {
+        log("ISLAND 9 ACTIVE: Soul Protections Granted", "phase-name");
+        heroes.forEach(h => log(`&nbsp;&nbsp;&nbsp;🛡️ ${h.name} is immune to ${h.immuneTo.toUpperCase()} for this fight.`, "island-msg"));
     }
 
     log("PRE-BATTLE: Specter Start", "phase-name");
@@ -190,8 +213,7 @@ function simulate() {
                     });
                     if (h.name === "STV") {
                         heroes.forEach(a => { 
-                            checkCurse(a, "STV ATK"); checkCurse(a, "STV Armor"); 
-                            checkCurse(a, "STV DR"); checkCurse(a, "STV CI"); checkCurse(a, "STV Speed"); 
+                            checkCurse(a, "STV ATK/Armor/DR/CI/Speed"); 
                         });
                     }
                     if (h.name === "BDSM") {
@@ -216,12 +238,12 @@ function simulate() {
                     if (!isSealed) {
                         if (h.name === "STV") {
                             heroes.forEach(a => {
-                                if (a.isFrontLine) { checkCurse(a, "STV Basic: Front DR/CI"); }
-                                else { checkCurse(a, "STV Basic: Back ATK"); }
+                                if (a.isFrontLine) { checkCurse(a, "STV Basic Front DR/CI"); }
+                                else { checkCurse(a, "STV Basic Back ATK"); }
                             });
                         }
-                        if (h.name === "SQH") { checkCurse(h, "SQH Self Crit"); checkCurse(h, "SQH Self Crit Dmg"); }
-                        if (h.name === "LFA") checkCurse(h, "LFA Self Crit");
+                        if (h.name === "SQH") { checkCurse(h, "SQH Crit/CD"); }
+                        if (h.name === "LFA") { checkCurse(h, "LFA Crit"); }
                         if (h.name === "BDSM" && Math.random() < 0.50) {
                             if(checkCurse(h, "BDSM Basic Energy", "+20")) h.energy += 20;
                         }
@@ -247,7 +269,6 @@ function simulate() {
                 heroes.forEach(a => { 
                     if(checkCurse(a, "DB Energy", "+20")) a.energy += 20;
                     if(Math.random() < 0.50) if(checkCurse(a, "DB Bonus", "+10")) a.energy += 10;
-                    checkCurse(a, "DB Speed Buff");
                 });
             }
 
@@ -255,7 +276,7 @@ function simulate() {
 
             if (globalImprint === "foresight" && !isSealed) {
                 if (usedBasic) { if(checkCurse(h, "Foresight Energy", "+50")) h.energy += 50; }
-                if (usedActive) { checkCurse(h, "Foresight Crit/CD"); }
+                if (usedActive) { checkCurse(h, "Foresight Buffs"); }
             } else if (globalImprint === "destiny" && !isSealed) {
                 if (usedBasic || (h.name === "LBRM" && usedActive)) {
                     heroes.forEach(ally => {
@@ -270,14 +291,12 @@ function simulate() {
         });
 
         log("Part 3: Boss Active Phase", "phase-name");
-        log(`&nbsp;&nbsp;&nbsp;☄️ <span class="boss-msg">BOSS ACTIVE SKILL TRIGGERED</span>`);
+        log(`&nbsp;&nbsp;&nbsp;☄️ <span class="boss-msg">BOSS ACTIVE SKILL</span>`);
         heroes.forEach(h => {
             if (Math.random() < h.dodge) {
-                log(`&nbsp;&nbsp;&nbsp;💨 <span class="specter-msg">${h.name} DODGED the Boss Active!</span> No layers or energy gained.`);
+                log(`&nbsp;&nbsp;&nbsp;💨 <span class="specter-msg">${h.name} DODGED!</span>`);
             } else {
-                h.curseLayers += 2;
-                h.calamity += 2;
-                log(`&nbsp;&nbsp;&nbsp;🛡️ ${h.name} Hit: +10 Energy, +2 Calamity, +2 Curse`);
+                h.curseLayers += 2; h.calamity += 2;
                 if(checkCurse(h, "Hit by Active", "+10")) h.energy += 10;
                 if (h.cc.sealOfLight <= 0) {
                     if(checkCurse(h, "Spec Passive", "+10")) h.energy += 10;
@@ -297,7 +316,7 @@ function simulate() {
                 h.cc[choice] = 0;
                 log(`&nbsp;&nbsp;&nbsp;🛡️ ${h.name} cleared [${choice.toUpperCase()}] via Round-End Cleanup.`);
             }
-            if (h.calamity > 0) { h.calamity--; }
+            if (h.calamity > 0) h.calamity--;
             if (h.cc.silence > 0) h.cc.silence--;
             if (h.cc.fear > 0) h.cc.fear--;
             if (h.cc.sealOfLight > 0) h.cc.sealOfLight--;
@@ -321,8 +340,8 @@ function simulate() {
     }
 
     document.getElementById('summary').style.display = "block";
-    let tableHtml = `<h3>Final Summary</h3><table class="summary-table"><tr><th>Pos</th><th>Hero</th><th>Actives</th><th>End Curse</th><th>End Calamity</th></tr>`;
-    heroes.forEach(h => { tableHtml += `<tr><td>${h.pos}</td><td><b>${h.name}</b></td><td>${h.activeCount}</td><td>${h.curseLayers}</td><td>${h.calamity}</td></tr>`; });
+    let tableHtml = `<h3>Final Summary</h3><table class="summary-table"><tr><th>Pos</th><th>Hero</th><th>Actives</th><th>End Curse/Calamity</th><th>Soul Protection</th></tr>`;
+    heroes.forEach(h => { tableHtml += `<tr><td>${h.pos}</td><td><b>${h.name}</b></td><td>${h.activeCount}</td><td>C:${h.curseLayers} / L:${h.calamity}</td><td>${h.immuneTo.toUpperCase()}</td></tr>`; });
     tableHtml += `</table><p><strong>Total Boss Holy Damage: ${bossHD}%</strong></p>`;
     document.getElementById('summary').innerHTML = tableHtml;
 }
