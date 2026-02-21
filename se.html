@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -50,7 +51,7 @@ defaults.forEach((d, i) => {
         <h3>POS ${i+1}</h3>
         <select id="h${i}">${HEROES.map(h => `<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
         <select id="a${i}">${ARTS.map(a => `<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
-        <div style="display:flex; gap:5px;"><input type="number" id="s${i}" value="${d.s}"><input type="number" id="ci${i}" value="${d.ci}"></div>
+        <div style="display:flex; gap:5px;"><input type="number" id="s${i}" value="${d.s}" placeholder="SPD"><input type="number" id="ci${i}" value="${d.ci}" placeholder="CI%"><input type="number" id="dg${i}" value="0" min="0" max="100" placeholder="Dodge%"></div>
         <label><input type="checkbox" id="spec${i}"> Soul Specter</label>
         <label><input type="radio" name="max" value="${i}" ${i===0?'checked':''}> Max ATK</label>
     </div>`;
@@ -89,6 +90,37 @@ function trigCal(u) {
     }
 }
 
+// ─── FIX #6: Star Soul Skill/Burst helper ───────────────────────────────────
+// Called after any hero action if they have hasS (Soul Specter).
+// 33% chance to trigger Star Soul Skill: +100 to highest SPD ally, +50 to self.
+// Every 3 Star Soul Skills guarantees a Burst (same effect but guaranteed).
+function tryStarSoul(u) {
+    if (!u.hasS) return;
+    let roll = Math.random();
+    let triggered = false;
+    u.starSoulCount = (u.starSoulCount || 0);
+    u.starSoulTally = (u.starSoulTally || 0);
+
+    if (roll < 0.333) {
+        triggered = true;
+        u.starSoulTally++;
+    }
+    // Every 3rd tally = guaranteed burst regardless of roll
+    if (u.starSoulTally >= 3) {
+        triggered = true;
+        u.starSoulTally = 0;
+        log(`&nbsp;&nbsp;&nbsp;💥 [STAR SOUL BURST] ${u.name} guaranteed burst!`, "#f472b6");
+    }
+
+    if (triggered) {
+        // Find highest SPD unit
+        let fastest = units.reduce((a, b) => b.spd > a.spd ? b : a);
+        log(`&nbsp;&nbsp;&nbsp;⭐ [STAR SOUL SKILL] ${u.name}: +100 to ${fastest.name} (highest SPD), +50 to self`, "#f472b6");
+        if (checkC(fastest, "Star Soul +100 Energy", "+100")) fastest.energy += 100;
+        if (checkC(u, "Star Soul Self +50", "+50")) u.energy += 50;
+    }
+}
+
 function runOne() {
     const imp = document.getElementById('gImp').value;
     const is9 = document.getElementById('isl9').checked;
@@ -106,7 +138,9 @@ function runOne() {
             imm: is9 ? ["silence", "fear", "seal"][Math.floor(Math.random()*3)] : "none",
             art: art, spd: parseInt(document.getElementById(`s${i}`).value),
             baseCI: parseInt(document.getElementById(`ci${i}`).value) / 100,
-            hasS: document.getElementById(`spec${i}`).checked, isM: (i === mIdx), isFr: (i < 2), bDone: false
+            hasS: document.getElementById(`spec${i}`).checked, isM: (i === mIdx), isFr: (i < 2), bDone: false,
+            dodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
+            starSoulTally: 0  // FIX #6: track star soul skill count toward burst
         });
     }
 
@@ -115,7 +149,7 @@ function runOne() {
         if (u.hasS) {
             log(`🔮 ${u.name} Specter Battle-Start`);
             if(checkC(u, "Spec Start Self", "+50")) u.energy += 50;
-            let randAlly = units[Math.floor(Math.random() * 6)];
+            let randAlly = units[Math.floor(Math.random() * units.length)];
             if(checkC(randAlly, "Spec Start Team", "+50")) randAlly.energy += 50;
         }
     });
@@ -152,10 +186,12 @@ function runOne() {
                 units.forEach(t => { if(!t.isFr) checkC(t, "BDSM Threshold CI"); });
                 u.bDone = true;
             }
+
             let didHitBoss = false;
             let usedActive = false, usedBasic = false;
 
             if (u.energy >= 100 && u.cc.silence <= 0) {
+                // ── ACTIVE ATTACK ──────────────────────────────────────────
                 u.energy = 0; u.trans += 6; u.acts++; usedActive = true; didHitBoss = true;
                 log(`🔥 ACTION: Active`);
                 units.forEach(target => { if(target.name === "BDSM" && u.name !== "BDSM" && target.cc.seal <= 0) if(checkC(target, "BDSM Passive Energy", "+3")) target.energy += 3; });
@@ -165,61 +201,102 @@ function runOne() {
                     if (Math.random() < 0.4) units.forEach(a => { if(checkC(a, "BDSM Active Team Energy", "+10")) a.energy += 10; });
                 }
                 if (u.name === "FQV") units.forEach(a => checkC(a, "FQV Armor Buff"));
-                if (u.name === "LBRM") u.energy += 50;
+                if (u.name === "LBRM") { u.energy += 50; log(`&nbsp;&nbsp;&nbsp;⚡ LBRM Active: +50 self (direct, no curse check)`, "#4ade80"); }
                 if (u.name === "LFA") checkC(u, "LFA Active ATK Buff");
                 if (!sealed && u.art === "Demon Bell") {
                     units.forEach(a => { if(checkC(a, "DB Energy", "+20")) a.energy += 20; if(Math.random() < 0.5 && checkC(a, "DB Bonus", "+10")) a.energy += 10; checkC(a, "DB Speed Buff"); });
                 }
+
+                // FIX #6: Star Soul Skill/Burst after active
+                tryStarSoul(u);
+
             } else if (u.cc.fear <= 0) {
+                // ── BASIC ATTACK ───────────────────────────────────────────
                 u.energy += 50; usedBasic = true; didHitBoss = true;
                 log(`⚔️ ACTION: Basic Attack`);
+                log(`&nbsp;&nbsp;&nbsp;⚡ Basic Attack self energy: +50 (direct)`, "#4ade80");
+
+                // FIX #1: Foresight Imprint — +50 extra to attacker on basic (direct, no curse)
+                if (imp === "foresight") {
+                    u.energy += 50;
+                    log(`&nbsp;&nbsp;&nbsp;⚡ [FORESIGHT] ${u.name} +50 extra (direct)`, "#4ade80");
+                }
+
+                // FIX #2: Destiny Imprint — +20 (75%) and extra +20 (50%) to ALL allies on any basic
+                if (imp === "destiny") {
+                    log(`&nbsp;&nbsp;&nbsp;⚡ [DESTINY] Triggering for all allies`, "#38bdf8");
+                    units.forEach(a => {
+                        if (Math.random() < 0.75) {
+                            if (checkC(a, "Destiny +20", "+20")) a.energy += 20;
+                        }
+                        if (Math.random() < 0.50) {
+                            if (checkC(a, "Destiny +20 bonus", "+20")) a.energy += 20;
+                        }
+                    });
+                }
+
                 if (u.name === "STV" && !sealed) units.forEach(a => { if(a.isFr) { checkC(a, "STV Front DR"); checkC(a, "STV Front CI"); } else checkC(a, "STV Back ATK"); });
                 if (u.name === "SQH" && !sealed) { checkC(u, "SQH Self Crit"); checkC(u, "SQH Self CD"); }
                 if (u.name === "LFA" && !sealed) checkC(u, "LFA Self Crit");
                 if (u.name === "BDSM" && !sealed && Math.random() < 0.5) if(checkC(u, "BDSM Basic Energy", "+20")) u.energy += 20;
+
+                // FIX #6: Star Soul Skill/Burst after basic too
+                tryStarSoul(u);
+
             } else {
                 u.turnsLost++;
                 log(`🚫 ACTION: SKIPPED (Fear)`, "#ef4444");
             }
 
-            // ───────────────────────────────────────────────
-            // BOSS COUNTERATTACK - Corrupting Touch (this was missing in your version)
+            // BOSS COUNTERATTACK - Corrupting Touch
             if (didHitBoss) {
-                log(`&nbsp;&nbsp;&nbsp;☠️ [BOSS COUNTER] Corrupting Touch triggered! (all heroes targeted)`, "#ef4444");
-                
+                log(`&nbsp;&nbsp;&nbsp;☠️ [BOSS COUNTER] Corrupting Touch triggered!`, "#ef4444");
                 units.forEach(h => {
-                    // Guaranteed +1 Calamity to ALL heroes
                     h.calamity++;
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Calamity (guaranteed)`, "#ef4444");
                     trigCal(h);
-
-                    // 50% chance +1 Curse per hero
                     if (Math.random() < 0.5) {
                         h.curse++;
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Curse (50% proc)`, "#ef4444");
                     }
                 });
             }
-            // ───────────────────────────────────────────────
 
             if (u.trans >= 12 && !sealed) {
                 u.trans -= 12; log(`&nbsp;&nbsp;&nbsp;💎 12-Stack Transition`);
                 units.forEach(a => {
                     if(u.name === "SQH" && a !== u) { checkC(a, "SQH ATK"); if(checkC(a, "SQH Energy", "+20")) a.energy += 20; checkC(a, "SQH DR"); }
                     if(u.name === "BDSM") { if(checkC(a, "BDSM Energy Share", "+20")) a.energy += 20; }
+                    // FIX #3: STV 12-stack energy share (was missing)
+                    if(u.name === "STV") { if(checkC(a, "STV 12-Stack Energy", "+20")) a.energy += 20; }
                 });
             }
         });
 
-        // ───────────────────────────────────────────────
-        // END-OF-ROUND PHASE - fully logged
-        log(`&nbsp;&nbsp;&nbsp;☄️ BOSS ACTIVE PHASE (Cal +2 All, Curse +2 All)`, "#ef4444");
+        // ── END-OF-ROUND PHASE ─────────────────────────────────────────────────
+        log(`&nbsp;&nbsp;&nbsp;☄️ BOSS ACTIVE PHASE (Cal +2 All, Curse +2 All — Dodge applies)`, "#ef4444");
         units.forEach(u => {
-            u.curse += 2; 
-            u.calamity += 2;
-            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${u.name} +2 Curse & +2 Calamity`, "#ef4444");
-            trigCal(u);
+            let dodged = Math.random() < u.dodge;
+            if (dodged) {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;💨 ${u.name} DODGED the boss active! (no Calamity/Curse)`, "#a3e635");
+            } else {
+                u.curse += 2;
+                u.calamity += 2;
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${u.name} +2 Curse & +2 Calamity`, "#ef4444");
+                trigCal(u);
+            }
             for(let k in u.cc) if(u.cc[k] > 0) u.cc[k]--;
+
+            // +10 energy for being hit by boss active (all heroes, curse-offset)
+            // +10 bonus energy if hero has Soul Specter
+            if (!dodged) {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚡ ${u.name} hit by boss active: +10 Energy`, "#38bdf8");
+                if (checkC(u, "Boss Active Hit Energy", "+10")) u.energy += 10;
+                if (u.hasS) {
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🔮 ${u.name} Specter bonus: +10 Energy (boss hit)`, "#f472b6");
+                    if (checkC(u, "Boss Active Hit Specter Bonus", "+10")) u.energy += 10;
+                }
+            }
         });
 
         log(`&nbsp;&nbsp;&nbsp;🛡️ END-OF-ROUND CC CLEANSE (remove 1 random CC per hero)`, "#a78bfa");
@@ -235,7 +312,7 @@ function runOne() {
             }
         });
 
-        log(`&nbsp;&nbsp;&nbsp;🪞 ARTIFACT END-OF-ROUND PHASE (Mirror, etc.)`, "#38bdf8");
+        log(`&nbsp;&nbsp;&nbsp;🪞 ARTIFACT END-OF-ROUND PHASE (Mirror, Scissors, etc.)`, "#38bdf8");
         units.forEach(u => {
             if (u.cc.seal > 0) return;
             if(u.art === "Mirror") { 
@@ -245,12 +322,43 @@ function runOne() {
                     checkC(a, "Mirror DR"); 
                 }); 
             }
+            // Scissors: grants ATK buff to owner and HD buff to all allies at end of round
+            if(u.art === "Scissors") {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ Scissors Trigger on ${u.name}`);
+                units.forEach(a => {
+                    checkC(a, "Scissors ATK Buff (all allies)", "");
+                    checkC(a, "Scissors HD Buff (all allies)", "");
+                });
+            }
+        });
+
+        log(`&nbsp;&nbsp;&nbsp;⚡ ELY END-OF-ROUND SPEED BUFF`, "#38bdf8");
+        units.forEach(u => {
+            if (u.name === "ELY" && u.cc.seal <= 0) {
+                let eligible = units.filter(a => a !== u);
+                let target = eligible[Math.floor(Math.random() * eligible.length)];
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 ELY grants Speed Buff to ${target.name}`, "#38bdf8");
+                checkC(target, "ELY Speed Buff (random ally)", "");
+            }
         });
 
         log(`&nbsp;&nbsp;&nbsp;⚡ GLOBAL SURGE PHASE (+50 Energy attempt per hero)`, "#38bdf8");
         units.forEach(u => {
             if(checkC(u, "Global Surge", "+50")) u.energy += 50;
         });
+
+        // FIX #5: Soul Specter end-of-round +50 to specter hero + 1 random ally (rounds 1–5 only)
+        if (r <= 5) {
+            units.forEach(u => {
+                if (u.hasS) {
+                    log(`&nbsp;&nbsp;&nbsp;🔮 SPECTER END-OF-ROUND PULSE (Round ${r}/5): ${u.name} +50 self, +50 random ally`, "#f472b6");
+                    if (checkC(u, "Specter EoR Self", "+50")) u.energy += 50;
+                    let allies = units.filter(a => a !== u);
+                    let randAlly = allies[Math.floor(Math.random() * allies.length)];
+                    if (checkC(randAlly, "Specter EoR Ally", "+50")) randAlly.energy += 50;
+                }
+            });
+        }
 
         log(`&nbsp;&nbsp;&nbsp;⚡ MAX ATK TARGET PUNISHMENT`, "#ef4444");
         let d = units.find(u => u.isM);
@@ -265,7 +373,6 @@ function runOne() {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;❄️ ${u.name}: -1 Calamity (now ${u.calamity})`, "#a5b4fc");
             }
         });
-        // ───────────────────────────────────────────────
     }
 
     return { units, hd: bossHDStacks };
