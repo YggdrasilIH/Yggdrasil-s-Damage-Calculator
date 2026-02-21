@@ -110,7 +110,7 @@ function runOne() {
         });
     }
 
-    // Battle Start Specter logic
+    // Battle Start Specter
     units.forEach(u => {
         if (u.hasS) {
             log(`🔮 ${u.name} Specter Battle-Start`);
@@ -123,16 +123,17 @@ function runOne() {
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "#ff4757");
 
-        // Trees ATK buff attempt (from previous addition)
+        // SINGLE round-start ATK buff attempt (Trees + Global merged)
         units.forEach(u => {
             if (u.energy >= 100) {
-                checkC(u, "Trees ATK Buff", "+30%");
+                checkC(u, "Round Start ATK Buff (Energy ≥100)", "+30%");
+            } else {
+                checkC(u, "Global Round ATK Buff", "");
             }
         });
 
         units.forEach(u => {
             u.bDone = false;
-            checkC(u, "Global Round ATK Buff");
             if (u.name === "STV" && u.trans >= 6 && u.cc.seal <= 0) {
                 u.trans -= 6; 
                 log(`&nbsp;&nbsp;&nbsp;💎 STV 6-Stack Transition`);
@@ -154,17 +155,18 @@ function runOne() {
                 u.bDone = true;
             }
             let didHitBoss = false;
-            let usedActive = false, usedBasic = false;
 
             if (u.energy >= 100 && u.cc.silence <= 0) {
-                u.energy = 0; u.trans += 6; u.acts++; usedActive = true; didHitBoss = true;
+                u.energy = 0; u.trans += 6; u.acts++; didHitBoss = true;
                 log(`🔥 ACTION: Active`);
 
-                // Foresight: Crit buffs on active (permanent in this sim)
+                // Foresight on active = TWO separate offsettable buffs
                 if (imp === "foresight") {
-                    log(`&nbsp;&nbsp;&nbsp;🔮 [FORESIGHT] ${u.name} Active → +30% Crit & +100% CD`, "#38bdf8");
+                    checkC(u, "Foresight Crit", "+30%");
+                    checkC(u, "Foresight CD", "+100%");
                 }
 
+                // Normal active logic...
                 units.forEach(target => { 
                     if(target.name === "BDSM" && u.name !== "BDSM" && target.cc.seal <= 0) 
                         if(checkC(target, "BDSM Passive Energy", "+3")) target.energy += 3; 
@@ -185,18 +187,21 @@ function runOne() {
                         if(Math.random() < 0.5 && checkC(a, "DB Bonus", "+10")) a.energy += 10; 
                         checkC(a, "DB Speed Buff"); 
                     });
+                    // Foresight after DB artifact = TWO separate offsettable buffs
+                    if (imp === "foresight") {
+                        checkC(u, "Foresight Crit", "+30%");
+                        checkC(u, "Foresight CD", "+100%");
+                    }
                 }
             } else if (u.cc.fear <= 0) {
-                u.energy += 50; usedBasic = true; didHitBoss = true;
+                u.energy += 50; didHitBoss = true;
                 log(`⚔️ ACTION: Basic Attack`);
 
-                // Foresight: +50 Energy on basic (self, permanent)
                 if (imp === "foresight") {
                     u.energy += 50;
                     log(`&nbsp;&nbsp;&nbsp;🔮 [FORESIGHT] ${u.name} Basic → +50 Energy`, "#38bdf8");
                 }
 
-                // Destiny: Team energy on any ally basic
                 if (imp === "destiny") {
                     units.forEach(a => {
                         if (Math.random() < 0.75) {
@@ -262,6 +267,11 @@ function runOne() {
                     if(checkC(a, "Mirror Energy", "+15")) a.energy += 15; 
                     checkC(a, "Mirror DR"); 
                 }); 
+                // Foresight after Mirror artifact = TWO separate offsettable buffs
+                if (imp === "foresight") {
+                    checkC(u, "Foresight Crit", "+30%");
+                    checkC(u, "Foresight CD", "+100%");
+                }
             }
             if(checkC(u, "Global Surge", "+50")) u.energy += 50;
         });
@@ -270,7 +280,6 @@ function runOne() {
         d.energy = Math.max(0, d.energy - 100); 
         d.curse += 3;
 
-        // Calamity purge (from previous addition)
         units.forEach(u => {
             if (u.calamity > 0) {
                 u.calamity--;
