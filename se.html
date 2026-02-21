@@ -1,21 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Curse of Decay: Strict Master Engine</title>
+    <title>Curse of Decay: Triple-Checked Strict Engine</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f1f5f9; --border: #334155; --danger: #f43f5e; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 20px; font-size: 13px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 20px; }
-        .card { background: var(--card); border: 1px solid var(--border); padding: 15px; border-radius: 8px; }
-        .card h3 { margin: 0 0 10px 0; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px; font-size: 14px; }
-        input, select { background: #020617; color: white; border: 1px solid var(--border); padding: 6px; width: 100%; margin: 5px 0; border-radius: 4px; }
+        :root { --bg: #0b0e14; --card: #1a1f2e; --accent: #38bdf8; --text: #cbd5e1; --border: #334155; --danger: #ef4444; }
+        body { font-family: 'Consolas', monospace; background: var(--bg); color: var(--text); padding: 20px; font-size: 12px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .card { background: var(--card); border: 1px solid var(--border); padding: 12px; border-radius: 4px; }
+        .card h3 { margin: 0 0 8px 0; color: var(--accent); border-bottom: 1px solid var(--border); }
+        input, select { background: #000; color: #fff; border: 1px solid var(--border); padding: 4px; width: 100%; margin: 4px 0; }
         .controls { display: flex; gap: 10px; margin-bottom: 20px; }
-        button { flex: 1; padding: 12px; font-weight: bold; cursor: pointer; border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: 6px; }
-        button:hover { background: var(--accent); color: #0f172a; }
-        #output { background: #020617; border: 1px solid var(--border); padding: 20px; height: 500px; overflow-y: auto; border-radius: 8px; font-family: 'Consolas', monospace; }
-        .round-header { color: var(--danger); font-size: 15px; font-weight: bold; margin-top: 15px; display: block; border-left: 4px solid var(--danger); padding-left: 10px; }
-        .stat-box { border: 2px solid var(--accent); padding: 15px; background: #0c4a6e; border-radius: 8px; }
-        .buff-log { color: #4ade80; } .curse-log { color: #fbbf24; }
+        button { flex: 1; padding: 15px; font-weight: bold; cursor: pointer; border: 1px solid var(--accent); background: transparent; color: var(--accent); }
+        button:hover { background: var(--accent); color: #000; }
+        #output { background: #000; border: 1px solid var(--border); padding: 15px; height: 500px; overflow-y: auto; line-height: 1.4; }
+        .r-head { color: var(--danger); font-weight: bold; display: block; margin-top: 10px; border-bottom: 1px dashed #444; }
     </style>
 </head>
 <body>
@@ -23,21 +21,16 @@
 <div class="grid" id="hero-inputs"></div>
 
 <div class="card" style="margin-bottom:20px;">
-    <h3>Global Settings</h3>
+    <h3>Environment Controls</h3>
     <div style="display:flex; gap: 20px;">
-        <div style="flex:1">
-            <label>Imprint</label>
-            <select id="globalImprint"><option value="None">None</option><option value="Foresight">Foresight</option><option value="Destiny" selected>Destiny</option></select>
-        </div>
-        <div style="flex:1; display:flex; align-items:center; gap:10px; margin-top:15px;">
-            <input type="checkbox" id="island9" checked style="width:18px; height:18px;"> <label>Island 9 (Soul Protection)</label>
-        </div>
+        <div style="flex:1"><label>Active Imprint</label><select id="gImp"><option value="None">None</option><option value="Foresight">Foresight</option><option value="Destiny" selected>Destiny</option></select></div>
+        <div style="flex:1; margin-top:15px;"><input type="checkbox" id="isl9" checked> <label>Island 9 (Soul Protection)</label></div>
     </div>
 </div>
 
 <div class="controls">
-    <button onclick="runSimulation(false)">DETAILED LOG (1 FIGHT)</button>
-    <button onclick="runSimulation(true)">30X STATS (AVERAGE)</button>
+    <button onclick="sim(false)">Detailed Log (1 Fight)</button>
+    <button onclick="sim(true)">Statistical Batch (30 Fights)</button>
 </div>
 
 <div id="output"></div>
@@ -60,159 +53,127 @@ defaults.forEach((d, i) => {
         <h3>POS ${i+1}: ${d.h}</h3>
         <select id="h${i}">${HEROES.map(h => `<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
         <select id="a${i}">${ARTS.map(a => `<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
-        <div style="display:flex; gap:5px;">
-            <input type="number" id="s${i}" value="${d.s}">
-            <input type="number" id="ci${i}" value="${d.ci}">
-        </div>
+        <div style="display:flex; gap:5px;"><input type="number" id="s${i}" value="${d.s}"><input type="number" id="ci${i}" value="${d.ci}"></div>
         <label><input type="checkbox" id="spec${i}"> Soul Specter</label>
-        <label style="color:var(--danger)"><input type="radio" name="maxatk" value="${i}" ${i===0?'checked':''}> Main Target</label>
+        <label><input type="radio" name="max" value="${i}" ${i===0?'checked':''}> Max ATK</label>
     </div>`;
 });
 
 let units = [], holyHits = 0, silent = false;
 
-function writeLog(msg, color="#fff") { if(!silent) document.getElementById('output').innerHTML += `<div style="color:${color}">${msg}</div>`; }
+function log(msg, color="#fff") { if(!silent) document.getElementById('output').innerHTML += `<div style="color:${color}">${msg}</div>`; }
 
-function checkCurse(u, label) {
-    if (u.curse > 0) { u.curse--; writeLog(`&nbsp;&nbsp;✨ [CURSE OFFSET] ${u.name}: ${label}`, "#fbbf24"); return false; }
-    writeLog(`&nbsp;&nbsp;✅ [BUFF] ${u.name}: ${label}`, "#4ade80");
-    return true;
+function checkC(u, lbl) {
+    if (u.curse > 0) { u.curse--; log(`  [CURSE OFFSET] ${u.name}: ${lbl}`, "#fbbf24"); return false; }
+    log(`  [BUFF] ${u.name}: ${lbl}`, "#4ade80"); return true;
 }
 
-function triggerCalamity(u) {
+function trigCal(u) {
     if (u.calamity >= 5) {
-        let failProb = Math.max(0, 1.0 - (u.baseCI - 1.0));
-        writeLog(`&nbsp;&nbsp;⚠️ ${u.name} Stacks (5): Rolling Individual CC Checks...`);
-        ["silence", "fear", "seal"].forEach(type => {
-            if (u.immuneTo !== type && Math.random() < failProb) { u.cc[type] = 2; writeLog(`&nbsp;&nbsp;&nbsp;&nbsp;🚫 ${type.toUpperCase()} applied`, "#f43f5e"); }
-        });
+        let p = Math.max(0, 1.0 - (u.baseCI - 1.0));
+        ["silence", "fear", "seal"].forEach(t => { if (u.imm !== t && Math.random() < p) { u.cc[t] = 2; log(`  !! CC: ${u.name} hit with ${t.toUpperCase()}`, "#ef4444"); } });
         u.calamity = 0;
     }
 }
 
-function bdsmThreshold(u) {
-    if (u.name === "BDSM" && u.energy >= 100 && !u.bdsmDone && u.cc.seal <= 0) {
-        u.bdsmDone = true;
-        units.forEach(t => { if(!t.isFront) checkCurse(t, "BDSM Threshold CI"); });
-    }
+function checkBDSMT() {
+    units.forEach(u => {
+        if (u.name === "BDSM" && u.energy >= 100 && !u.bDone && u.cc.seal <= 0) {
+            u.bDone = true; log(`  >> BDSM Threshold CI Buff (Backline)`);
+            units.forEach(t => { if(!t.isFr) checkC(t, "CI (Threshold)"); });
+        }
+    });
 }
 
-function runSingle() {
-    const imprint = document.getElementById('globalImprint').value;
-    const isIsland9 = document.getElementById('island9').checked;
-    const maxIdx = parseInt(document.querySelector('input[name="maxatk"]:checked').value);
+function runOne() {
+    const imp = document.getElementById('gImp').value;
+    const is9 = document.getElementById('isl9').checked;
+    const mIdx = parseInt(document.querySelector('input[name="max"]:checked').value);
     
     units = []; holyHits = 0;
     for(let i=0; i<6; i++) {
         let art = document.getElementById(`a${i}`).value;
         units.push({
-            name: document.getElementById(`h${i}`).value,
-            energy: (art === "Demon Bell" || art === "Mirror") ? 100 : 50,
-            curse: 0, calamity: 0, trans: 0, specPity: 0, actives: 0,
-            cc: { silence: 0, fear: 0, seal: 0 },
-            immuneTo: isIsland9 ? ["silence", "fear", "seal"][Math.floor(Math.random()*3)] : "none",
+            name: document.getElementById(`h${i}`).value, energy: (art === "Demon Bell" || art === "Mirror") ? 100 : 50,
+            curse: 0, calamity: 0, trans: 0, specPity: 0, acts: 0, cc: { silence: 0, fear: 0, seal: 0 },
+            imm: is9 ? ["silence", "fear", "seal"][Math.floor(Math.random()*3)] : "none",
             art: art, spd: parseInt(document.getElementById(`s${i}`).value),
             baseCI: parseInt(document.getElementById(`ci${i}`).value) / 100,
-            hasSpec: document.getElementById(`spec${i}`).checked,
-            isMax: (i === maxIdx), isFront: (i < 2), bdsmDone: false
+            hasS: document.getElementById(`spec${i}`).checked, isM: (i === mIdx), isFr: (i < 2), bDone: false
         });
     }
 
     for (let r = 1; r <= 15; r++) {
-        writeLog(`ROUND ${r}`, "#f43f5e");
-        units.forEach(u => u.bdsmDone = false);
+        log(`ROUND ${r}`, "#ef4444");
+        units.forEach(u => u.bDone = false);
 
-        // SOR Leak
-        units.forEach(u => {
-            if (u.name === "STV" && u.trans >= 6 && u.cc.seal <= 0) {
-                u.trans -= 6;
-                units.forEach(a => { if(checkCurse(a, "STV Leak Energy")) a.energy += 20; });
-            }
-        });
+        // STV Leak (SOR)
+        units.forEach(u => { if (u.name === "STV" && u.trans >= 6 && u.cc.seal <= 0) { u.trans -= 6; log(`  [STV SOR Leak]`); units.forEach(a => { if(checkC(a, "Energy (Leak)")) a.energy += 20; }); } });
 
-        let order = [...units].sort((a,b) => b.spd - a.spd);
-        order.forEach(u => {
-            writeLog(`- ${u.name} [Energy: ${u.energy}]`);
-            let isSealed = u.cc.seal > 0;
+        let ord = [...units].sort((a,b) => b.spd - a.spd);
+        ord.forEach(u => {
+            let sealed = u.cc.seal > 0;
             if (u.energy >= 100 && u.cc.silence <= 0) {
-                u.energy = 0; u.trans += 6; u.actives++;
-                writeLog(`&nbsp;&nbsp;🚀 ACTIVE`);
-                // BDSM Energy Trigger (Strict: When ANOTHER hero uses active)
-                units.forEach(b => { if(b.name === "BDSM" && b !== u) { if(checkCurse(b, "BDSM Passive")) b.energy += 3; } });
+                u.energy = 0; u.trans += 6; u.acts++; log(`* ${u.name} ACTIVE`);
+                // BDSM Passive: Only triggers on others
+                units.forEach(b => { if(b.name === "BDSM" && b !== u) if(checkC(b, "Energy (BDSM Passive)")) b.energy += 3; });
                 
-                // Hero Active Buffs
-                if (u.name === "STV") units.forEach(a => { ["ATK","ARM","DR","CI","SPD"].forEach(s => checkCurse(a, "STV "+s)); });
-                if (u.name === "SQH") units.forEach(a => { checkCurse(a, "SQH ATK"); checkCurse(a, "SQH DR"); });
-                if (u.name === "FQV") units.forEach(a => checkCurse(a, "FQV ARM"));
-                if (u.name === "LFA") checkCurse(u, "LFA Self ATK");
-                if (u.name === "BDSM" && Math.random() < 0.4) units.forEach(a => { if(checkCurse(a, "BDSM RNG")) a.energy += 10; });
+                if (u.name === "STV") units.forEach(a => { checkC(a, "STV Active Stats"); });
+                if (u.name === "SQH") units.forEach(a => { checkC(a, "SQH ATK/DR"); });
+                if (u.name === "LFA") checkC(u, "LFA Self ATK");
+                if (u.name === "FQV") units.forEach(a => checkC(a, "FQV Team Armor"));
+                if (u.name === "BDSM" && Math.random() < 0.4) units.forEach(a => { if(checkC(a, "BDSM RNG Energy")) a.energy += 10; });
                 if (u.name === "LBRM") u.energy += 50;
-                if (u.art === "Demon Bell" && !isSealed) units.forEach(a => { 
-                    if(checkCurse(a, "DB")) a.energy += 20; 
-                    if(Math.random() < 0.5 && checkCurse(a, "DB RNG")) a.energy += 10; 
-                });
+                
+                if (!sealed && u.art === "Demon Bell") units.forEach(a => { if(checkC(a, "DB")) a.energy += 20; if(Math.random() < 0.5 && checkC(a, "DB RNG")) a.energy += 10; });
             } else if (u.cc.fear <= 0) {
-                writeLog(`&nbsp;&nbsp;⚔️ BASIC`);
-                u.energy += 50;
-                // Hero Basic Buffs
-                if (u.name === "STV" && !isSealed) units.forEach(a => { if(a.isFront) { checkCurse(a, "STV Front CI"); } else { checkCurse(a, "STV Back ATK"); } });
-                if (u.name === "SQH" && !isSealed) { checkCurse(u, "SQH Crit"); checkCurse(u, "SQH CD"); }
-                if (u.name === "LFA") checkCurse(u, "LFA Self Crit");
-                if (u.name === "BDSM" && !isSealed && Math.random() < 0.5) { if(checkCurse(u, "BDSM Basic")) u.energy += 20; }
-                if (imprint === "Foresight" && !isSealed) { if(checkCurse(u, "Foresight Basic")) u.energy += 50; }
-            } else { holyHits++; writeLog(`&nbsp;&nbsp;🚫 FEARED`, "#f43f5e"); }
+                u.energy += 50; log(`* ${u.name} Basic`);
+                if (u.name === "STV" && !sealed) units.forEach(a => { if(a.isFr) checkC(a, "Front CI/DR"); else checkC(a, "Back ATK"); });
+                if (u.name === "SQH" && !sealed) { checkC(u, "Crit"); checkC(u, "Crit Dmg"); }
+                if (u.name === "LFA") checkC(u, "LFA Self Crit");
+                if (u.name === "BDSM" && !sealed && Math.random() < 0.5) if(checkC(u, "BDSM Basic Energy")) u.energy += 20;
+                if (imp === "Foresight" && !sealed) if(checkC(u, "Foresight Energy")) u.energy += 50;
+            } else { holyHits++; log(`* ${u.name} FEARED`, "#ef4444"); }
 
-            units.forEach(v => { v.calamity++; if(Math.random() < 0.5) v.curse++; triggerCalamity(v); });
-            bdsmThreshold(u);
+            units.forEach(v => { v.calamity++; if(Math.random() < 0.5) v.curse++; trigCal(v); });
+            checkBDSMT();
 
-            if (imprint === "Destiny" && !isSealed && Math.random() < 0.75) {
-                units.forEach(a => { let amt = Math.random() < 0.5 ? 40 : 20; if(checkCurse(a, "Destiny")) a.energy += amt; });
-            }
-            if (u.hasSpec && !isSealed) {
-                u.specPity++;
-                if (Math.random() < 0.33 || u.specPity >= 4) {
-                    u.specPity = 0; if(checkCurse(u, "Spec Self")) u.energy += 50;
-                    let f = [...units].sort((a,b)=>b.spd-a.spd)[0]; if(checkCurse(f, "Spec Fastest")) f.energy += 100;
-                }
-            }
-            if (u.trans >= 12 && !isSealed) {
-                u.trans -= 12; units.forEach(a => { if(checkCurse(a, "Transition Energy")) a.energy += 20; });
-            }
-            bdsmThreshold(u);
+            if (imp === "Destiny" && !sealed && Math.random() < 0.75) units.forEach(a => { let amt = Math.random() < 0.5 ? 40 : 20; if(checkC(a, "Destiny")) a.energy += amt; });
+            if (u.hasS && !sealed) { u.specPity++; if (Math.random() < 0.33 || u.specPity >= 4) { u.specPity = 0; if(checkC(u, "Spec")) u.energy += 50; let f = [...units].sort((a,b)=>b.spd-a.spd)[0]; if(checkC(f, "Spec Fastest")) f.energy += 100; } }
+            if (u.trans >= 12 && !sealed) { u.trans -= 12; units.forEach(a => { if(checkC(a, "Trans Energy")) a.energy += 20; if(u.name === "FQV") checkC(a, "FQV Trans ATK"); }); }
+            checkBDSMT();
         });
 
-        // Boss Phase
-        units.forEach(u => { u.curse += 2; u.calamity += 2; if(checkCurse(u, "Boss Hit")) u.energy += 10; triggerCalamity(u); });
-        
-        // EOR
+        // Boss & EOR
+        units.forEach(u => { u.curse += 2; u.calamity += 2; if(checkC(u, "Boss Hit Energy")) u.energy += 10; trigCal(u); });
         units.forEach(u => {
             let c = []; if(u.cc.silence>0) c.push("silence"); if(u.cc.fear>0) c.push("fear"); if(u.cc.seal>0) c.push("seal");
             if(c.length > 0) u.cc[c[Math.floor(Math.random()*c.length)]] = 0;
             if(u.cc.seal > 0) return;
-            if(u.art === "Mirror") units.forEach(a => { if(checkCurse(a, "Mirror Energy")) a.energy += 15; });
-            if(u.name === "ELY") { let r = units[Math.floor(Math.random()*6)]; checkCurse(r, "ELY Speed"); }
-            if(u.hasSpec && r <= 5) { if(checkCurse(u, "Spec EOR")) u.energy += 50; let ra = units[Math.floor(Math.random()*6)]; if(checkCurse(ra, "Spec EOR Ally")) ra.energy += 50; }
-            if(checkCurse(u, "Energy Surge")) u.energy += 50;
+            if(u.art === "Mirror") units.forEach(a => { if(checkC(a, "Mirror")) a.energy += 15; });
+            if(u.name === "ELY") { let ra = units[Math.floor(Math.random()*6)]; checkC(ra, "ELY EOR SPD Buff"); }
+            if(u.hasS && r <= 5) { if(checkC(u, "Spec EOR")) u.energy += 50; let ra = units[Math.floor(Math.random()*6)]; if(checkC(ra, "Spec EOR Ally")) ra.energy += 50; }
+            if(checkC(u, "EOR Surge")) u.energy += 50;
         });
 
-        let d = units.find(u => u.isMax); d.energy = Math.max(0, d.energy - 100); d.curse += 3;
+        let d = units.find(u => u.isM); d.energy = Math.max(0, d.energy - 100); d.curse += 3;
         units.forEach(u => { for(let k in u.cc) if(u.cc[k]>0) u.cc[k]--; if(u.calamity>0) u.calamity--; });
     }
-    return { actives: units.map(u => ({n: u.name, c: u.actives})), holy: holyHits };
+    return { acts: units.map(u => ({n: u.name, c: u.acts})), holy: holyHits };
 }
 
-function runSimulation(multi) {
+function sim(multi) {
     const out = document.getElementById('output'); out.innerHTML = ""; silent = multi;
-    if(!multi) runSingle();
+    if(!multi) runOne();
     else {
-        let stats = {}, hTotal = 0;
+        let stats = {}, h = 0;
         for(let i=0; i<30; i++) {
-            let res = runSingle(); hTotal += res.holy;
-            res.actives.forEach(a => stats[a.n] = (stats[a.n] || 0) + a.c);
+            let res = runOne(); h += res.holy;
+            res.acts.forEach(a => stats[a.n] = (stats[a.n] || 0) + a.c);
         }
-        let html = `<div class="stat-box"><h3>30-FIGHT STATISTICAL AVERAGES</h3>Boss Holy Gain Frequency: ${(hTotal/30).toFixed(2)} / fight<br><hr>`;
-        for(let n in stats) html += `${n}: ${(stats[n]/30).toFixed(2)} actives/fight<br>`;
-        out.innerHTML = html + "</div>";
+        let html = `<h3>STATISTICAL AVERAGES (30 FIGHTS)</h3>Holy Dmg Frequency: ${(h/30).toFixed(2)} / fight<br><hr>`;
+        for(let n in stats) html += `${n}: ${(stats[n]/30).toFixed(2)} actives<br>`;
+        out.innerHTML = html;
     }
 }
 </script>
