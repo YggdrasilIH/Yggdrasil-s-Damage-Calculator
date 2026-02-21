@@ -1,55 +1,43 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Curse of Decay: Master Engine</title>
+    <title>Curse of Decay: Strict Master Engine</title>
     <style>
-        :root {
-            --bg: #121417; --card: #1c1f26; --accent: #4ade80; 
-            --text: #e2e8f0; --border: #334155; --danger: #f87171;
-        }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f1f5f9; --border: #334155; --danger: #f43f5e; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 20px; font-size: 13px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .card { background: var(--card); border: 1px solid var(--border); padding: 15px; border-radius: 8px; }
-        .card h3 { margin-top: 0; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px; }
-        
-        input, select { background: #0f172a; color: white; border: 1px solid var(--border); padding: 5px; border-radius: 4px; width: 100%; margin: 5px 0; }
-        label { font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase; }
-        
+        .card h3 { margin: 0 0 10px 0; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px; font-size: 14px; }
+        input, select { background: #020617; color: white; border: 1px solid var(--border); padding: 6px; width: 100%; margin: 5px 0; border-radius: 4px; }
         .controls { display: flex; gap: 10px; margin-bottom: 20px; }
-        button { flex: 1; padding: 12px; font-weight: bold; cursor: pointer; border-radius: 6px; border: none; transition: 0.2s; }
-        .btn-log { background: #3b82f6; color: white; }
-        .btn-stat { background: var(--accent); color: #064e3b; }
-        button:hover { opacity: 0.8; transform: translateY(-1px); }
-
-        #output { background: #000; border: 1px solid var(--border); padding: 20px; border-radius: 8px; height: 500px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 13px; }
-        .log-entry { margin-bottom: 4px; border-left: 2px solid #334155; padding-left: 10px; }
-        .round-header { color: var(--danger); font-size: 16px; font-weight: bold; margin-top: 15px; display: block; background: #2d1a1a; padding: 5px; }
-        .stat-box { background: #064e3b; padding: 15px; border-radius: 8px; border: 1px solid var(--accent); }
-        .buff { color: #4ade80; } .curse { color: #fbbf24; } .fail { color: #f87171; }
+        button { flex: 1; padding: 12px; font-weight: bold; cursor: pointer; border: 1px solid var(--accent); background: transparent; color: var(--accent); border-radius: 6px; }
+        button:hover { background: var(--accent); color: #0f172a; }
+        #output { background: #020617; border: 1px solid var(--border); padding: 20px; height: 500px; overflow-y: auto; border-radius: 8px; font-family: 'Consolas', monospace; }
+        .round-header { color: var(--danger); font-size: 15px; font-weight: bold; margin-top: 15px; display: block; border-left: 4px solid var(--danger); padding-left: 10px; }
+        .stat-box { border: 2px solid var(--accent); padding: 15px; background: #0c4a6e; border-radius: 8px; }
+        .buff-log { color: #4ade80; } .curse-log { color: #fbbf24; }
     </style>
 </head>
 <body>
 
-<h2>Frozen Mechanical Engine v2.0</h2>
-
 <div class="grid" id="hero-inputs"></div>
 
 <div class="card" style="margin-bottom:20px;">
-    <h3>Global Configuration</h3>
+    <h3>Global Settings</h3>
     <div style="display:flex; gap: 20px;">
         <div style="flex:1">
             <label>Imprint</label>
             <select id="globalImprint"><option value="None">None</option><option value="Foresight">Foresight</option><option value="Destiny" selected>Destiny</option></select>
         </div>
-        <div style="flex:1; display:flex; align-items:center; gap:10px;">
-            <input type="checkbox" id="island9" checked style="width:20px"> <label>Island 9 (Soul Protection)</label>
+        <div style="flex:1; display:flex; align-items:center; gap:10px; margin-top:15px;">
+            <input type="checkbox" id="island9" checked style="width:18px; height:18px;"> <label>Island 9 (Soul Protection)</label>
         </div>
     </div>
 </div>
 
 <div class="controls">
-    <button class="btn-log" onclick="runSimulation(false)">VIEW DETAILED LOG (1 FIGHT)</button>
-    <button class="btn-stat" onclick="runSimulation(true)">RUN STATISTICAL BATCH (30 FIGHTS)</button>
+    <button onclick="runSimulation(false)">DETAILED LOG (1 FIGHT)</button>
+    <button onclick="runSimulation(true)">30X STATS (AVERAGE)</button>
 </div>
 
 <div id="output"></div>
@@ -68,63 +56,48 @@ const defaults = [
 
 const container = document.getElementById('hero-inputs');
 defaults.forEach((d, i) => {
-    container.innerHTML += `
-        <div class="card">
-            <h3>POS ${i+1}: ${d.h}</h3>
-            <label>Hero</label>
-            <select id="h${i}">${HEROES.map(h => `<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
-            <label>Artifact</label>
-            <select id="a${i}">${ARTS.map(a => `<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
-            <div style="display:flex; gap:10px;">
-                <div style="flex:1"><label>Speed</label><input type="number" id="s${i}" value="${d.s}"></div>
-                <div style="flex:1"><label>CI %</label><input type="number" id="ci${i}" value="${d.ci}"></div>
-            </div>
-            <label style="color:#60a5fa"><input type="checkbox" id="spec${i}"> Specter Equipped</label>
-            <label style="color:var(--danger)"><input type="radio" name="maxatk" value="${i}" ${i===0?'checked':''}> Highest ATK</label>
-        </div>`;
+    container.innerHTML += `<div class="card">
+        <h3>POS ${i+1}: ${d.h}</h3>
+        <select id="h${i}">${HEROES.map(h => `<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
+        <select id="a${i}">${ARTS.map(a => `<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
+        <div style="display:flex; gap:5px;">
+            <input type="number" id="s${i}" value="${d.s}">
+            <input type="number" id="ci${i}" value="${d.ci}">
+        </div>
+        <label><input type="checkbox" id="spec${i}"> Soul Specter</label>
+        <label style="color:var(--danger)"><input type="radio" name="maxatk" value="${i}" ${i===0?'checked':''}> Main Target</label>
+    </div>`;
 });
 
-let units = [];
-let holyHits = 0;
-let isSilentMode = false;
+let units = [], holyHits = 0, silent = false;
 
-function writeLog(msg, cls="") {
-    if(isSilentMode) return;
-    const div = document.createElement('div');
-    div.className = "log-entry " + cls;
-    div.innerHTML = msg;
-    document.getElementById('output').appendChild(div);
-}
+function writeLog(msg, color="#fff") { if(!silent) document.getElementById('output').innerHTML += `<div style="color:${color}">${msg}</div>`; }
 
-function checkCurse(u, context) {
-    if (u.curse > 0) {
-        u.curse--;
-        writeLog(`[CURSE] Blocked ${context} for ${u.name}. Layers left: ${u.curse}`, "curse");
-        return false;
-    }
+function checkCurse(u, label) {
+    if (u.curse > 0) { u.curse--; writeLog(`&nbsp;&nbsp;✨ [CURSE OFFSET] ${u.name}: ${label}`, "#fbbf24"); return false; }
+    writeLog(`&nbsp;&nbsp;✅ [BUFF] ${u.name}: ${label}`, "#4ade80");
     return true;
 }
 
 function triggerCalamity(u) {
     if (u.calamity >= 5) {
         let failProb = Math.max(0, 1.0 - (u.baseCI - 1.0));
-        writeLog(`⚠️ ${u.name} Threshold (5): Rolling Individual CC Checks...`);
-        if (Math.random() < failProb && u.immuneTo !== "silence") { u.cc.silence = 2; writeLog(`- SILENCE hit`, "fail"); }
-        if (Math.random() < failProb && u.immuneTo !== "fear") { u.cc.fear = 2; writeLog(`- FEAR hit`, "fail"); }
-        if (Math.random() < failProb && u.immuneTo !== "seal") { u.cc.seal = 2; writeLog(`- SEAL hit`, "fail"); }
+        writeLog(`&nbsp;&nbsp;⚠️ ${u.name} Stacks (5): Rolling Individual CC Checks...`);
+        ["silence", "fear", "seal"].forEach(type => {
+            if (u.immuneTo !== type && Math.random() < failProb) { u.cc[type] = 2; writeLog(`&nbsp;&nbsp;&nbsp;&nbsp;🚫 ${type.toUpperCase()} applied`, "#f43f5e"); }
+        });
         u.calamity = 0;
     }
 }
 
-function triggerBossCounter() {
-    units.forEach(u => {
-        u.calamity++;
-        if(Math.random() < 0.5) u.curse++;
-        triggerCalamity(u);
-    });
+function bdsmThreshold(u) {
+    if (u.name === "BDSM" && u.energy >= 100 && !u.bdsmDone && u.cc.seal <= 0) {
+        u.bdsmDone = true;
+        units.forEach(t => { if(!t.isFront) checkCurse(t, "BDSM Threshold CI"); });
+    }
 }
 
-function runSingleBattle() {
+function runSingle() {
     const imprint = document.getElementById('globalImprint').value;
     const isIsland9 = document.getElementById('island9').checked;
     const maxIdx = parseInt(document.querySelector('input[name="maxatk"]:checked').value);
@@ -141,76 +114,87 @@ function runSingleBattle() {
             art: art, spd: parseInt(document.getElementById(`s${i}`).value),
             baseCI: parseInt(document.getElementById(`ci${i}`).value) / 100,
             hasSpec: document.getElementById(`spec${i}`).checked,
-            isMax: (i === maxIdx), isFront: (i < 2), bdsmFlag: false
+            isMax: (i === maxIdx), isFront: (i < 2), bdsmDone: false
         });
     }
 
     for (let r = 1; r <= 15; r++) {
-        writeLog(`ROUND ${r}`, "round-header");
-        units.forEach(u => u.bdsmFlag = false);
+        writeLog(`ROUND ${r}`, "#f43f5e");
+        units.forEach(u => u.bdsmDone = false);
 
-        // SOR
+        // SOR Leak
         units.forEach(u => {
             if (u.name === "STV" && u.trans >= 6 && u.cc.seal <= 0) {
-                u.trans -= 6; writeLog(`STV Transition Leak Triggered`);
-                units.forEach(a => { if(checkCurse(a, "STV Leak")) a.energy += 20; });
+                u.trans -= 6;
+                units.forEach(a => { if(checkCurse(a, "STV Leak Energy")) a.energy += 20; });
             }
         });
 
-        // Turns
         let order = [...units].sort((a,b) => b.spd - a.spd);
         order.forEach(u => {
+            writeLog(`- ${u.name} [Energy: ${u.energy}]`);
             let isSealed = u.cc.seal > 0;
             if (u.energy >= 100 && u.cc.silence <= 0) {
-                u.energy = 0; u.trans += 6; u.actives++; writeLog(`🚀 ${u.name} ACTIVE`);
-                units.forEach(b => { if(b.name === "BDSM" && checkCurse(b, "BDSM Passive")) b.energy += 3; });
+                u.energy = 0; u.trans += 6; u.actives++;
+                writeLog(`&nbsp;&nbsp;🚀 ACTIVE`);
+                // BDSM Energy Trigger (Strict: When ANOTHER hero uses active)
+                units.forEach(b => { if(b.name === "BDSM" && b !== u) { if(checkCurse(b, "BDSM Passive")) b.energy += 3; } });
+                
+                // Hero Active Buffs
+                if (u.name === "STV") units.forEach(a => { ["ATK","ARM","DR","CI","SPD"].forEach(s => checkCurse(a, "STV "+s)); });
+                if (u.name === "SQH") units.forEach(a => { checkCurse(a, "SQH ATK"); checkCurse(a, "SQH DR"); });
+                if (u.name === "FQV") units.forEach(a => checkCurse(a, "FQV ARM"));
+                if (u.name === "LFA") checkCurse(u, "LFA Self ATK");
                 if (u.name === "BDSM" && Math.random() < 0.4) units.forEach(a => { if(checkCurse(a, "BDSM RNG")) a.energy += 10; });
                 if (u.name === "LBRM") u.energy += 50;
                 if (u.art === "Demon Bell" && !isSealed) units.forEach(a => { 
                     if(checkCurse(a, "DB")) a.energy += 20; 
                     if(Math.random() < 0.5 && checkCurse(a, "DB RNG")) a.energy += 10; 
                 });
-                triggerBossCounter();
             } else if (u.cc.fear <= 0) {
-                u.energy += 50; writeLog(`⚔️ ${u.name} Basic Attack (+50 Energy)`);
+                writeLog(`&nbsp;&nbsp;⚔️ BASIC`);
+                u.energy += 50;
+                // Hero Basic Buffs
+                if (u.name === "STV" && !isSealed) units.forEach(a => { if(a.isFront) { checkCurse(a, "STV Front CI"); } else { checkCurse(a, "STV Back ATK"); } });
+                if (u.name === "SQH" && !isSealed) { checkCurse(u, "SQH Crit"); checkCurse(u, "SQH CD"); }
+                if (u.name === "LFA") checkCurse(u, "LFA Self Crit");
                 if (u.name === "BDSM" && !isSealed && Math.random() < 0.5) { if(checkCurse(u, "BDSM Basic")) u.energy += 20; }
-                if (imprint === "Foresight" && !isSealed) { if(checkCurse(u, "Foresight")) u.energy += 50; }
-                triggerBossCounter();
-            } else { holyHits++; writeLog(`🚫 ${u.name} Feared! Boss gains Holy Dmg.`, "fail"); }
+                if (imprint === "Foresight" && !isSealed) { if(checkCurse(u, "Foresight Basic")) u.energy += 50; }
+            } else { holyHits++; writeLog(`&nbsp;&nbsp;🚫 FEARED`, "#f43f5e"); }
 
-            // Destiny / Specter Turn
+            units.forEach(v => { v.calamity++; if(Math.random() < 0.5) v.curse++; triggerCalamity(v); });
+            bdsmThreshold(u);
+
             if (imprint === "Destiny" && !isSealed && Math.random() < 0.75) {
                 units.forEach(a => { let amt = Math.random() < 0.5 ? 40 : 20; if(checkCurse(a, "Destiny")) a.energy += amt; });
             }
             if (u.hasSpec && !isSealed) {
                 u.specPity++;
                 if (Math.random() < 0.33 || u.specPity >= 4) {
-                    u.specPity = 0; if(checkCurse(u, "Spec")) u.energy += 50;
-                    let f = [...units].sort((a,b)=>b.spd-a.spd)[0]; if(checkCurse(f, "Spec Fast")) f.energy += 100;
+                    u.specPity = 0; if(checkCurse(u, "Spec Self")) u.energy += 50;
+                    let f = [...units].sort((a,b)=>b.spd-a.spd)[0]; if(checkCurse(f, "Spec Fastest")) f.energy += 100;
                 }
             }
             if (u.trans >= 12 && !isSealed) {
-                u.trans -= 12; units.forEach(a => { if(checkCurse(a, "Trans Nrg")) a.energy += 20; });
+                u.trans -= 12; units.forEach(a => { if(checkCurse(a, "Transition Energy")) a.energy += 20; });
             }
+            bdsmThreshold(u);
         });
 
-        // Boss Active
-        writeLog(`BOSS ACTIVE PHASE`, "buff");
-        units.forEach(u => { u.curse += 2; u.calamity += 2; if(checkCurse(u, "Hit")) u.energy += 10; triggerCalamity(u); });
-
+        // Boss Phase
+        units.forEach(u => { u.curse += 2; u.calamity += 2; if(checkCurse(u, "Boss Hit")) u.energy += 10; triggerCalamity(u); });
+        
         // EOR
-        units.forEach(u => { // Cleanse
+        units.forEach(u => {
             let c = []; if(u.cc.silence>0) c.push("silence"); if(u.cc.fear>0) c.push("fear"); if(u.cc.seal>0) c.push("seal");
             if(c.length > 0) u.cc[c[Math.floor(Math.random()*c.length)]] = 0;
-        });
-        units.forEach(u => { // Artifacts
             if(u.cc.seal > 0) return;
-            if(u.art === "Mirror") units.forEach(a => { if(checkCurse(a, "Mirror")) a.energy += 15; });
-            if(u.hasSpec && r <= 5) { if(checkCurse(u, "Spec EOR")) u.energy += 50; let ra = units[Math.floor(Math.random()*6)]; if(checkCurse(ra, "Spec EOR Random")) ra.energy += 50; }
+            if(u.art === "Mirror") units.forEach(a => { if(checkCurse(a, "Mirror Energy")) a.energy += 15; });
+            if(u.name === "ELY") { let r = units[Math.floor(Math.random()*6)]; checkCurse(r, "ELY Speed"); }
+            if(u.hasSpec && r <= 5) { if(checkCurse(u, "Spec EOR")) u.energy += 50; let ra = units[Math.floor(Math.random()*6)]; if(checkCurse(ra, "Spec EOR Ally")) ra.energy += 50; }
+            if(checkCurse(u, "Energy Surge")) u.energy += 50;
         });
-        units.forEach(u => { if(u.cc.seal <= 0 && checkCurse(u, "Global Surge")) u.energy += 50; });
 
-        // Maintenance
         let d = units.find(u => u.isMax); d.energy = Math.max(0, d.energy - 100); d.curse += 3;
         units.forEach(u => { for(let k in u.cc) if(u.cc[k]>0) u.cc[k]--; if(u.calamity>0) u.calamity--; });
     }
@@ -218,25 +202,17 @@ function runSingleBattle() {
 }
 
 function runSimulation(multi) {
-    const out = document.getElementById('output');
-    out.innerHTML = "";
-    isSilentMode = multi;
-    
-    if(!multi) {
-        runSingleBattle();
-        writeLog("<br><strong>Simulation Complete.</strong>", "buff");
-    } else {
+    const out = document.getElementById('output'); out.innerHTML = ""; silent = multi;
+    if(!multi) runSingle();
+    else {
         let stats = {}, hTotal = 0;
         for(let i=0; i<30; i++) {
-            let res = runSingleBattle();
-            hTotal += res.holy;
+            let res = runSingle(); hTotal += res.holy;
             res.actives.forEach(a => stats[a.n] = (stats[a.n] || 0) + a.c);
         }
-        let html = `<div class="stat-box"><h3>30-FIGHT STATISTICAL AVERAGES</h3>`;
-        html += `<p>Boss Holy Damage Gain: <span class="buff">${(hTotal/30).toFixed(2)} / fight</span></p>`;
-        for(let n in stats) html += `<div>${n}: <span class="buff">${(stats[n]/30).toFixed(2)} actives</span></div>`;
-        html += `</div>`;
-        out.innerHTML = html;
+        let html = `<div class="stat-box"><h3>30-FIGHT STATISTICAL AVERAGES</h3>Boss Holy Gain Frequency: ${(hTotal/30).toFixed(2)} / fight<br><hr>`;
+        for(let n in stats) html += `${n}: ${(stats[n]/30).toFixed(2)} actives/fight<br>`;
+        out.innerHTML = html + "</div>";
     }
 }
 </script>
