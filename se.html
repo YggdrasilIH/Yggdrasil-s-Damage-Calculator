@@ -51,7 +51,7 @@ defaults.forEach((d, i) => {
         <select id="h${i}">${HEROES.map(h => `<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
         <select id="a${i}">${ARTS.map(a => `<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
         <div style="display:flex; gap:5px;"><input type="number" id="s${i}" value="${d.s}"><input type="number" id="ci${i}" value="${d.ci}"></div>
-        <label><input type="checkbox" id="spec${i}"> Soul Specter</label>
+        <label><input type="checkbox" id="spec${i}"> Soul Specter (Star Soul)</label>
         <label><input type="radio" name="max" value="${i}" ${i===0?'checked':''}> Max ATK</label>
     </div>`;
 });
@@ -106,7 +106,9 @@ function runOne() {
             imm: is9 ? ["silence", "fear", "seal"][Math.floor(Math.random()*3)] : "none",
             art: art, spd: parseInt(document.getElementById(`s${i}`).value),
             baseCI: parseInt(document.getElementById(`ci${i}`).value) / 100,
-            hasS: document.getElementById(`spec${i}`).checked, isM: (i === mIdx), isFr: (i < 2), bDone: false
+            hasS: document.getElementById(`spec${i}`).checked, 
+            starSoulReleases: 0,
+            isM: (i === mIdx), isFr: (i < 2), bDone: false
         });
     }
 
@@ -123,7 +125,6 @@ function runOne() {
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "#ff4757");
 
-        // Merged round-start ATK buff
         units.forEach(u => {
             if (u.energy >= 100) {
                 checkC(u, "Round Start ATK Buff (Energy ≥100)", "+30%");
@@ -155,16 +156,18 @@ function runOne() {
                 u.bDone = true;
             }
             let didHitBoss = false;
-            let usedActive = false, usedBasic = false;
 
             if (u.energy >= 100 && u.cc.silence <= 0) {
-                u.energy = 0; u.trans += 6; u.acts++; usedActive = true; didHitBoss = true;
+                u.energy = 0; u.trans += 6; u.acts++; didHitBoss = true;
                 log(`🔥 ACTION: Active`);
 
                 if (imp === "foresight") {
                     checkC(u, "Foresight Crit", "+30%");
                     checkC(u, "Foresight CD", "+100%");
                 }
+
+                // Ally active hit passive (+10 energy to the ally who used active)
+                if(checkC(u, "Star Soul Ally Active Hit", "+10")) u.energy += 10;
 
                 units.forEach(target => { 
                     if(target.name === "BDSM" && u.name !== "BDSM" && target.cc.seal <= 0) 
@@ -194,7 +197,7 @@ function runOne() {
             } else if (u.cc.fear <= 0) {
                 u.energy += 50; 
                 log(`&nbsp;&nbsp;&nbsp;⚔️ [BASE] ${u.name} Basic Attack → +50 Energy`, "#cbd5e1");
-                usedBasic = true; didHitBoss = true;
+                didHitBoss = true;
                 log(`⚔️ ACTION: Basic Attack`);
 
                 if (imp === "foresight") {
@@ -228,23 +231,50 @@ function runOne() {
                 log(`🚫 ACTION: SKIPPED (Fear)`, "#ef4444");
             }
 
-            // BOSS COUNTERATTACK - Corrupting Touch
+            // Boss Counter (Corrupting Touch) - Guaranteed Calamity + 50% Curse
             if (didHitBoss) {
                 log(`&nbsp;&nbsp;&nbsp;☠️ [BOSS COUNTER] Corrupting Touch triggered! (all heroes targeted)`, "#ef4444");
-                
                 units.forEach(h => {
-                    // Guaranteed +1 Calamity to ALL heroes
                     h.calamity++;
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Calamity (guaranteed)`, "#ef4444");
-                    trigCal(h);  // Check for CC if Calamity >=5
-
-                    // 50% chance +1 Curse to this hero
+                    trigCal(h);
                     if (Math.random() < 0.5) {
                         h.curse++;
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Curse (50% proc)`, "#ef4444");
                     }
                 });
             }
+
+            // ==================== STAR SOUL SKILL / BURST ====================
+            const starSoulHero = units.find(h => h.hasS);
+            if (starSoulHero) {
+                // Ally active hit passive (+10 to the ally who used active)
+                if (u.energy === 0 && u.acts > 0) {  // just used active
+                    if(checkC(u, "Star Soul Ally Active Hit", "+10")) u.energy += 10;
+                }
+
+                // Star Soul release after every action
+                starSoulHero.starSoulReleases++;
+                const isBurst = starSoulHero.starSoulReleases >= 3;
+
+                let target = units.reduce((prev, curr) => curr.spd > prev.spd ? curr : prev);
+
+                if (isBurst) {
+                    if(checkC(target, "Star Soul Burst", "+100")) target.energy += 100;
+                    if(checkC(starSoulHero, "Star Soul Self Buff", "+50")) starSoulHero.energy += 50;
+                    log(`&nbsp;&nbsp;&nbsp;⭐ [STAR SOUL BURST] ${starSoulHero.name} → +100 to ${target.name} & +50 self`, "#a78bfa");
+                    starSoulHero.starSoulReleases = 0; // reset
+                } else {
+                    if (Math.random() < 0.33) {
+                        if(checkC(target, "Star Soul Skill", "+100")) target.energy += 100;
+                        if(checkC(starSoulHero, "Star Soul Self Buff", "+50")) starSoulHero.energy += 50;
+                        log(`&nbsp;&nbsp;&nbsp;⭐ [STAR SOUL SKILL] ${starSoulHero.name} procs! +100 to ${target.name} & +50 self`, "#a78bfa");
+                    } else {
+                        log(`&nbsp;&nbsp;&nbsp;⭐ [STAR SOUL SKILL] ${starSoulHero.name} used (no proc)`, "#a78bfa");
+                    }
+                }
+            }
+            // ============================================================
 
             if (u.trans >= 12 && !sealed) {
                 u.trans -= 12; 
@@ -291,7 +321,6 @@ function runOne() {
         d.energy = Math.max(0, d.energy - 100); 
         d.curse += 3;
 
-        // Calamity purge (optional - remove if no Frost blessing)
         units.forEach(u => {
             if (u.calamity > 0) {
                 u.calamity--;
