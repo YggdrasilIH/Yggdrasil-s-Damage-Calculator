@@ -110,7 +110,7 @@ function runOne() {
         });
     }
 
-    // Battle Start Specter
+    // Battle Start Specter logic
     units.forEach(u => {
         if (u.hasS) {
             log(`🔮 ${u.name} Specter Battle-Start`);
@@ -123,7 +123,7 @@ function runOne() {
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "#ff4757");
 
-        // SINGLE round-start ATK buff attempt (Trees + Global merged)
+        // Merged round-start ATK buff
         units.forEach(u => {
             if (u.energy >= 100) {
                 checkC(u, "Round Start ATK Buff (Energy ≥100)", "+30%");
@@ -155,18 +155,17 @@ function runOne() {
                 u.bDone = true;
             }
             let didHitBoss = false;
+            let usedActive = false, usedBasic = false;
 
             if (u.energy >= 100 && u.cc.silence <= 0) {
-                u.energy = 0; u.trans += 6; u.acts++; didHitBoss = true;
+                u.energy = 0; u.trans += 6; u.acts++; usedActive = true; didHitBoss = true;
                 log(`🔥 ACTION: Active`);
 
-                // Foresight on active = TWO separate offsettable buffs
                 if (imp === "foresight") {
                     checkC(u, "Foresight Crit", "+30%");
                     checkC(u, "Foresight CD", "+100%");
                 }
 
-                // Normal active logic...
                 units.forEach(target => { 
                     if(target.name === "BDSM" && u.name !== "BDSM" && target.cc.seal <= 0) 
                         if(checkC(target, "BDSM Passive Energy", "+3")) target.energy += 3; 
@@ -187,14 +186,15 @@ function runOne() {
                         if(Math.random() < 0.5 && checkC(a, "DB Bonus", "+10")) a.energy += 10; 
                         checkC(a, "DB Speed Buff"); 
                     });
-                    // Foresight after DB artifact = TWO separate offsettable buffs
                     if (imp === "foresight") {
                         checkC(u, "Foresight Crit", "+30%");
                         checkC(u, "Foresight CD", "+100%");
                     }
                 }
             } else if (u.cc.fear <= 0) {
-                u.energy += 50; didHitBoss = true;
+                u.energy += 50; 
+                log(`&nbsp;&nbsp;&nbsp;⚔️ [BASE] ${u.name} Basic Attack → +50 Energy`, "#cbd5e1");
+                usedBasic = true; didHitBoss = true;
                 log(`⚔️ ACTION: Basic Attack`);
 
                 if (imp === "foresight") {
@@ -228,10 +228,22 @@ function runOne() {
                 log(`🚫 ACTION: SKIPPED (Fear)`, "#ef4444");
             }
 
+            // BOSS COUNTERATTACK - Corrupting Touch
             if (didHitBoss) {
-                u.calamity++; 
-                trigCal(u);
-                units.forEach(h => { if (Math.random() < 0.5) h.curse++; });
+                log(`&nbsp;&nbsp;&nbsp;☠️ [BOSS COUNTER] Corrupting Touch triggered! (all heroes targeted)`, "#ef4444");
+                
+                units.forEach(h => {
+                    // Guaranteed +1 Calamity to ALL heroes
+                    h.calamity++;
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Calamity (guaranteed)`, "#ef4444");
+                    trigCal(h);  // Check for CC if Calamity >=5
+
+                    // 50% chance +1 Curse to this hero
+                    if (Math.random() < 0.5) {
+                        h.curse++;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Curse (50% proc)`, "#ef4444");
+                    }
+                });
             }
 
             if (u.trans >= 12 && !sealed) {
@@ -267,7 +279,6 @@ function runOne() {
                     if(checkC(a, "Mirror Energy", "+15")) a.energy += 15; 
                     checkC(a, "Mirror DR"); 
                 }); 
-                // Foresight after Mirror artifact = TWO separate offsettable buffs
                 if (imp === "foresight") {
                     checkC(u, "Foresight Crit", "+30%");
                     checkC(u, "Foresight CD", "+100%");
@@ -280,6 +291,7 @@ function runOne() {
         d.energy = Math.max(0, d.energy - 100); 
         d.curse += 3;
 
+        // Calamity purge (optional - remove if no Frost blessing)
         units.forEach(u => {
             if (u.calamity > 0) {
                 u.calamity--;
