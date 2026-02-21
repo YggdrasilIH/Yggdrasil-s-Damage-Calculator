@@ -159,12 +159,12 @@ function triggerPupil(actor) {
     if (maxAtkHero && maxAtkHero !== actor) {
         let prev = Math.round(maxAtkHero.dodge * 100);
         maxAtkHero.dodge = Math.min(1, maxAtkHero.dodge + 0.22);
-        log(`&nbsp;&nbsp;&nbsp;👁️ [PUPIL] ${maxAtkHero.name} (Max ATK) Dodge: ${prev}% → ${Math.round(maxAtkHero.dodge*100)}% (+22%)`, "#e879f9");
+        log(`&nbsp;&nbsp;&nbsp;👁️ [PUPIL] ${maxAtkHero.name} (Max ATK) Dodge: ${prev}% → ${Math.round(maxAtkHero.dodge*100)}% (+22%, resets end of round)`, "#e879f9");
     } else if (maxAtkHero === actor) {
         // Pupil wearer IS the max ATK hero — buff self
         let prev = Math.round(actor.dodge * 100);
         actor.dodge = Math.min(1, actor.dodge + 0.22);
-        log(`&nbsp;&nbsp;&nbsp;👁️ [PUPIL] ${actor.name} (Max ATK = self) Dodge: ${prev}% → ${Math.round(actor.dodge*100)}% (+22%)`, "#e879f9");
+        log(`&nbsp;&nbsp;&nbsp;👁️ [PUPIL] ${actor.name} (Max ATK = self) Dodge: ${prev}% → ${Math.round(actor.dodge*100)}% (+22%, resets end of round)`, "#e879f9");
     }
 
     // ── Effect 2: every 4 actions → 100% dodge for 2 rounds on low-HP trio ─
@@ -216,6 +216,7 @@ function runOne() {
             hasPupil: document.getElementById(`pupil${i}`).checked,
             isM: (i === mIdx), isFr: (i < 2), bDone: false,
             dodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
+            baseDodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
             starSoulTally: 0,
             pupilActionCount: 0,   // counts toward the 4-action Pupil burst
             pupilDodgeRounds: 0,   // rounds of 100% boss-active dodge remaining (from Pupil burst)
@@ -281,6 +282,7 @@ function runOne() {
             }
 
             let didHitBoss = false;
+            let usedBasic = false;
 
             if (u.energy >= 100 && u.cc.silence <= 0) {
                 // ── ACTIVE ────────────────────────────────────────────────────
@@ -302,7 +304,7 @@ function runOne() {
                 if (!sealed && u.art === "Demon Bell") {
                     units.forEach(a => {
                         if (checkC(a,"DB Energy","+20")) a.energy += 20;
-                        if (Math.random() < 0.5 && checkC(a,"DB Bonus","+10")) a.energy += 10;
+                        if (Math.random() < 0.5) { if (checkC(a,"DB Bonus","+10")) a.energy += 10; }
                         checkC(a,"DB Speed Buff");
                     });
                 }
@@ -312,26 +314,14 @@ function runOne() {
 
             } else if (u.cc.fear <= 0) {
                 // ── BASIC ─────────────────────────────────────────────────────
-                u.energy += 50; didHitBoss = true;
+                u.energy += 50; didHitBoss = true; usedBasic = true;
                 log(`⚔️ ACTION: Basic Attack`);
                 log(`&nbsp;&nbsp;&nbsp;⚡ Basic Attack self energy: +50 (direct)`, "#4ade80");
-
-                if (imp === "foresight") {
-                    u.energy += 50;
-                    log(`&nbsp;&nbsp;&nbsp;⚡ [FORESIGHT] ${u.name} +50 extra (direct)`, "#4ade80");
-                }
-                if (imp === "destiny") {
-                    log(`&nbsp;&nbsp;&nbsp;⚡ [DESTINY] Triggering for all allies`, "#38bdf8");
-                    units.forEach(a => {
-                        if (Math.random() < 0.75 && checkC(a,"Destiny +20","+20")) a.energy += 20;
-                        if (Math.random() < 0.50 && checkC(a,"Destiny +20 bonus","+20")) a.energy += 20;
-                    });
-                }
 
                 if (u.name === "STV" && !sealed) units.forEach(a => { if (a.isFr) { checkC(a,"STV Front DR"); checkC(a,"STV Front CI"); } else checkC(a,"STV Back ATK"); });
                 if (u.name === "SQH" && !sealed) { checkC(u,"SQH Self Crit"); checkC(u,"SQH Self CD"); }
                 if (u.name === "LFA" && !sealed) checkC(u,"LFA Self Crit");
-                if (u.name === "BDSM" && !sealed && Math.random() < 0.5) if (checkC(u,"BDSM Basic Energy","+20")) u.energy += 20;
+                if (u.name === "BDSM" && !sealed && Math.random() < 0.5) { if (checkC(u,"BDSM Basic Energy","+20")) u.energy += 20; }
 
                 tryStarSoul(u);
                 triggerPupil(u);
@@ -342,18 +332,7 @@ function runOne() {
                 log(`🚫 ACTION: SKIPPED (Fear)`, "#ef4444");
             }
 
-            // BOSS COUNTERATTACK — Corrupting Touch
-            if (didHitBoss) {
-                log(`&nbsp;&nbsp;&nbsp;☠️ [BOSS COUNTER] Corrupting Touch triggered!`, "#ef4444");
-                units.forEach(h => {
-                    h.calamity++;
-                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Calamity`, "#ef4444");
-                    trigCal(h);
-                    if (Math.random() < 0.5) { h.curse++; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Curse (50%)`, "#ef4444"); }
-                });
-            }
-
-            // 12-stack transitions
+            // 12-stack transitions (before boss counterattack)
             if (u.trans >= 12 && !sealed) {
                 u.trans -= 12;
                 log(`&nbsp;&nbsp;&nbsp;💎 12-Stack Transition`);
@@ -363,7 +342,40 @@ function runOne() {
                     if (u.name === "STV")  { if (checkC(a,"STV 12-Stack Energy","+20")) a.energy += 20; }
                 });
             }
+
+            // Foresight / Destiny imprint (basic attacks only, after all hero skills)
+            if (usedBasic) {
+                if (imp === "foresight") {
+                    u.energy += 50;
+                    log(`&nbsp;&nbsp;&nbsp;⚡ [FORESIGHT] ${u.name} +50 extra (direct)`, "#4ade80");
+                }
+                if (imp === "destiny") {
+                    log(`&nbsp;&nbsp;&nbsp;⚡ [DESTINY] Triggering for all allies`, "#38bdf8");
+                    units.forEach(a => {
+                        if (Math.random() < 0.75) { if (checkC(a,"Destiny +20","+20")) a.energy += 20; }
+                        if (Math.random() < 0.50) { if (checkC(a,"Destiny +20 bonus","+20")) a.energy += 20; }
+                    });
+                }
+            }
+
+            // BOSS COUNTERATTACK — Corrupting Touch (after all hero skills complete)
+            if (didHitBoss) {
+                log(`&nbsp;&nbsp;&nbsp;☠️ [BOSS COUNTER] Corrupting Touch triggered!`, "#ef4444");
+                units.forEach(h => {
+                    h.calamity++;
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Calamity (now ${h.calamity})`, "#ef4444");
+                    trigCal(h);
+                    if (Math.random() < 0.5) { h.curse++; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Curse (50%)`, "#ef4444"); }
+                });
+            }
         }); // end ord.forEach
+
+        // ── END-OF-TURN CALAMITY CHECK (once per hero after all actions this round) ──
+        log(`&nbsp;&nbsp;&nbsp;🔥 END-OF-TURN CALAMITY CHECK`, "#ef4444");
+        units.forEach(u => {
+            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${u.name} Calamity: ${u.calamity}`, "#ef4444");
+            trigCal(u);
+        });
 
         // ── END-OF-ROUND PHASE ────────────────────────────────────────────────
 
@@ -397,8 +409,9 @@ function runOne() {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚡ ${u.name} hit by boss active: +10 Energy`, "#38bdf8");
                 if (checkC(u, "Boss Active Hit Energy", "+10")) u.energy += 10;
 
-                // +10 bonus if Soul Specter
-                if (u.hasS) {
+                // +10 specter bonus to ALL heroes when hit, gated on specter wearer not being sealed
+                let specterWearer = units.find(s => s.hasS);
+                if (specterWearer && specterWearer.cc.seal <= 0) {
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🔮 ${u.name} Specter bonus: +10 Energy (boss hit)`, "#f472b6");
                     if (checkC(u, "Boss Active Hit Specter Bonus", "+10")) u.energy += 10;
                 }
@@ -467,6 +480,14 @@ function runOne() {
         log(`&nbsp;&nbsp;&nbsp;❄️ CALAMITY PURGE (-1 per hero)`, "#a5b4fc");
         units.forEach(u => {
             if (u.calamity > 0) { u.calamity--; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;❄️ ${u.name}: -1 Cal (now ${u.calamity})`, "#a5b4fc"); }
+        });
+
+        log(`&nbsp;&nbsp;&nbsp;👁️ PUPIL DODGE RESET (Max ATK hero dodge resets to base)`, "#e879f9");
+        units.forEach(u => {
+            if (u.dodge !== u.baseDodge) {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👁️ ${u.name} Dodge reset: ${Math.round(u.dodge*100)}% → ${Math.round(u.baseDodge*100)}%`, "#e879f9");
+                u.dodge = u.baseDodge;
+            }
         });
     }
 
