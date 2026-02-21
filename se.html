@@ -131,6 +131,7 @@ function trigCal(u) {
 // ── Star Soul Skill / Burst ──────────────────────────────────────────────────
 function tryStarSoul(u) {
     if (!u.hasS) return;
+    if (u.cc.seal > 0) { log(`&nbsp;&nbsp;&nbsp;⭐ [STAR SOUL] ${u.name} blocked by SEAL`, "#64748b"); return; }
     let triggered = Math.random() < 0.333;
     u.starSoulTally++;
     if (u.starSoulTally >= 3) {
@@ -153,6 +154,7 @@ function tryStarSoul(u) {
 //    (tracked via u.pupilDodgesThisRound, resolved in the boss active phase)
 function triggerPupil(actor) {
     if (!actor.hasPupil) return;
+    if (actor.cc.seal > 0) { log(`&nbsp;&nbsp;&nbsp;👁️ [PUPIL] ${actor.name} blocked by SEAL`, "#64748b"); return; }
 
     // ── Effect 1: +22% dodge to Max ATK ally ────────────────────────────────
     let maxAtkHero = units.find(u => u.isM);
@@ -183,6 +185,7 @@ function triggerPupil(actor) {
 // ── Nova: every 4th action grants +100 energy to self ───────────────────────
 function triggerNova(u) {
     if (!u.hasNova) return;
+    if (u.cc.seal > 0) { log(`&nbsp;&nbsp;&nbsp;💫 [NOVA] ${u.name} blocked by SEAL`, "#64748b"); return; }
     u.novaActionCount++;
     log(`&nbsp;&nbsp;&nbsp;💫 [NOVA] ${u.name} action count: ${u.novaActionCount}/4`, "#fcd34d");
     if (u.novaActionCount >= 4) {
@@ -297,11 +300,22 @@ function runOne() {
                 if (u.name === "BDSM") {
                     units.forEach(a => { for (let i=0;i<5;i++) checkC(a,"BDSM Active CI"); });
                     if (Math.random() < 0.4) units.forEach(a => { if (checkC(a,"BDSM Active Team Energy","+10")) a.energy += 10; });
+                    // BDSM Active: remove 1 random CC from all allies
+                    log(`&nbsp;&nbsp;&nbsp;🛡️ BDSM Active CC Cleanse`, "#a78bfa");
+                    const ccList = ["silence","fear","seal"];
+                    units.forEach(a => {
+                        let active = ccList.filter(t => a.cc[t] > 0);
+                        if (active.length > 0) {
+                            let pick = active[Math.floor(Math.random() * active.length)];
+                            a.cc[pick] = 0;
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ ${a.name}: ${pick.toUpperCase()} cleansed`, "#a78bfa");
+                        }
+                    });
                 }
                 if (u.name === "FQV") units.forEach(a => checkC(a,"FQV Armor Buff"));
                 if (u.name === "LBRM") { u.energy += 50; log(`&nbsp;&nbsp;&nbsp;⚡ LBRM Active: +50 self (direct)`, "#4ade80"); }
                 if (u.name === "LFA") checkC(u, "LFA Active ATK Buff");
-                if (!sealed && u.art === "Demon Bell") {
+                if (u.art === "Demon Bell") {
                     units.forEach(a => {
                         if (checkC(a,"DB Energy","+20")) a.energy += 20;
                         if (Math.random() < 0.5) { if (checkC(a,"DB Bonus","+10")) a.energy += 10; }
@@ -333,7 +347,7 @@ function runOne() {
             }
 
             // 12-stack transitions (before boss counterattack)
-            if (u.trans >= 12 && !sealed) {
+            if (u.trans >= 12) {
                 u.trans -= 12;
                 log(`&nbsp;&nbsp;&nbsp;💎 12-Stack Transition`);
                 units.forEach(a => {
@@ -442,6 +456,10 @@ function runOne() {
             if (u.art === "Scissors") {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ Scissors Trigger on ${u.name}`);
                 units.forEach(a => { checkC(a,"Scissors ATK Buff (all allies)"); checkC(a,"Scissors HD Buff (all allies)"); });
+            }
+            if (u.art === "Antlers") {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🦌 Antlers Trigger on ${u.name}`);
+                checkC(u, "Antlers DR Buff (self)");
             }
         });
 
