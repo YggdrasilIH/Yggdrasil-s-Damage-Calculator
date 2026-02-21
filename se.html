@@ -8,62 +8,100 @@
         body { font-family: 'Consolas', monospace; background: var(--bg); color: var(--text); padding: 20px; font-size: 12px; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 20px; }
         .card { background: var(--card); border: 1px solid var(--border); padding: 12px; border-radius: 4px; }
-        .card h3 { margin: 0 0 8px 0; color: var(--accent); border-bottom: 1px solid var(--border); }
-        input, select { background: #000; color: #fff; border: 1px solid var(--border); padding: 4px; width: 100%; margin: 4px 0; }
-        button { flex: 1; padding: 15px; font-weight: bold; cursor: pointer; border: 1px solid var(--accent); background: transparent; color: var(--accent); margin-top: 10px; width: 100%; }
+        .card h3 { margin: 0 0 8px 0; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom:4px; }
+        input, select { background: #000; color: #fff; border: 1px solid var(--border); padding: 4px; width: 100%; margin: 4px 0; box-sizing:border-box; }
+        label { display:block; margin: 3px 0; }
+        button { padding: 15px; font-weight: bold; cursor: pointer; border: 1px solid var(--accent); background: transparent; color: var(--accent); margin-top: 10px; width: 100%; }
         button:hover { background: var(--accent); color: #000; }
         #output { background: #000; border: 1px solid var(--border); padding: 15px; height: 600px; overflow-y: auto; line-height: 1.5; margin-top: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
         th, td { border: 1px solid var(--border); padding: 6px; text-align: left; }
         th { background: #111; color: var(--accent); }
+        small { color: #64748b; }
     </style>
 </head>
 <body>
+
 <div class="grid" id="hero-inputs"></div>
+
+<div class="card" style="margin-bottom:12px;">
+    <h3>👁️ Pupil — 3 Lowest HP Heroes</h3>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <div style="flex:1"><label>Lowest HP #1</label><select id="lowhp0"><option value="">-- None --</option></select></div>
+        <div style="flex:1"><label>Lowest HP #2</label><select id="lowhp1"><option value="">-- None --</option></select></div>
+        <div style="flex:1"><label>Lowest HP #3</label><select id="lowhp2"><option value="">-- None --</option></select></div>
+    </div>
+    <small style="margin-top:4px;display:block;">Every 4 Pupil-wearer actions → these 3 heroes get 100% boss-active dodge for 2 rounds.</small>
+</div>
+
 <div class="card" style="margin-bottom:20px;">
     <h3>Environment Controls</h3>
-    <div style="display:flex; gap: 20px;">
+    <div style="display:flex; gap:20px;">
         <div style="flex:1"><label>Global Star Imprint</label>
             <select id="gImp"><option value="none">None</option><option value="foresight">Foresight</option><option value="destiny" selected>Destiny</option></select>
         </div>
-        <div style="flex:1; margin-top:15px;"><input type="checkbox" id="isl9" checked> <label>Island 9 (Soul Protection)</label></div>
+        <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="isl9" checked> Island 9 (Soul Protection)</label></div>
     </div>
 </div>
-<button onclick="sim(false)">Simulate 15-Round Battle (Full Log + CC/HD Table)</button>
+
+<button onclick="sim(false)">Simulate 15-Round Battle (Full Log)</button>
 <button onclick="sim(true)">Statistical Batch (30 Fights Summary)</button>
 <div id="output"></div>
 
 <script>
-const HEROES = ["LFA", "SQH", "STV", "BDSM", "FQV", "LBRM", "ELY", "HW"];
-const ARTS = ["None", "Demon Bell", "Mirror", "Antlers", "Scissors"];
+const HEROES = ["LFA","SQH","STV","BDSM","FQV","LBRM","ELY","HW"];
+const ARTS   = ["None","Demon Bell","Mirror","Antlers","Scissors"];
 const defaults = [
-    { h: "BDSM", a: "Demon Bell", s: 2000, ci: 120 },
-    { h: "SQH", a: "Mirror", s: 1900, ci: 110 },
-    { h: "LFA", a: "Antlers", s: 1500, ci: 200 },
-    { h: "HW", a: "Scissors", s: 1800, ci: 80 },
-    { h: "ELY", a: "Scissors", s: 1700, ci: 120 },
-    { h: "STV", a: "Scissors", s: 1600, ci: 200 }
+    { h:"BDSM", a:"Demon Bell", s:2000, ci:120 },
+    { h:"SQH",  a:"Mirror",    s:1900, ci:110 },
+    { h:"LFA",  a:"Antlers",   s:1500, ci:200 },
+    { h:"HW",   a:"Scissors",  s:1800, ci:80  },
+    { h:"ELY",  a:"Scissors",  s:1700, ci:120 },
+    { h:"STV",  a:"Scissors",  s:1600, ci:200 }
 ];
 
 const container = document.getElementById('hero-inputs');
 defaults.forEach((d, i) => {
     container.innerHTML += `<div class="card">
         <h3>POS ${i+1}</h3>
-        <select id="h${i}">${HEROES.map(h => `<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
-        <select id="a${i}">${ARTS.map(a => `<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
-        <div style="display:flex; gap:5px;"><input type="number" id="s${i}" value="${d.s}" placeholder="SPD"><input type="number" id="ci${i}" value="${d.ci}" placeholder="CI%"><input type="number" id="dg${i}" value="0" min="0" max="100" placeholder="Dodge%"></div>
+        <select id="h${i}">${HEROES.map(h=>`<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
+        <select id="a${i}">${ARTS.map(a=>`<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
+        <div style="display:flex;gap:5px;">
+            <input type="number" id="s${i}"  value="${d.s}"  placeholder="SPD">
+            <input type="number" id="ci${i}" value="${d.ci}" placeholder="CI%">
+            <input type="number" id="dg${i}" value="0" min="0" max="100" placeholder="Dodge%">
+        </div>
         <label><input type="checkbox" id="spec${i}"> Soul Specter</label>
+        <label><input type="checkbox" id="pupil${i}"> Pupil</label>
+        <label><input type="checkbox" id="nova${i}"> Nova</label>
         <label><input type="radio" name="max" value="${i}" ${i===0?'checked':''}> Max ATK</label>
     </div>`;
+});
+
+// Populate the Pupil low-HP dropdowns from current hero names
+function refreshLowHPDropdowns() {
+    for (let s = 0; s < 3; s++) {
+        let sel = document.getElementById(`lowhp${s}`);
+        let cur = sel.value;
+        sel.innerHTML = '<option value="">-- None --</option>';
+        for (let i = 0; i < 6; i++) {
+            let name = document.getElementById(`h${i}`).value;
+            sel.innerHTML += `<option value="${i}" ${cur==i?'selected':''}>${name} (POS ${i+1})</option>`;
+        }
+    }
+}
+window.addEventListener('load', () => {
+    refreshLowHPDropdowns();
+    for (let i = 0; i < 6; i++) document.getElementById(`h${i}`).addEventListener('change', refreshLowHPDropdowns);
 });
 
 let units = [], silent = false, bossHDStacks = 0;
 
 function log(msg, color="#fff") {
-    if(!silent) document.getElementById('output').innerHTML += `<div style="color:${color}">${msg}</div>`;
+    if (!silent) document.getElementById('output').innerHTML += `<div style="color:${color}">${msg}</div>`;
 }
 
-function checkC(u, type, amount = "") {
+function checkC(u, type, amount="") {
     if (u.curse > 0) {
         u.curse--;
         log(`&nbsp;&nbsp;&nbsp;✨ [CURSE OFFSET] ${u.name}: ${type} ${amount}`, "#fbbf24");
@@ -76,7 +114,7 @@ function checkC(u, type, amount = "") {
 function trigCal(u) {
     if (u.calamity >= 5) {
         let p = Math.max(0, 1.0 - (u.baseCI - 1.0));
-        ["silence", "fear", "seal"].forEach(t => {
+        ["silence","fear","seal"].forEach(t => {
             if (u.imm !== t && Math.random() < p) {
                 u.cc[t] = 2;
                 log(`&nbsp;&nbsp;&nbsp;🛑 [CC APPLIED] ${u.name} is ${t.toUpperCase()}ED!`, "#ef4444");
@@ -90,288 +128,345 @@ function trigCal(u) {
     }
 }
 
-// ─── FIX #6: Star Soul Skill/Burst helper ───────────────────────────────────
-// Called after any hero action if they have hasS (Soul Specter).
-// 33% chance to trigger Star Soul Skill: +100 to highest SPD ally, +50 to self.
-// Every 3 Star Soul Skills guarantees a Burst (same effect but guaranteed).
+// ── Star Soul Skill / Burst ──────────────────────────────────────────────────
 function tryStarSoul(u) {
     if (!u.hasS) return;
-    let roll = Math.random();
-    let triggered = false;
-    u.starSoulCount = (u.starSoulCount || 0);
-    u.starSoulTally = (u.starSoulTally || 0);
-
-    if (roll < 0.333) {
-        triggered = true;
-        u.starSoulTally++;
-    }
-    // Every 3rd tally = guaranteed burst regardless of roll
+    let triggered = Math.random() < 0.333;
+    u.starSoulTally++;
     if (u.starSoulTally >= 3) {
         triggered = true;
         u.starSoulTally = 0;
         log(`&nbsp;&nbsp;&nbsp;💥 [STAR SOUL BURST] ${u.name} guaranteed burst!`, "#f472b6");
     }
-
     if (triggered) {
-        // Find highest SPD unit
-        let fastest = units.reduce((a, b) => b.spd > a.spd ? b : a);
+        let fastest = units.reduce((a,b) => b.spd > a.spd ? b : a);
         log(`&nbsp;&nbsp;&nbsp;⭐ [STAR SOUL SKILL] ${u.name}: +100 to ${fastest.name} (highest SPD), +50 to self`, "#f472b6");
         if (checkC(fastest, "Star Soul +100 Energy", "+100")) fastest.energy += 100;
         if (checkC(u, "Star Soul Self +50", "+50")) u.energy += 50;
     }
 }
 
-function runOne() {
-    const imp = document.getElementById('gImp').value;
-    const is9 = document.getElementById('isl9').checked;
-    const mIdx = parseInt(document.querySelector('input[name="max"]:checked').value);
-  
-    bossHDStacks = 0;
-    units = [];
-    for(let i=0; i<6; i++) {
-        let art = document.getElementById(`a${i}`).value;
-        units.push({
-            pos: i+1, name: document.getElementById(`h${i}`).value,
-            energy: (art === "Demon Bell" || art === "Mirror") ? 100 : 50,
-            curse: 0, calamity: 0, trans: 0, specPity: 0, acts: 0, turnsLost: 0,
-            cc: { silence: 0, fear: 0, seal: 0 },
-            imm: is9 ? ["silence", "fear", "seal"][Math.floor(Math.random()*3)] : "none",
-            art: art, spd: parseInt(document.getElementById(`s${i}`).value),
-            baseCI: parseInt(document.getElementById(`ci${i}`).value) / 100,
-            hasS: document.getElementById(`spec${i}`).checked, isM: (i === mIdx), isFr: (i < 2), bDone: false,
-            dodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
-            starSoulTally: 0  // FIX #6: track star soul skill count toward burst
+// ── Pupil: fires after every action taken by the Pupil wearer ───────────────
+// 1. After each action: +22% dodge to the Max ATK (highest ATK) ally
+// 2. Every 4 actions: 3 lowest-HP heroes get 100% boss-active dodge for 2 rounds
+// 3. After any successful dodge by any hero: Pupil wearer gets +10 energy
+//    (tracked via u.pupilDodgesThisRound, resolved in the boss active phase)
+function triggerPupil(actor) {
+    if (!actor.hasPupil) return;
+
+    // ── Effect 1: +22% dodge to Max ATK ally ────────────────────────────────
+    let maxAtkHero = units.find(u => u.isM);
+    if (maxAtkHero && maxAtkHero !== actor) {
+        let prev = Math.round(maxAtkHero.dodge * 100);
+        maxAtkHero.dodge = Math.min(1, maxAtkHero.dodge + 0.22);
+        log(`&nbsp;&nbsp;&nbsp;👁️ [PUPIL] ${maxAtkHero.name} (Max ATK) Dodge: ${prev}% → ${Math.round(maxAtkHero.dodge*100)}% (+22%)`, "#e879f9");
+    } else if (maxAtkHero === actor) {
+        // Pupil wearer IS the max ATK hero — buff self
+        let prev = Math.round(actor.dodge * 100);
+        actor.dodge = Math.min(1, actor.dodge + 0.22);
+        log(`&nbsp;&nbsp;&nbsp;👁️ [PUPIL] ${actor.name} (Max ATK = self) Dodge: ${prev}% → ${Math.round(actor.dodge*100)}% (+22%)`, "#e879f9");
+    }
+
+    // ── Effect 2: every 4 actions → 100% dodge for 2 rounds on low-HP trio ─
+    actor.pupilActionCount++;
+    log(`&nbsp;&nbsp;&nbsp;👁️ [PUPIL] ${actor.name} action count: ${actor.pupilActionCount}/4`, "#e879f9");
+    if (actor.pupilActionCount >= 4) {
+        actor.pupilActionCount = 0;
+        log(`&nbsp;&nbsp;&nbsp;👁️ [PUPIL BURST] 4-action threshold! Granting 100% dodge (2 rounds) to low-HP heroes`, "#e879f9");
+        units.filter(u => u.isLowHP).forEach(u => {
+            u.pupilDodgeRounds = 2;
+            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👁️ → ${u.name} has 100% dodge for 2 rounds`, "#e879f9");
         });
     }
+}
+
+// ── Nova: every 4th action grants +100 energy to self ───────────────────────
+function triggerNova(u) {
+    if (!u.hasNova) return;
+    u.novaActionCount++;
+    log(`&nbsp;&nbsp;&nbsp;💫 [NOVA] ${u.name} action count: ${u.novaActionCount}/4`, "#fcd34d");
+    if (u.novaActionCount >= 4) {
+        u.novaActionCount = 0;
+        u.energy += 100;
+        log(`&nbsp;&nbsp;&nbsp;💫 [NOVA BURST] ${u.name} +100 Energy (direct)! (now ${u.energy})`, "#fcd34d");
+    }
+}
+
+function runOne() {
+    const imp  = document.getElementById('gImp').value;
+    const is9  = document.getElementById('isl9').checked;
+    const mIdx = parseInt(document.querySelector('input[name="max"]:checked').value);
+
+    bossHDStacks = 0;
+    units = [];
+
+    for (let i = 0; i < 6; i++) {
+        let art = document.getElementById(`a${i}`).value;
+        units.push({
+            pos: i+1,
+            name: document.getElementById(`h${i}`).value,
+            energy: (art === "Demon Bell" || art === "Mirror") ? 100 : 50,
+            curse: 0, calamity: 0, trans: 0, acts: 0, turnsLost: 0,
+            cc: { silence:0, fear:0, seal:0 },
+            imm: is9 ? ["silence","fear","seal"][Math.floor(Math.random()*3)] : "none",
+            art: art,
+            spd: parseInt(document.getElementById(`s${i}`).value),
+            baseCI: parseInt(document.getElementById(`ci${i}`).value) / 100,
+            hasS: document.getElementById(`spec${i}`).checked,
+            hasPupil: document.getElementById(`pupil${i}`).checked,
+            isM: (i === mIdx), isFr: (i < 2), bDone: false,
+            dodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
+            starSoulTally: 0,
+            pupilActionCount: 0,   // counts toward the 4-action Pupil burst
+            pupilDodgeRounds: 0,   // rounds of 100% boss-active dodge remaining (from Pupil burst)
+            hasNova: document.getElementById(`nova${i}`).checked,
+            novaActionCount: 0,   // counts toward the 4-action Nova energy burst
+            isLowHP: false
+        });
+    }
+
+    // Flag the 3 lowest-HP heroes chosen by user
+    for (let s = 0; s < 3; s++) {
+        let val = document.getElementById(`lowhp${s}`).value;
+        if (val !== "" && units[parseInt(val)]) units[parseInt(val)].isLowHP = true;
+    }
+    let lowHPNames = units.filter(u => u.isLowHP).map(u => u.name).join(", ");
+    let pupilWearers = units.filter(u => u.hasPupil).map(u => u.name).join(", ");
+    log(`👁️ PUPIL wearers: ${pupilWearers || "none"} | Low-HP targets: ${lowHPNames || "none"}`, "#e879f9");
 
     // Battle Start Specter logic
     units.forEach(u => {
         if (u.hasS) {
             log(`🔮 ${u.name} Specter Battle-Start`);
-            if(checkC(u, "Spec Start Self", "+50")) u.energy += 50;
+            if (checkC(u, "Spec Start Self", "+50")) u.energy += 50;
             let randAlly = units[Math.floor(Math.random() * units.length)];
-            if(checkC(randAlly, "Spec Start Team", "+50")) randAlly.energy += 50;
+            if (checkC(randAlly, "Spec Start Team", "+50")) randAlly.energy += 50;
         }
     });
 
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "#ff4757");
 
-        // Round Start ATK Buff for heroes with ≥100 energy
+        // Decrement Pupil low-HP dodge window each round
+        units.forEach(u => { if (u.pupilDodgeRounds > 0) u.pupilDodgeRounds--; });
+
+        // Round-start ATK buff for heroes at ≥100 energy
         units.forEach(u => {
-            if (u.energy >= 100) {
-                checkC(u, "Round Start ATK Buff (Energy ≥100)", "+30%");
-            }
+            if (u.energy >= 100) checkC(u, "Round Start ATK Buff (Energy ≥100)", "+30%");
         });
 
+        // STV 6-stack check
         units.forEach(u => {
             u.bDone = false;
             if (u.name === "STV" && u.trans >= 6 && u.cc.seal <= 0) {
                 u.trans -= 6;
                 log(`&nbsp;&nbsp;&nbsp;💎 STV 6-Stack Transition`);
-                units.forEach(a => { if(checkC(a, "STV Energy Share", "+20")) a.energy += 20; });
+                units.forEach(a => { if (checkC(a, "STV Energy Share", "+20")) a.energy += 20; });
             }
         });
 
         let ord = [...units].sort((a,b) => b.spd - a.spd);
         ord.forEach(u => {
             let sealed = u.cc.seal > 0;
-            log(`--- ${u.name} Moves (Nrg: ${u.energy}) ---`);
-          
+            log(`--- ${u.name} Moves (Nrg: ${u.energy}, Dodge: ${Math.round(u.dodge*100)}%) ---`);
+
             if (u.cc.fear > 0 || u.cc.silence > 0 || u.cc.seal > 0) {
-                log(`&nbsp;&nbsp;&nbsp;⚠️ CC ACTIVE: ${u.cc.fear > 0?'FEAR ':''}${u.cc.silence > 0?'SILENCE ':''}${u.cc.seal > 0?'SEAL':''}`, "#ef4444");
+                log(`&nbsp;&nbsp;&nbsp;⚠️ CC ACTIVE: ${u.cc.fear>0?'FEAR ':''}${u.cc.silence>0?'SILENCE ':''}${u.cc.seal>0?'SEAL':''}`, "#ef4444");
             }
+
             if (u.name === "BDSM" && u.energy >= 100 && !u.bDone && !sealed) {
                 log(`&nbsp;&nbsp;&nbsp;🛡️ BDSM Threshold: Backline CI Buff`);
-                units.forEach(t => { if(!t.isFr) checkC(t, "BDSM Threshold CI"); });
+                units.forEach(t => { if (!t.isFr) checkC(t, "BDSM Threshold CI"); });
                 u.bDone = true;
             }
 
             let didHitBoss = false;
-            let usedActive = false, usedBasic = false;
 
             if (u.energy >= 100 && u.cc.silence <= 0) {
-                // ── ACTIVE ATTACK ──────────────────────────────────────────
-                u.energy = 0; u.trans += 6; u.acts++; usedActive = true; didHitBoss = true;
+                // ── ACTIVE ────────────────────────────────────────────────────
+                u.energy = 0; u.trans += 6; u.acts++; didHitBoss = true;
                 log(`🔥 ACTION: Active`);
-                units.forEach(target => { if(target.name === "BDSM" && u.name !== "BDSM" && target.cc.seal <= 0) if(checkC(target, "BDSM Passive Energy", "+3")) target.energy += 3; });
+
+                units.forEach(target => {
+                    if (target.name === "BDSM" && u.name !== "BDSM" && !target.cc.seal)
+                        if (checkC(target, "BDSM Passive Energy", "+3")) target.energy += 3;
+                });
                 if (u.name === "STV") units.forEach(a => { checkC(a,"STV ATK"); checkC(a,"STV Armor"); checkC(a,"STV DR"); checkC(a,"STV CI"); checkC(a,"STV Speed"); });
                 if (u.name === "BDSM") {
-                    units.forEach(a => { for(let i=0; i<5; i++) checkC(a, "BDSM Active CI"); });
-                    if (Math.random() < 0.4) units.forEach(a => { if(checkC(a, "BDSM Active Team Energy", "+10")) a.energy += 10; });
+                    units.forEach(a => { for (let i=0;i<5;i++) checkC(a,"BDSM Active CI"); });
+                    if (Math.random() < 0.4) units.forEach(a => { if (checkC(a,"BDSM Active Team Energy","+10")) a.energy += 10; });
                 }
-                if (u.name === "FQV") units.forEach(a => checkC(a, "FQV Armor Buff"));
-                if (u.name === "LBRM") { u.energy += 50; log(`&nbsp;&nbsp;&nbsp;⚡ LBRM Active: +50 self (direct, no curse check)`, "#4ade80"); }
+                if (u.name === "FQV") units.forEach(a => checkC(a,"FQV Armor Buff"));
+                if (u.name === "LBRM") { u.energy += 50; log(`&nbsp;&nbsp;&nbsp;⚡ LBRM Active: +50 self (direct)`, "#4ade80"); }
                 if (u.name === "LFA") checkC(u, "LFA Active ATK Buff");
                 if (!sealed && u.art === "Demon Bell") {
-                    units.forEach(a => { if(checkC(a, "DB Energy", "+20")) a.energy += 20; if(Math.random() < 0.5 && checkC(a, "DB Bonus", "+10")) a.energy += 10; checkC(a, "DB Speed Buff"); });
+                    units.forEach(a => {
+                        if (checkC(a,"DB Energy","+20")) a.energy += 20;
+                        if (Math.random() < 0.5 && checkC(a,"DB Bonus","+10")) a.energy += 10;
+                        checkC(a,"DB Speed Buff");
+                    });
                 }
-
-                // FIX #6: Star Soul Skill/Burst after active
                 tryStarSoul(u);
+                triggerPupil(u);
+                triggerNova(u);
 
             } else if (u.cc.fear <= 0) {
-                // ── BASIC ATTACK ───────────────────────────────────────────
-                u.energy += 50; usedBasic = true; didHitBoss = true;
+                // ── BASIC ─────────────────────────────────────────────────────
+                u.energy += 50; didHitBoss = true;
                 log(`⚔️ ACTION: Basic Attack`);
                 log(`&nbsp;&nbsp;&nbsp;⚡ Basic Attack self energy: +50 (direct)`, "#4ade80");
 
-                // FIX #1: Foresight Imprint — +50 extra to attacker on basic (direct, no curse)
                 if (imp === "foresight") {
                     u.energy += 50;
                     log(`&nbsp;&nbsp;&nbsp;⚡ [FORESIGHT] ${u.name} +50 extra (direct)`, "#4ade80");
                 }
-
-                // FIX #2: Destiny Imprint — +20 (75%) and extra +20 (50%) to ALL allies on any basic
                 if (imp === "destiny") {
                     log(`&nbsp;&nbsp;&nbsp;⚡ [DESTINY] Triggering for all allies`, "#38bdf8");
                     units.forEach(a => {
-                        if (Math.random() < 0.75) {
-                            if (checkC(a, "Destiny +20", "+20")) a.energy += 20;
-                        }
-                        if (Math.random() < 0.50) {
-                            if (checkC(a, "Destiny +20 bonus", "+20")) a.energy += 20;
-                        }
+                        if (Math.random() < 0.75 && checkC(a,"Destiny +20","+20")) a.energy += 20;
+                        if (Math.random() < 0.50 && checkC(a,"Destiny +20 bonus","+20")) a.energy += 20;
                     });
                 }
 
-                if (u.name === "STV" && !sealed) units.forEach(a => { if(a.isFr) { checkC(a, "STV Front DR"); checkC(a, "STV Front CI"); } else checkC(a, "STV Back ATK"); });
-                if (u.name === "SQH" && !sealed) { checkC(u, "SQH Self Crit"); checkC(u, "SQH Self CD"); }
-                if (u.name === "LFA" && !sealed) checkC(u, "LFA Self Crit");
-                if (u.name === "BDSM" && !sealed && Math.random() < 0.5) if(checkC(u, "BDSM Basic Energy", "+20")) u.energy += 20;
+                if (u.name === "STV" && !sealed) units.forEach(a => { if (a.isFr) { checkC(a,"STV Front DR"); checkC(a,"STV Front CI"); } else checkC(a,"STV Back ATK"); });
+                if (u.name === "SQH" && !sealed) { checkC(u,"SQH Self Crit"); checkC(u,"SQH Self CD"); }
+                if (u.name === "LFA" && !sealed) checkC(u,"LFA Self Crit");
+                if (u.name === "BDSM" && !sealed && Math.random() < 0.5) if (checkC(u,"BDSM Basic Energy","+20")) u.energy += 20;
 
-                // FIX #6: Star Soul Skill/Burst after basic too
                 tryStarSoul(u);
+                triggerPupil(u);
+                triggerNova(u);
 
             } else {
                 u.turnsLost++;
                 log(`🚫 ACTION: SKIPPED (Fear)`, "#ef4444");
             }
 
-            // BOSS COUNTERATTACK - Corrupting Touch
+            // BOSS COUNTERATTACK — Corrupting Touch
             if (didHitBoss) {
                 log(`&nbsp;&nbsp;&nbsp;☠️ [BOSS COUNTER] Corrupting Touch triggered!`, "#ef4444");
                 units.forEach(h => {
                     h.calamity++;
-                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Calamity (guaranteed)`, "#ef4444");
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Calamity`, "#ef4444");
                     trigCal(h);
-                    if (Math.random() < 0.5) {
-                        h.curse++;
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Curse (50% proc)`, "#ef4444");
-                    }
+                    if (Math.random() < 0.5) { h.curse++; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Curse (50%)`, "#ef4444"); }
                 });
             }
 
+            // 12-stack transitions
             if (u.trans >= 12 && !sealed) {
-                u.trans -= 12; log(`&nbsp;&nbsp;&nbsp;💎 12-Stack Transition`);
+                u.trans -= 12;
+                log(`&nbsp;&nbsp;&nbsp;💎 12-Stack Transition`);
                 units.forEach(a => {
-                    if(u.name === "SQH" && a !== u) { checkC(a, "SQH ATK"); if(checkC(a, "SQH Energy", "+20")) a.energy += 20; checkC(a, "SQH DR"); }
-                    if(u.name === "BDSM") { if(checkC(a, "BDSM Energy Share", "+20")) a.energy += 20; }
-                    // FIX #3: STV 12-stack energy share (was missing)
-                    if(u.name === "STV") { if(checkC(a, "STV 12-Stack Energy", "+20")) a.energy += 20; }
+                    if (u.name === "SQH" && a !== u) { checkC(a,"SQH ATK"); if (checkC(a,"SQH Energy","+20")) a.energy += 20; checkC(a,"SQH DR"); }
+                    if (u.name === "BDSM") { if (checkC(a,"BDSM Energy Share","+20")) a.energy += 20; }
+                    if (u.name === "STV")  { if (checkC(a,"STV 12-Stack Energy","+20")) a.energy += 20; }
                 });
             }
-        });
+        }); // end ord.forEach
 
-        // ── END-OF-ROUND PHASE ─────────────────────────────────────────────────
+        // ── END-OF-ROUND PHASE ────────────────────────────────────────────────
+
+        // Find Pupil wearers for dodge-energy tracking
+        let pupilUnits = units.filter(u => u.hasPupil);
+
         log(`&nbsp;&nbsp;&nbsp;☄️ BOSS ACTIVE PHASE (Cal +2 All, Curse +2 All — Dodge applies)`, "#ef4444");
         units.forEach(u => {
-            let dodged = Math.random() < u.dodge;
+            // Determine effective dodge: Pupil burst grants 100% if active
+            let effectiveDodge = (u.pupilDodgeRounds > 0) ? 1.0 : u.dodge;
+            if (u.pupilDodgeRounds > 0) {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👁️ ${u.name} has Pupil 100% dodge active (${u.pupilDodgeRounds} rounds left)`, "#e879f9");
+            }
+
+            let dodged = Math.random() < effectiveDodge;
             if (dodged) {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;💨 ${u.name} DODGED the boss active! (no Calamity/Curse)`, "#a3e635");
+
+                // Effect 3: Pupil wearer gets +10 energy for each ally dodge
+                pupilUnits.forEach(pw => {
+                    pw.energy += 10;
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👁️ [PUPIL] ${pw.name} +10 Energy (ally ${u.name} dodged)`, "#e879f9");
+                });
             } else {
                 u.curse += 2;
                 u.calamity += 2;
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${u.name} +2 Curse & +2 Calamity`, "#ef4444");
                 trigCal(u);
-            }
-            for(let k in u.cc) if(u.cc[k] > 0) u.cc[k]--;
 
-            // +10 energy for being hit by boss active (all heroes, curse-offset)
-            // +10 bonus energy if hero has Soul Specter
-            if (!dodged) {
+                // +10 energy for being hit by boss active
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚡ ${u.name} hit by boss active: +10 Energy`, "#38bdf8");
                 if (checkC(u, "Boss Active Hit Energy", "+10")) u.energy += 10;
+
+                // +10 bonus if Soul Specter
                 if (u.hasS) {
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🔮 ${u.name} Specter bonus: +10 Energy (boss hit)`, "#f472b6");
                     if (checkC(u, "Boss Active Hit Specter Bonus", "+10")) u.energy += 10;
                 }
             }
+            for (let k in u.cc) if (u.cc[k] > 0) u.cc[k]--;
         });
 
-        log(`&nbsp;&nbsp;&nbsp;🛡️ END-OF-ROUND CC CLEANSE (remove 1 random CC per hero)`, "#a78bfa");
-        const ccTypes = ["silence", "fear", "seal"];
+        log(`&nbsp;&nbsp;&nbsp;🛡️ END-OF-ROUND CC CLEANSE`, "#a78bfa");
+        const ccTypes = ["silence","fear","seal"];
         units.forEach(u => {
             let activeCC = ccTypes.filter(t => u.cc[t] > 0);
             if (activeCC.length > 0) {
-                let randomCC = activeCC[Math.floor(Math.random() * activeCC.length)];
-                u.cc[randomCC] = 0;
-                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ ${u.name} removes ${randomCC.toUpperCase()}`, "#a78bfa");
+                let pick = activeCC[Math.floor(Math.random() * activeCC.length)];
+                u.cc[pick] = 0;
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ ${u.name} removes ${pick.toUpperCase()}`, "#a78bfa");
             } else {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ ${u.name} has no CC to remove`, "#a78bfa");
             }
         });
 
-        log(`&nbsp;&nbsp;&nbsp;🪞 ARTIFACT END-OF-ROUND PHASE (Mirror, Scissors, etc.)`, "#38bdf8");
+        log(`&nbsp;&nbsp;&nbsp;🪞 ARTIFACT END-OF-ROUND PHASE`, "#38bdf8");
         units.forEach(u => {
             if (u.cc.seal > 0) return;
-            if(u.art === "Mirror") { 
-                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 Mirror Trigger on ${u.name}`); 
-                units.forEach(a => { 
-                    if(checkC(a, "Mirror Energy", "+15")) a.energy += 15; 
-                    checkC(a, "Mirror DR"); 
-                }); 
+            if (u.art === "Mirror") {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 Mirror Trigger on ${u.name}`);
+                units.forEach(a => { if (checkC(a,"Mirror Energy","+15")) a.energy += 15; checkC(a,"Mirror DR"); });
             }
-            // Scissors: grants ATK buff to owner and HD buff to all allies at end of round
-            if(u.art === "Scissors") {
+            if (u.art === "Scissors") {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ Scissors Trigger on ${u.name}`);
-                units.forEach(a => {
-                    checkC(a, "Scissors ATK Buff (all allies)", "");
-                    checkC(a, "Scissors HD Buff (all allies)", "");
-                });
+                units.forEach(a => { checkC(a,"Scissors ATK Buff (all allies)"); checkC(a,"Scissors HD Buff (all allies)"); });
             }
         });
 
-        log(`&nbsp;&nbsp;&nbsp;⚡ ELY END-OF-ROUND SPEED BUFF`, "#38bdf8");
+        log(`&nbsp;&nbsp;&nbsp;🌀 ELY END-OF-ROUND SPEED BUFF`, "#38bdf8");
         units.forEach(u => {
             if (u.name === "ELY" && u.cc.seal <= 0) {
                 let eligible = units.filter(a => a !== u);
                 let target = eligible[Math.floor(Math.random() * eligible.length)];
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 ELY grants Speed Buff to ${target.name}`, "#38bdf8");
-                checkC(target, "ELY Speed Buff (random ally)", "");
+                checkC(target, "ELY Speed Buff (random ally)");
             }
         });
 
-        log(`&nbsp;&nbsp;&nbsp;⚡ GLOBAL SURGE PHASE (+50 Energy attempt per hero)`, "#38bdf8");
-        units.forEach(u => {
-            if(checkC(u, "Global Surge", "+50")) u.energy += 50;
-        });
+        log(`&nbsp;&nbsp;&nbsp;⚡ GLOBAL SURGE PHASE (+50 Energy per hero)`, "#38bdf8");
+        units.forEach(u => { if (checkC(u,"Global Surge","+50")) u.energy += 50; });
 
-        // FIX #5: Soul Specter end-of-round +50 to specter hero + 1 random ally (rounds 1–5 only)
+        // Soul Specter end-of-round pulse (rounds 1–5)
         if (r <= 5) {
             units.forEach(u => {
                 if (u.hasS) {
-                    log(`&nbsp;&nbsp;&nbsp;🔮 SPECTER END-OF-ROUND PULSE (Round ${r}/5): ${u.name} +50 self, +50 random ally`, "#f472b6");
-                    if (checkC(u, "Specter EoR Self", "+50")) u.energy += 50;
+                    log(`&nbsp;&nbsp;&nbsp;🔮 SPECTER EoR PULSE (Round ${r}/5): ${u.name}`, "#f472b6");
+                    if (checkC(u,"Specter EoR Self","+50")) u.energy += 50;
                     let allies = units.filter(a => a !== u);
                     let randAlly = allies[Math.floor(Math.random() * allies.length)];
-                    if (checkC(randAlly, "Specter EoR Ally", "+50")) randAlly.energy += 50;
+                    if (checkC(randAlly,"Specter EoR Ally","+50")) randAlly.energy += 50;
                 }
             });
         }
 
         log(`&nbsp;&nbsp;&nbsp;⚡ MAX ATK TARGET PUNISHMENT`, "#ef4444");
         let d = units.find(u => u.isM);
-        d.energy = Math.max(0, d.energy - 100); 
+        d.energy = Math.max(0, d.energy - 100);
         d.curse += 3;
         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${d.name} (Max ATK) -100 Energy & +3 Curse`, "#ef4444");
 
-        log(`&nbsp;&nbsp;&nbsp;❄️ CALAMITY PURGE PHASE (-1 Calamity per hero if >0)`, "#a5b4fc");
+        log(`&nbsp;&nbsp;&nbsp;❄️ CALAMITY PURGE (-1 per hero)`, "#a5b4fc");
         units.forEach(u => {
-            if (u.calamity > 0) {
-                u.calamity--;
-                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;❄️ ${u.name}: -1 Calamity (now ${u.calamity})`, "#a5b4fc");
-            }
+            if (u.calamity > 0) { u.calamity--; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;❄️ ${u.name}: -1 Cal (now ${u.calamity})`, "#a5b4fc"); }
         });
     }
 
@@ -380,15 +475,15 @@ function runOne() {
 
 function sim(multi) {
     const out = document.getElementById('output'); out.innerHTML = ""; silent = multi;
-    if(!multi) {
+    if (!multi) {
         runOne();
     } else {
         let stats = {}, totalHD = 0;
-        for(let i=0; i<30; i++) {
+        for (let i = 0; i < 30; i++) {
             let res = runOne();
             totalHD += res.hd;
             res.units.forEach(u => {
-                if(!stats[u.name]) stats[u.name] = { acts:0, lost:0 };
+                if (!stats[u.name]) stats[u.name] = { acts:0, lost:0 };
                 stats[u.name].acts += u.acts;
                 stats[u.name].lost += u.turnsLost;
             });
@@ -396,7 +491,7 @@ function sim(multi) {
         let html = `<h3>AVERAGES (30 FIGHTS)</h3>`;
         html += `<p><b>Avg Boss Holy Damage Stacks (Fear Landed):</b> <span style="color:var(--accent)">${(totalHD/30).toFixed(2)}</span></p>`;
         html += `<table><tr><th>Hero</th><th>Avg Actives</th><th>Avg Turns Lost (CC)</th></tr>`;
-        for(let n in stats) {
+        for (let n in stats) {
             html += `<tr><td>${n}</td><td>${(stats[n].acts/30).toFixed(2)}</td><td>${(stats[n].lost/30).toFixed(2)}</td></tr>`;
         }
         out.innerHTML = html + `</table>`;
