@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Curse of Decay: 1:1 Mechanical Absolute</title>
+    <title>Curse of Decay: Final Modular Alignment</title>
     <style>
         :root { --bg: #0b0e14; --card: #1a1f2e; --accent: #38bdf8; --text: #cbd5e1; --border: #334155; --danger: #ef4444; }
         body { font-family: 'Consolas', monospace; background: var(--bg); color: var(--text); padding: 20px; font-size: 12px; }
@@ -22,17 +22,13 @@
     <h3>Environment Controls</h3>
     <div style="display:flex; gap: 20px;">
         <div style="flex:1"><label>Global Star Imprint</label>
-            <select id="gImp">
-                <option value="none">None</option>
-                <option value="foresight">Foresight</option>
-                <option value="destiny" selected>Destiny</option>
-            </select>
+            <select id="gImp"><option value="none">None</option><option value="foresight">Foresight</option><option value="destiny" selected>Destiny</option></select>
         </div>
         <div style="flex:1; margin-top:15px;"><input type="checkbox" id="isl9" checked> <label>Island 9 (Soul Protection)</label></div>
     </div>
 </div>
 
-<button onclick="sim(false)">Simulate 15-Round Battle</button>
+<button onclick="sim(false)">Simulate 15-Round Battle (Detailed Log)</button>
 <button onclick="sim(true)">Statistical Batch (30 Fights)</button>
 
 <div id="output"></div>
@@ -86,7 +82,7 @@ function trigCal(u) {
         ["silence", "fear", "seal"].forEach(t => { 
             if (u.imm !== t && Math.random() < p) { 
                 u.cc[t] = 2; 
-                log(`&nbsp;&nbsp;&nbsp;!! CC: ${u.name} hit with ${t.toUpperCase()}`, "#ef4444"); 
+                log(`&nbsp;&nbsp;&nbsp;🛑 [CC APPLIED] ${u.name} is ${t.toUpperCase()}ED!`, "#ef4444"); 
             } 
         });
         u.calamity = 0;
@@ -104,7 +100,8 @@ function runOne() {
         units.push({
             pos: i+1, name: document.getElementById(`h${i}`).value, 
             energy: (art === "Demon Bell" || art === "Mirror") ? 100 : 50,
-            curse: 0, calamity: 0, trans: 0, specPity: 0, acts: 0, cc: { silence: 0, fear: 0, seal: 0 },
+            curse: 0, calamity: 0, trans: 0, specPity: 0, acts: 0, ccTurns: 0,
+            cc: { silence: 0, fear: 0, seal: 0 },
             imm: is9 ? ["silence", "fear", "seal"][Math.floor(Math.random()*3)] : "none",
             art: art, spd: parseInt(document.getElementById(`s${i}`).value),
             baseCI: parseInt(document.getElementById(`ci${i}`).value) / 100,
@@ -137,26 +134,26 @@ function runOne() {
         ord.forEach(u => {
             let sealed = u.cc.seal > 0;
             let usedActive = false; let usedBasic = false;
+            if (u.cc.silence > 0 || u.cc.fear > 0 || u.cc.seal > 0) u.ccTurns++;
+
             log(`--- ${u.name} Moves (Nrg: ${u.energy}) ---`);
 
+            // BDSM Threshold Check (Before Turn)
             if (u.name === "BDSM" && u.energy >= 100 && !u.bDone && !sealed) {
                 log(`&nbsp;&nbsp;&nbsp;🛡️ BDSM Energy Threshold: Backline CI Buff`);
                 units.forEach(t => { if(!t.isFr) checkC(t, "BDSM Threshold CI"); });
                 u.bDone = true;
             }
 
+            // ACTION PRIORITY
             if (u.energy >= 100 && u.cc.silence <= 0) {
                 u.energy = 0; u.trans += 6; u.acts++; usedActive = true;
-                log(`🔥 ACTIVE!`);
+                log(`🔥 ACTIVE! ${u.cc.fear > 0 ? '(Used while FEARED)' : ''}`);
+                
                 units.forEach(target => { if(target.name === "BDSM" && u.name !== "BDSM" && target.cc.seal <= 0) if(checkC(target, "BDSM Passive Energy", "+3")) target.energy += 3; });
                 
-                if (u.name === "STV") {
-                    units.forEach(a => { 
-                        checkC(a, "STV ATK"); checkC(a, "STV Armor"); checkC(a, "STV DR"); checkC(a, "STV CI"); checkC(a, "STV Speed"); 
-                    });
-                }
+                if (u.name === "STV") units.forEach(a => { checkC(a,"STV ATK"); checkC(a,"STV Armor"); checkC(a,"STV DR"); checkC(a,"STV CI"); checkC(a,"STV Speed"); });
                 if (u.name === "BDSM") {
-                    log(`&nbsp;&nbsp;&nbsp;✨ BDSM Active: 5x CI Buffs`);
                     units.forEach(a => { for(let i=0; i<5; i++) checkC(a, "BDSM Active CI"); });
                     if (Math.random() < 0.4) units.forEach(a => { if(checkC(a, "BDSM Active Team Energy", "+10")) a.energy += 10; });
                 }
@@ -165,35 +162,32 @@ function runOne() {
                 if (u.name === "LFA") checkC(u, "LFA Active ATK Buff");
                 
                 if (!sealed && u.art === "Demon Bell") {
-                    units.forEach(a => { 
-                        if(checkC(a, "DB Energy", "+20")) a.energy += 20; 
-                        if(Math.random() < 0.5 && checkC(a, "DB Bonus", "+10")) a.energy += 10; 
-                        checkC(a, "DB Speed Buff");
-                    });
+                    units.forEach(a => { if(checkC(a, "DB Energy", "+20")) a.energy += 20; if(Math.random() < 0.5 && checkC(a, "DB Bonus", "+10")) a.energy += 10; checkC(a, "DB Speed Buff"); });
                 }
             } else if (u.cc.fear <= 0) {
-                u.energy += 50; usedBasic = true; log(`⚔️ Basic`);
-                if (u.name === "STV" && !sealed) {
-                    units.forEach(a => { 
-                        if(a.isFr) { checkC(a, "STV Basic: Front DR"); checkC(a, "STV Basic: Front CI"); } 
-                        else checkC(a, "STV Basic: Back ATK"); 
-                    });
-                }
+                u.energy += 50; usedBasic = true; log(`⚔️ Basic Attack`);
+                if (u.name === "STV" && !sealed) units.forEach(a => { if(a.isFr) { checkC(a, "STV Front DR"); checkC(a, "STV Front CI"); } else checkC(a, "STV Back ATK"); });
                 if (u.name === "SQH" && !sealed) { checkC(u, "SQH Self Crit"); checkC(u, "SQH Self Crit Dmg"); }
                 if (u.name === "LFA" && !sealed) checkC(u, "LFA Self Crit");
                 if (u.name === "BDSM" && !sealed && Math.random() < 0.5) if(checkC(u, "BDSM Basic Energy", "+20")) u.energy += 20;
+            } else {
+                log(`🚫 ${u.name} FEARED: Skipping Basic Attack`, "#ef4444");
             }
 
+            // TRANSITIONS (FIXED LFA)
             if (u.trans >= 12 && !sealed) { 
                 u.trans -= 12; log(`&nbsp;&nbsp;&nbsp;💎 12-Stack Transition`);
-                units.forEach(a => { 
-                    if(u.name === "SQH" && a !== u) { checkC(a, "SQH ATK"); if(checkC(a, "SQH Energy", "+20")) a.energy += 20; checkC(a, "SQH DR"); }
-                    if(u.name === "FQV") { checkC(a, "FQV ATK"); checkC(a, "FQV Armor"); if(checkC(a, "FQV Energy", "+20")) a.energy += 20; }
-                    if(u.name === "BDSM") { if(checkC(a, "BDSM Energy Share", "+20")) a.energy += 20; }
-                    if(u.name === "LFA") checkC(u, "LFA CI Buff");
-                }); 
+                if(u.name === "LFA") checkC(u, "LFA CI Buff");
+                else {
+                    units.forEach(a => { 
+                        if(u.name === "SQH" && a !== u) { checkC(a, "SQH ATK"); if(checkC(a, "SQH Energy", "+20")) a.energy += 20; checkC(a, "SQH DR"); }
+                        if(u.name === "FQV") { checkC(a, "FQV ATK"); checkC(a, "FQV Armor"); if(checkC(a, "FQV Energy", "+20")) a.energy += 20; }
+                        if(u.name === "BDSM") { if(checkC(a, "BDSM Energy Share", "+20")) a.energy += 20; }
+                    }); 
+                }
             }
 
+            // SPECTER STAR SOUL
             if (u.hasS && !sealed) {
                 let chance = (u.specPity >= 3) ? 1.0 : 0.333;
                 if (Math.random() < chance) {
@@ -204,45 +198,37 @@ function runOne() {
                 } else u.specPity++;
             }
 
+            // IMPRINTS
             if (imp === "foresight") {
                 if (usedBasic && checkC(u, "Foresight Energy", "+50")) u.energy += 50;
                 if (usedActive) { checkC(u, "Foresight Crit"); checkC(u, "Foresight Crit Dmg"); }
             } else if (imp === "destiny") {
                 if (usedBasic || (u.name === "LBRM" && usedActive)) {
                     log(`&nbsp;&nbsp;&nbsp;🌌 DESTINY TRIGGER`);
-                    units.forEach(a => { 
-                        if(Math.random() < 0.75) { 
-                            if(checkC(a, "Destiny Energy", "+20")) a.energy += 20; 
-                            if(Math.random() < 0.5 && checkC(a, "Destiny Bonus", "+20")) a.energy += 20; 
-                        }
-                    });
+                    units.forEach(a => { if(Math.random() < 0.75) { if(checkC(a, "Destiny Energy", "+20")) a.energy += 20; if(Math.random() < 0.5 && checkC(a, "Destiny Bonus", "+20")) a.energy += 20; }});
                 }
             }
-
-            u.calamity++; trigCal(u);
-            bossGlobalCounter(); 
+            u.calamity++; trigCal(u); bossGlobalCounter(); 
         });
 
+        // BOSS PHASE
         log(`&nbsp;&nbsp;&nbsp;☄️ BOSS ACTIVE: ALL HIT`);
         units.forEach(u => { 
-            u.curse += 2; 
+            u.curse += 2; u.calamity += 2;
             if(checkC(u, "Hit by Active", "+10")) u.energy += 10; 
             if(u.hasS && u.cc.seal <= 0) if(checkC(u, "Spec Passive", "+10")) u.energy += 10;
             trigCal(u);
         });
 
+        // EOR
         units.forEach(u => {
             if (u.cc.seal > 0) return;
             if(u.art === "Mirror") { log(`&nbsp;&nbsp;&nbsp;🪞 Mirror Trigger`); units.forEach(a => { if(checkC(a, "Mirror Energy", "+15")) a.energy += 15; checkC(a, "Mirror DR"); }); }
             if(u.art === "Antlers") checkC(u, "Antlers DR");
-            if(u.art === "Scissors") {
-                units.forEach(a => { if(a.isFr === u.isFr) { checkC(a, "Scissors ATK"); checkC(a, "Scissors Holy Dmg"); }});
-            }
+            if(u.art === "Scissors") { units.forEach(a => { if(a.isFr === u.isFr) { checkC(a, "Scissors ATK"); checkC(a, "Scissors Holy Dmg"); }}); }
             if(u.hasS && r <= 5) { 
-                log(`&nbsp;&nbsp;&nbsp;🔮 Specter EOR`);
                 if(checkC(u, "Spec EOR Self", "+50")) u.energy += 50; 
-                let ra = units[Math.floor(Math.random() * 6)]; 
-                if(checkC(ra, "Spec EOR Team", "+50")) ra.energy += 50; 
+                let ra = units[Math.floor(Math.random() * 6)]; if(checkC(ra, "Spec EOR Team", "+50")) ra.energy += 50; 
             }
             if(checkC(u, "Global Surge", "+50")) u.energy += 50;
         });
@@ -252,7 +238,7 @@ function runOne() {
         d.energy = Math.max(0, d.energy - 100); d.curse += 3;
         units.forEach(u => { for(let k in u.cc) if(u.cc[k]>0) u.cc[k]--; if(u.calamity>0) u.calamity--; });
     }
-    return units.map(u => ({n: u.name, c: u.acts}));
+    return units.map(u => ({n: u.name, c: u.acts, cc: u.ccTurns}));
 }
 
 function sim(multi) {
@@ -261,11 +247,14 @@ function sim(multi) {
     else {
         let stats = {};
         for(let i=0; i<30; i++) {
-            runOne().forEach(a => stats[a.n] = (stats[a.n] || 0) + a.c);
+            runOne().forEach(a => {
+                if(!stats[a.n]) stats[a.n] = {acts:0, cc:0};
+                stats[a.n].acts += a.c; stats[a.n].cc += a.cc;
+            });
         }
-        let html = `<h3>AVERAGES (30 FIGHTS)</h3><hr>`;
-        for(let n in stats) html += `${n}: ${(stats[n]/30).toFixed(2)} actives<br>`;
-        out.innerHTML = html;
+        let html = `<h3>AVERAGES OVER 30 FIGHTS</h3><table style="width:100%; border-collapse:collapse; text-align:left;"><tr><th>Hero</th><th>Actives</th><th>Turns CC'd</th></tr>`;
+        for(let n in stats) html += `<tr style="border-bottom:1px solid #334155;"><td>${n}</td><td>${(stats[n].acts/30).toFixed(2)}</td><td>${(stats[n].cc/30).toFixed(2)}</td></tr>`;
+        out.innerHTML = html + `</table>`;
     }
 }
 </script>
