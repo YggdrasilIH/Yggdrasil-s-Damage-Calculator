@@ -51,7 +51,7 @@ defaults.forEach((d, i) => {
         <select id="h${i}">${HEROES.map(h => `<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
         <select id="a${i}">${ARTS.map(a => `<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
         <div style="display:flex; gap:5px;"><input type="number" id="s${i}" value="${d.s}"><input type="number" id="ci${i}" value="${d.ci}"></div>
-        <label><input type="checkbox" id="spec${i}"> Soul Specter (Star Soul)</label>
+        <label><input type="checkbox" id="spec${i}"> Soul Specter</label>
         <label><input type="radio" name="max" value="${i}" ${i===0?'checked':''}> Max ATK</label>
     </div>`;
 });
@@ -106,9 +106,7 @@ function runOne() {
             imm: is9 ? ["silence", "fear", "seal"][Math.floor(Math.random()*3)] : "none",
             art: art, spd: parseInt(document.getElementById(`s${i}`).value),
             baseCI: parseInt(document.getElementById(`ci${i}`).value) / 100,
-            hasS: document.getElementById(`spec${i}`).checked, 
-            starSoulReleases: 0,
-            isM: (i === mIdx), isFr: (i < 2), bDone: false
+            hasS: document.getElementById(`spec${i}`).checked, isM: (i === mIdx), isFr: (i < 2), bDone: false
         });
     }
 
@@ -125,11 +123,10 @@ function runOne() {
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "#ff4757");
 
+        // RESTORED: Round Start ATK Buff for heroes with ≥100 energy
         units.forEach(u => {
             if (u.energy >= 100) {
                 checkC(u, "Round Start ATK Buff (Energy ≥100)", "+30%");
-            } else {
-                checkC(u, "Global Round ATK Buff", "");
             }
         });
 
@@ -156,26 +153,12 @@ function runOne() {
                 u.bDone = true;
             }
             let didHitBoss = false;
-
+            let usedActive = false, usedBasic = false;
             if (u.energy >= 100 && u.cc.silence <= 0) {
-                u.energy = 0; u.trans += 6; u.acts++; didHitBoss = true;
+                u.energy = 0; u.trans += 6; u.acts++; usedActive = true; didHitBoss = true;
                 log(`🔥 ACTION: Active`);
-
-                if (imp === "foresight") {
-                    checkC(u, "Foresight Crit", "+30%");
-                    checkC(u, "Foresight CD", "+100%");
-                }
-
-                // Ally active hit passive (+10 energy to the ally who used active)
-                if(checkC(u, "Star Soul Ally Active Hit", "+10")) u.energy += 10;
-
-                units.forEach(target => { 
-                    if(target.name === "BDSM" && u.name !== "BDSM" && target.cc.seal <= 0) 
-                        if(checkC(target, "BDSM Passive Energy", "+3")) target.energy += 3; 
-                });
-                if (u.name === "STV") units.forEach(a => { 
-                    checkC(a,"STV ATK"); checkC(a,"STV Armor"); checkC(a,"STV DR"); checkC(a,"STV CI"); checkC(a,"STV Speed"); 
-                });
+                units.forEach(target => { if(target.name === "BDSM" && u.name !== "BDSM" && target.cc.seal <= 0) if(checkC(target, "BDSM Passive Energy", "+3")) target.energy += 3; });
+                if (u.name === "STV") units.forEach(a => { checkC(a,"STV ATK"); checkC(a,"STV Armor"); checkC(a,"STV DR"); checkC(a,"STV CI"); checkC(a,"STV Speed"); });
                 if (u.name === "BDSM") {
                     units.forEach(a => { for(let i=0; i<5; i++) checkC(a, "BDSM Active CI"); });
                     if (Math.random() < 0.4) units.forEach(a => { if(checkC(a, "BDSM Active Team Energy", "+10")) a.energy += 10; });
@@ -184,158 +167,98 @@ function runOne() {
                 if (u.name === "LBRM") u.energy += 50;
                 if (u.name === "LFA") checkC(u, "LFA Active ATK Buff");
                 if (!sealed && u.art === "Demon Bell") {
-                    units.forEach(a => { 
-                        if(checkC(a, "DB Energy", "+20")) a.energy += 20; 
-                        if(Math.random() < 0.5 && checkC(a, "DB Bonus", "+10")) a.energy += 10; 
-                        checkC(a, "DB Speed Buff"); 
-                    });
-                    if (imp === "foresight") {
-                        checkC(u, "Foresight Crit", "+30%");
-                        checkC(u, "Foresight CD", "+100%");
-                    }
+                    units.forEach(a => { if(checkC(a, "DB Energy", "+20")) a.energy += 20; if(Math.random() < 0.5 && checkC(a, "DB Bonus", "+10")) a.energy += 10; checkC(a, "DB Speed Buff"); });
                 }
             } else if (u.cc.fear <= 0) {
-                u.energy += 50; 
-                log(`&nbsp;&nbsp;&nbsp;⚔️ [BASE] ${u.name} Basic Attack → +50 Energy`, "#cbd5e1");
-                didHitBoss = true;
+                u.energy += 50; usedBasic = true; didHitBoss = true;
                 log(`⚔️ ACTION: Basic Attack`);
-
-                if (imp === "foresight") {
-                    u.energy += 50;
-                    log(`&nbsp;&nbsp;&nbsp;🔮 [FORESIGHT] ${u.name} Basic → +50 Energy`, "#38bdf8");
-                }
-
-                if (imp === "destiny") {
-                    units.forEach(a => {
-                        if (Math.random() < 0.75) {
-                            a.energy += 20;
-                            log(`&nbsp;&nbsp;&nbsp;🌟 [DESTINY] ${a.name} +20 Energy (75% proc)`, "#38bdf8");
-                            if (Math.random() < 0.50) {
-                                a.energy += 20;
-                                log(`&nbsp;&nbsp;&nbsp;🌟 [DESTINY EXTRA] ${a.name} +20 Energy (50% bonus)`, "#38bdf8");
-                            }
-                        }
-                    });
-                }
-
-                if (u.name === "STV" && !sealed) units.forEach(a => { 
-                    if(a.isFr) { checkC(a, "STV Front DR"); checkC(a, "STV Front CI"); } 
-                    else checkC(a, "STV Back ATK"); 
-                });
+                if (u.name === "STV" && !sealed) units.forEach(a => { if(a.isFr) { checkC(a, "STV Front DR"); checkC(a, "STV Front CI"); } else checkC(a, "STV Back ATK"); });
                 if (u.name === "SQH" && !sealed) { checkC(u, "SQH Self Crit"); checkC(u, "SQH Self CD"); }
                 if (u.name === "LFA" && !sealed) checkC(u, "LFA Self Crit");
-                if (u.name === "BDSM" && !sealed && Math.random() < 0.5) 
-                    if(checkC(u, "BDSM Basic Energy", "+20")) u.energy += 20;
+                if (u.name === "BDSM" && !sealed && Math.random() < 0.5) if(checkC(u, "BDSM Basic Energy", "+20")) u.energy += 20;
             } else {
                 u.turnsLost++;
                 log(`🚫 ACTION: SKIPPED (Fear)`, "#ef4444");
             }
-
-            // Boss Counter (Corrupting Touch) - Guaranteed Calamity + 50% Curse
             if (didHitBoss) {
-                log(`&nbsp;&nbsp;&nbsp;☠️ [BOSS COUNTER] Corrupting Touch triggered! (all heroes targeted)`, "#ef4444");
-                units.forEach(h => {
-                    h.calamity++;
-                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Calamity (guaranteed)`, "#ef4444");
-                    trigCal(h);
-                    if (Math.random() < 0.5) {
-                        h.curse++;
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Curse (50% proc)`, "#ef4444");
-                    }
-                });
-            }
-
-            // ==================== STAR SOUL SKILL / BURST ====================
-            const starSoulHero = units.find(h => h.hasS);
-            if (starSoulHero) {
-                // Ally active hit passive (+10 to the ally who used active)
-                if (u.energy === 0 && u.acts > 0) {  // just used active
-                    if(checkC(u, "Star Soul Ally Active Hit", "+10")) u.energy += 10;
-                }
-
-                // Star Soul release after every action
-                starSoulHero.starSoulReleases++;
-                const isBurst = starSoulHero.starSoulReleases >= 3;
-
-                let target = units.reduce((prev, curr) => curr.spd > prev.spd ? curr : prev);
-
-                if (isBurst) {
-                    if(checkC(target, "Star Soul Burst", "+100")) target.energy += 100;
-                    if(checkC(starSoulHero, "Star Soul Self Buff", "+50")) starSoulHero.energy += 50;
-                    log(`&nbsp;&nbsp;&nbsp;⭐ [STAR SOUL BURST] ${starSoulHero.name} → +100 to ${target.name} & +50 self`, "#a78bfa");
-                    starSoulHero.starSoulReleases = 0; // reset
-                } else {
-                    if (Math.random() < 0.33) {
-                        if(checkC(target, "Star Soul Skill", "+100")) target.energy += 100;
-                        if(checkC(starSoulHero, "Star Soul Self Buff", "+50")) starSoulHero.energy += 50;
-                        log(`&nbsp;&nbsp;&nbsp;⭐ [STAR SOUL SKILL] ${starSoulHero.name} procs! +100 to ${target.name} & +50 self`, "#a78bfa");
-                    } else {
-                        log(`&nbsp;&nbsp;&nbsp;⭐ [STAR SOUL SKILL] ${starSoulHero.name} used (no proc)`, "#a78bfa");
-                    }
+                u.calamity++; trigCal(u);
+                units.forEach(h => { if (Math.random() < 0.5) h.curse++; });
+                if (imp === "destiny") {
+                    units.forEach(a => { if(Math.random() < 0.75) if(checkC(a, "Destiny Energy", "+20")) a.energy += 20; });
                 }
             }
-            // ============================================================
-
             if (u.trans >= 12 && !sealed) {
-                u.trans -= 12; 
-                log(`&nbsp;&nbsp;&nbsp;💎 12-Stack Transition`);
+                u.trans -= 12; log(`&nbsp;&nbsp;&nbsp;💎 12-Stack Transition`);
                 units.forEach(a => {
-                    if(u.name === "SQH" && a !== u) { 
-                        checkC(a, "SQH ATK"); 
-                        if(checkC(a, "SQH Energy", "+20")) a.energy += 20; 
-                        checkC(a, "SQH DR"); 
-                    }
-                    if(u.name === "BDSM") { 
-                        if(checkC(a, "BDSM Energy Share", "+20")) a.energy += 20; 
-                    }
+                    if(u.name === "SQH" && a !== u) { checkC(a, "SQH ATK"); if(checkC(a, "SQH Energy", "+20")) a.energy += 20; checkC(a, "SQH DR"); }
+                    if(u.name === "BDSM") { if(checkC(a, "BDSM Energy Share", "+20")) a.energy += 20; }
                 });
             }
         });
 
-        log(`&nbsp;&nbsp;&nbsp;☄️ BOSS ACTIVE (Cal +2 All)`);
+        // ───────────────────────────────────────────────
+        // END-OF-ROUND PHASE - fully logged
+        log(`&nbsp;&nbsp;&nbsp;☄️ BOSS ACTIVE PHASE (Cal +2 All, Curse +2 All)`, "#ef4444");
         units.forEach(u => {
             u.curse += 2; 
             u.calamity += 2;
-            if(checkC(u, "Boss Hit", "+10")) u.energy += 10;
+            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${u.name} +2 Curse & +2 Calamity`, "#ef4444");
             trigCal(u);
             for(let k in u.cc) if(u.cc[k] > 0) u.cc[k]--;
         });
 
+        log(`&nbsp;&nbsp;&nbsp;🛡️ END-OF-ROUND CC CLEANSE (remove 1 random CC per hero)`, "#a78bfa");
+        const ccTypes = ["silence", "fear", "seal"];
+        units.forEach(u => {
+            let activeCC = ccTypes.filter(t => u.cc[t] > 0);
+            if (activeCC.length > 0) {
+                let randomCC = activeCC[Math.floor(Math.random() * activeCC.length)];
+                u.cc[randomCC] = 0;
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ ${u.name} removes ${randomCC.toUpperCase()}`, "#a78bfa");
+            } else {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ ${u.name} has no CC to remove`, "#a78bfa");
+            }
+        });
+
+        log(`&nbsp;&nbsp;&nbsp;🪞 ARTIFACT END-OF-ROUND PHASE (Mirror, etc.)`, "#38bdf8");
         units.forEach(u => {
             if (u.cc.seal > 0) return;
             if(u.art === "Mirror") { 
-                log(`&nbsp;&nbsp;&nbsp;🪞 Mirror Trigger`); 
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 Mirror Trigger on ${u.name}`); 
                 units.forEach(a => { 
                     if(checkC(a, "Mirror Energy", "+15")) a.energy += 15; 
                     checkC(a, "Mirror DR"); 
                 }); 
-                if (imp === "foresight") {
-                    checkC(u, "Foresight Crit", "+30%");
-                    checkC(u, "Foresight CD", "+100%");
-                }
             }
+            // Scissors or other end-round procs can be added here if you describe them
+        });
+
+        log(`&nbsp;&nbsp;&nbsp;⚡ GLOBAL SURGE PHASE (+50 Energy attempt per hero)`, "#38bdf8");
+        units.forEach(u => {
             if(checkC(u, "Global Surge", "+50")) u.energy += 50;
         });
 
+        log(`&nbsp;&nbsp;&nbsp;⚡ MAX ATK TARGET PUNISHMENT`, "#ef4444");
         let d = units.find(u => u.isM);
         d.energy = Math.max(0, d.energy - 100); 
         d.curse += 3;
+        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${d.name} (Max ATK) -100 Energy & +3 Curse`, "#ef4444");
 
+        log(`&nbsp;&nbsp;&nbsp;❄️ CALAMITY PURGE PHASE (-1 Calamity per hero if >0)`, "#a5b4fc");
         units.forEach(u => {
             if (u.calamity > 0) {
                 u.calamity--;
-                log(`&nbsp;&nbsp;&nbsp;❄️ [CALAMITY PURGE] ${u.name}: -1 Calamity (now ${u.calamity})`, "#a5b4fc");
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;❄️ ${u.name}: -1 Calamity (now ${u.calamity})`, "#a5b4fc");
             }
         });
+        // ───────────────────────────────────────────────
     }
 
     return { units, hd: bossHDStacks };
 }
 
 function sim(multi) {
-    const out = document.getElementById('output'); 
-    out.innerHTML = ""; 
-    silent = multi;
+    const out = document.getElementById('output'); out.innerHTML = ""; silent = multi;
     if(!multi) {
         runOne();
     } else {
