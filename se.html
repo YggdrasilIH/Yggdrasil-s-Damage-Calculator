@@ -58,8 +58,8 @@ defaults.forEach((d, i) => {
 
 let units = [], silent = false, bossHDStacks = 0;
 
-function log(msg, color="#fff") { 
-    if(!silent) document.getElementById('output').innerHTML += `<div style="color:${color}">${msg}</div>`; 
+function log(msg, color="#fff") {
+    if(!silent) document.getElementById('output').innerHTML += `<div style="color:${color}">${msg}</div>`;
 }
 
 function checkC(u, type, amount = "") {
@@ -93,7 +93,7 @@ function runOne() {
     const imp = document.getElementById('gImp').value;
     const is9 = document.getElementById('isl9').checked;
     const mIdx = parseInt(document.querySelector('input[name="max"]:checked').value);
-   
+  
     bossHDStacks = 0;
     units = [];
     for(let i=0; i<6; i++) {
@@ -123,7 +123,7 @@ function runOne() {
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "#ff4757");
 
-        // RESTORED: Round Start ATK Buff for heroes with ≥100 energy
+        // Round Start ATK Buff for heroes with ≥100 energy
         units.forEach(u => {
             if (u.energy >= 100) {
                 checkC(u, "Round Start ATK Buff (Energy ≥100)", "+30%");
@@ -133,7 +133,7 @@ function runOne() {
         units.forEach(u => {
             u.bDone = false;
             if (u.name === "STV" && u.trans >= 6 && u.cc.seal <= 0) {
-                u.trans -= 6; 
+                u.trans -= 6;
                 log(`&nbsp;&nbsp;&nbsp;💎 STV 6-Stack Transition`);
                 units.forEach(a => { if(checkC(a, "STV Energy Share", "+20")) a.energy += 20; });
             }
@@ -143,7 +143,7 @@ function runOne() {
         ord.forEach(u => {
             let sealed = u.cc.seal > 0;
             log(`--- ${u.name} Moves (Nrg: ${u.energy}) ---`);
-           
+          
             if (u.cc.fear > 0 || u.cc.silence > 0 || u.cc.seal > 0) {
                 log(`&nbsp;&nbsp;&nbsp;⚠️ CC ACTIVE: ${u.cc.fear > 0?'FEAR ':''}${u.cc.silence > 0?'SILENCE ':''}${u.cc.seal > 0?'SEAL':''}`, "#ef4444");
             }
@@ -154,6 +154,7 @@ function runOne() {
             }
             let didHitBoss = false;
             let usedActive = false, usedBasic = false;
+
             if (u.energy >= 100 && u.cc.silence <= 0) {
                 u.energy = 0; u.trans += 6; u.acts++; usedActive = true; didHitBoss = true;
                 log(`🔥 ACTION: Active`);
@@ -180,13 +181,27 @@ function runOne() {
                 u.turnsLost++;
                 log(`🚫 ACTION: SKIPPED (Fear)`, "#ef4444");
             }
+
+            // ───────────────────────────────────────────────
+            // BOSS COUNTERATTACK - Corrupting Touch (this was missing in your version)
             if (didHitBoss) {
-                u.calamity++; trigCal(u);
-                units.forEach(h => { if (Math.random() < 0.5) h.curse++; });
-                if (imp === "destiny") {
-                    units.forEach(a => { if(Math.random() < 0.75) if(checkC(a, "Destiny Energy", "+20")) a.energy += 20; });
-                }
+                log(`&nbsp;&nbsp;&nbsp;☠️ [BOSS COUNTER] Corrupting Touch triggered! (all heroes targeted)`, "#ef4444");
+                
+                units.forEach(h => {
+                    // Guaranteed +1 Calamity to ALL heroes
+                    h.calamity++;
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Calamity (guaranteed)`, "#ef4444");
+                    trigCal(h);
+
+                    // 50% chance +1 Curse per hero
+                    if (Math.random() < 0.5) {
+                        h.curse++;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Curse (50% proc)`, "#ef4444");
+                    }
+                });
             }
+            // ───────────────────────────────────────────────
+
             if (u.trans >= 12 && !sealed) {
                 u.trans -= 12; log(`&nbsp;&nbsp;&nbsp;💎 12-Stack Transition`);
                 units.forEach(a => {
@@ -230,7 +245,6 @@ function runOne() {
                     checkC(a, "Mirror DR"); 
                 }); 
             }
-            // Scissors or other end-round procs can be added here if you describe them
         });
 
         log(`&nbsp;&nbsp;&nbsp;⚡ GLOBAL SURGE PHASE (+50 Energy attempt per hero)`, "#38bdf8");
