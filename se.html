@@ -45,11 +45,10 @@
         <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="isl10"> Island 10 (+25% allDmg all at round start)</label></div>
         <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="isl11" checked> Island 11 (Soul Protection — random CC immunity)</label></div>
     </div>
-    <div style="margin-top:6px; font-size:11px; color:#f59e0b;">⚠️ LBRM skills coming soon — energy mechanic placeholder only.</div>
 </div>
 
 <button onclick="sim(false)">Simulate 15-Round Battle (Full Log)</button>
-<button onclick="sim(true)">Statistical Batch (30 Fights Summary)</button>
+<button onclick="sim(true)">Statistical Batch (100 Fights Summary)</button>
 <div id="output"></div>
 
 <script>
@@ -95,6 +94,11 @@ function refreshLowHPDropdowns() {
     }
 }
 window.addEventListener('load', () => {
+    // Default lowest-HP slots to positions 4, 5, 6 (index 3, 4, 5)
+    ['lowhp0','lowhp1','lowhp2'].forEach((id, i) => {
+        let sel = document.getElementById(id);
+        if (sel) sel.value = String(3 + i); // index 3=pos4, 4=pos5, 5=pos6
+    });
     refreshLowHPDropdowns();
     for (let i = 0; i < 6; i++) document.getElementById(`h${i}`).addEventListener('change', refreshLowHPDropdowns);
 });
@@ -323,7 +327,6 @@ function triggerFF(actor, stv) {
 // ── Star Soul Skill / Burst ──────────────────────────────────────────────────
 function tryStarSoul(u) {
     if (!u.hasS) return;
-    if (u.cc.seal > 0) { log(`&nbsp;&nbsp;&nbsp;⭐ [STAR SOUL] ${u.name} blocked by SEAL`, "#64748b"); return; }
     let triggered = Math.random() < 0.333;
     u.starSoulTally++;
     if (u.starSoulTally >= 3) {
@@ -346,7 +349,6 @@ function tryStarSoul(u) {
 //    (tracked via u.pupilDodgesThisRound, resolved in the boss active phase)
 function triggerPupil(actor) {
     if (!actor.hasPupil) return;
-    if (actor.cc.seal > 0) { log(`&nbsp;&nbsp;&nbsp;👁️ [PUPIL] ${actor.name} blocked by SEAL`, "#64748b"); return; }
 
     // ── Effect 1: +22% dodge to Max ATK ally ────────────────────────────────
     let maxAtkHero = units.find(u => u.isM) || actor;
@@ -371,7 +373,6 @@ function triggerPupil(actor) {
 // ── Nova: every 4th action grants +100 energy to self ───────────────────────
 function triggerNova(u) {
     if (!u.hasNova) return;
-    if (u.cc.seal > 0) { log(`&nbsp;&nbsp;&nbsp;💫 [NOVA] ${u.name} blocked by SEAL`, "#64748b"); return; }
     u.novaActionCount++;
     log(`&nbsp;&nbsp;&nbsp;💫 [NOVA] ${u.name} action count: ${u.novaActionCount}/4`, "#fcd34d");
     if (u.novaActionCount >= 4) {
@@ -417,6 +418,7 @@ function runOne() {
             hasNova: document.getElementById(`nova${i}`).checked,
             novaActionCount: 0,   // counts toward the 4-action Nova energy burst
             isLowHP: false,
+            lbrmSlot1: (i === 0),  // slot 1 = LBRM Protection target
             franticGluttony: false,   // whether this ally has Frantic Gluttony active
             franticGluttonyRounds: 0, // rounds remaining
             shield: 0,                // shield strength (% of max HP, tracked numerically)
@@ -432,6 +434,20 @@ function runOne() {
             fearAbyssalGaze: false,   // Fear-Abyssal Gaze on this unit (can't basic or crit)
             fearAbyssalGazeRounds: 0,
             sourceOfFearProcs: 0,  // tracks Source of Fear ATK buff stacks
+            // LBRM (Lady of Blossom Realm - Melissa) state
+            powerOfDream: 0,       // 0-3 layers (noble sub: active fires at 2)
+            dreamMagicWings: false,       // Dream Magic - Wings active
+            dreamMagicMagnification: false, // Dream Magic - Magnification active
+            dreamMagicProtection: false,    // Dream Magic - Protection active
+            mirrorMagicWings: false,       // Mirror Magic - Wings (from Dreamlike Illusion)
+            mirrorMagicMagnification: false,
+            mirrorMagicProtection: false,
+            shieldLostThisRound: false,   // for Protection: first-loss trigger
+            beeSugarCoat: false,          // Bee Sugar-coat CI buff (from transition)
+            fictionalMagic: false,        // Fictional Magic active
+            fictionalMagicRounds: 0,
+            mirrorMagicCount: 3,          // starts with 3 (from Dreamlike Illusion)
+            lbrmSlot1: false,             // true if this is the slot-1 hero (LBRM's "lowest HP" target)
             buffs: { atk:[], dr:[], ci:[], spd:[], hd:[], cd:[], crit:[], armor:[], allDmg:[], allDmgReduction:[], drOffset:[] },
             stats: { damageDealt: 0, healingDone: 0 }
         });
@@ -448,6 +464,20 @@ function runOne() {
     let lowHPNames = units.filter(u => u.isLowHP).map(u => u.name).join(", ");
     let pupilWearers = units.filter(u => u.hasPupil).map(u => u.name).join(", ");
     log(`👁️ PUPIL wearers: ${pupilWearers || "none"} | Low-HP targets: ${lowHPNames || "none"}`, "#e879f9");
+
+    // ── LBRM Dreamlike Illusion: grant 3 Mirror Magic types at battle start ───────
+    units.filter(u => u.name === "LBRM").forEach(lbrm => {
+        lbrm.mirrorMagicWings = true;
+        lbrm.mirrorMagicMagnification = true;
+        lbrm.mirrorMagicProtection = true;
+        lbrm.mirrorMagicCount = 3;
+        lbrm.mirrorMagicWingsUsed = false;
+        addBuff(lbrm, "ci",     0.08, 999, "Mirror Magic Wings CI");
+        addBuff(lbrm, "spd",    0.08, 999, "Mirror Magic Wings SPD");
+        addBuff(lbrm, "allDmg", 0.10, 999, "Mirror Magic Magnification allDmg");
+        addBuff(lbrm, "dr",     0.18, 999, "Mirror Magic Deep Sub DR (3×6%)");
+        log(`[LBRM INIT] Dreamlike Illusion: 3 Mirror Magic (+8%CI +8%SPD +10%allDmg +18%DR)`, "#f0abfc");
+    });
 
     // Royal Guard — battle start passive: +24% all-damage to all allies except self
     units.forEach(u => {
@@ -497,6 +527,18 @@ function runOne() {
             log(`&nbsp;&nbsp;&nbsp;🏝️ [ISL10] All allies +25% allDmg (2r)`, "#a78bfa");
         }
 
+        // Brilliant Boon: HP <30% allies → LBRM grants shield
+        let lbrmHero = units.find(x => x.name === "LBRM" && x.cc.seal <= 0);
+        if (lbrmHero) {
+            units.forEach(ally => {
+                if (ally.hp < 30 && lbrmHero.energy >= 30) {
+                    lbrmHero.energy -= 30;
+                    lbrmHero.powerOfDream = Math.min(3, lbrmHero.powerOfDream + 1);
+                    log(`&nbsp;&nbsp;&nbsp;🌸 [BRILLIANT BOON] ${ally.name} HP<30% → Shield 2000% ATK granted, LBRM PoD=${lbrmHero.powerOfDream}`, "#f0abfc");
+                }
+            });
+        }
+
         // Faint Fragrance: grant Stygian Mark to Max ATK ally at start of round
         let stv = units.find(u => u.name === "STV");
         if (stv) grantSM(units);
@@ -523,7 +565,7 @@ function runOne() {
         // STV transition check (start of round, Moon Abyss: 6-stack or 12-stack)
         units.forEach(u => {
             u.bDone = false;
-            if (u.name === "STV" && u.cc.seal <= 0) {
+            if (u.name === "STV") { // Transition fires even when sealed (passive, start of round)
                 if (u.trans >= 12) {
                     // Moon Abyss 12-stack: consume 12, 25% lost HP damage, LI on lowest HP enemy
                     // plus boss debuffs and allDmg to all allies
@@ -549,7 +591,8 @@ function runOne() {
                     boss.healReduction = 0.80; boss.healReductionRounds = 3;
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [STV COMET HOP] Boss heal reduced 80% for 3 rounds`, "#a78bfa");
                     addBuff(u, "allDmg", 0.15, 2, "STV Sun Halo");
-                    units.forEach(a => { a.energy += 20; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [STV GLOWED GLORY] ${a.name} +20 Energy (direct)`, "#a78bfa"); });
+                    units.forEach(a => { if (checkC(a, "STV Glowed Glory +20", "+20")) a.energy += 20; });
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [STV GLOWED GLORY] +20 Energy to all (curse-offsettable)`, "#a78bfa");
                 } else if (u.trans >= 6) {
                     // Base 6-stack (also fires under Moon Abyss if only 6 available)
                     u.trans -= 6;
@@ -562,7 +605,8 @@ function runOne() {
                     boss.healReduction = 0.80; boss.healReductionRounds = 3;
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [STV COMET HOP] Boss heal reduced 80% for 3 rounds`, "#a78bfa");
                     addBuff(u, "allDmg", 0.15, 2, "STV Sun Halo");
-                    units.forEach(a => { a.energy += 20; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [STV GLOWED GLORY] ${a.name} +20 Energy (direct)`, "#a78bfa"); });
+                    units.forEach(a => { if (checkC(a, "STV Glowed Glory +20", "+20")) a.energy += 20; });
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [STV GLOWED GLORY] +20 Energy to all (curse-offsettable)`, "#a78bfa");
                 }
             }
         });
@@ -570,13 +614,14 @@ function runOne() {
         let ord = [...units].sort((a,b) => b.spd - a.spd);
         ord.forEach(u => {
             let sealed = u.cc.seal > 0;
+            let silenced = u.cc.silence > 0;
             log(`--- ${u.name} Moves (Nrg: ${u.energy}, Dodge: ${Math.round(u.dodge*100)}%) ---`);
 
             if (u.cc.fear > 0 || u.cc.silence > 0 || u.cc.seal > 0) {
                 log(`&nbsp;&nbsp;&nbsp;⚠️ CC ACTIVE: ${u.cc.fear>0?'FEAR ':''}${u.cc.silence>0?'SILENCE ':''}${u.cc.seal>0?'SEAL':''}`, "#ef4444");
             }
 
-            if (u.name === "BDSM" && u.energy >= 100 && !u.bDone && !sealed) {
+            if (u.name === "BDSM" && u.energy >= 100 && !u.bDone && !silenced) {
                 log(`&nbsp;&nbsp;&nbsp;🛡️ BDSM Threshold: Backline CI Buff`);
                 units.forEach(t => { if (!t.isFr) checkC(t, "BDSM Threshold CI"); });
                 u.bDone = true;
@@ -584,14 +629,15 @@ function runOne() {
 
             let didHitBoss = false;
             let usedBasic = false;
+            let usedActive = false;
 
             if (u.energy >= 100 && u.cc.silence <= 0) {
                 // ── ACTIVE ────────────────────────────────────────────────────
-                u.energy = 0; u.trans += 6; u.acts++; didHitBoss = true;
+                u.energy = 0; u.trans += 6; u.acts++; didHitBoss = true; usedActive = true;
                 log(`🔥 ACTION: Active`);
 
                 units.forEach(target => {
-                    if (target.name === "BDSM" && u.name !== "BDSM" && !target.cc.seal) {
+                    if (target.name === "BDSM" && u.name !== "BDSM" && target.cc.silence <= 0) {
                         if (checkC(target, "BDSM Passive Energy", "+3")) target.energy += 3;
                         // FG effect: if acting ally has FG, restore BDSM 10% lost HP
                         if (u.franticGluttony) {
@@ -692,12 +738,70 @@ function runOne() {
                         units.forEach(a => { addBuff(a, "allDmg", 0.045, 2, `Core Liberation allDmg tick ${tick+1}`); });
                     }
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [CORE LIB ≥50%] 5 ticks: up to +22.5% allDmg per hero`, "#ec4899");
+                    // Remove 1 random active CC from all allies
+                    const bdsmCCTypes = ["silence","fear","seal"];
+                    units.forEach(a => {
+                        let activeCC = bdsmCCTypes.filter(t => a.cc[t] > 0);
+                        if (activeCC.length > 0) {
+                            let rem = activeCC[Math.floor(Math.random() * activeCC.length)];
+                            a.cc[rem] = 0;
+                            log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM ACTIVE CC CLEANSE] ${a.name}: ${rem} removed`, "#ec4899");
+                        }
+                    });
                     // Noble sub: reduce boss allDmgReduction by 10% for 2 rounds
                     boss.allDmgReductionDebuff = (boss.allDmgReductionDebuff || 0) + 0.10;
                     boss.allDmgReductionDebuffRounds = 2;
                     log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM NOBLE SUB] Boss All-damage Reduction -10% for 2 rounds`, "#ec4899");
                 }
-                if (u.name === "LBRM") { u.energy += 50; log(`&nbsp;&nbsp;&nbsp;⚡ LBRM Active: +50 self (direct)`, "#4ade80"); }
+                if (u.name === "LBRM") {
+                    // Dreamland Dominion: 2400% ATK to frontline
+                    let frontline = units.filter(a => a.isFr);
+                    trackStat(u, "damageDealt", 2400);
+                    log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM DREAMLAND DOMINION] 2400% ATK to frontline`, "#f0abfc");
+                    // Frontline: DR -15%, CI -15% for 3r (Noble sub: +1 = 4r); Deep sub: backline DR -15% too
+                    let dmDur = 4; // Noble sub duration
+                    frontline.forEach(a => {
+                        a.buffs.dr.push({ value: -0.15, rounds: dmDur, source: "DD Frontline DR debuff" });
+                        a.buffs.ci.push({ value: -0.15, rounds: dmDur, source: "DD Frontline CI debuff" });
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${a.name} DR -15%, CI -15% (${dmDur}r)`, "#f0abfc");
+                    });
+                    units.filter(a => !a.isFr).forEach(a => {
+                        a.buffs.dr.push({ value: -0.15, rounds: dmDur, source: "DD Backline DR debuff (Deep sub)" });
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD DEEP SUB] ${a.name} DR -15% (${dmDur}r)`, "#f0abfc");
+                    });
+                    // Grant Dream Magic to highest SPD (Wings), highest ATK (Magnification), slot-1 (Protection)
+                    function grantDreamMagic(target, type) {
+                        // Skip if target has Mirror Magic with same suffix
+                        if (type === "Wings"          && target.mirrorMagicWings)         { log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${target.name} already has Mirror Magic Wings — skip`, "#f0abfc"); return; }
+                        if (type === "Magnification"  && target.mirrorMagicMagnification) { log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${target.name} already has Mirror Magic Magnification — skip`, "#f0abfc"); return; }
+                        if (type === "Protection"     && target.mirrorMagicProtection)    { log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${target.name} already has Mirror Magic Protection — skip`, "#f0abfc"); return; }
+                        if (type === "Wings") {
+                            target.dreamMagicWings = true;
+                            addBuff(target, "ci", 0.10, dmDur, "Dream Magic Wings CI");
+                            addBuff(target, "spd", 0.10, dmDur, "Dream Magic Wings SPD");
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${target.name} → Dream Magic Wings (+10%CI, +10%SPD, ${dmDur}r)`, "#f0abfc");
+                        }
+                        if (type === "Magnification") {
+                            target.dreamMagicMagnification = true;
+                            addBuff(target, "allDmg", 0.12, dmDur, "Dream Magic Magnification");
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${target.name} → Dream Magic Magnification (+12%allDmg, ${dmDur}r)`, "#f0abfc");
+                        }
+                        if (type === "Protection") {
+                            target.dreamMagicProtection = true;
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${target.name} → Dream Magic Protection (Shield 3000% ATK, ${dmDur}r)`, "#f0abfc");
+                        }
+                    }
+                    let highestSPD = units.reduce((a, b) => (a.spd > b.spd ? a : b));
+                    let highestATK = units.find(u2 => u2.isM) || units[0];
+                    let slot1Hero  = units.find(a => a.lbrmSlot1) || units[0];
+                    grantDreamMagic(highestSPD, "Wings");
+                    grantDreamMagic(highestATK, "Magnification");
+                    grantDreamMagic(slot1Hero,  "Protection");
+                    // Transition pivots fire after active (handled below in 12-stack block)
+                    // Reset Power of Dream after firing
+                    u.powerOfDream = 0;
+                    log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream consumed → reset to 0`, "#f0abfc");
+                }
                 if (u.name === "LFA") {
                     // Soul Shiver: 1200% ATK × 2 = 2400% base damage
                     let baseDmg = 2400;
@@ -713,25 +817,22 @@ function runOne() {
                     let dkmDmg = Math.round((baseDmg + extraDmg) * 1.20);
                     trackStat(u, "damageDealt", dkmDmg - (baseDmg + extraDmg)); // log the extra portion
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [DKM] Boss immune to fear: +120% extra damage, steal 30% ATK`, "#c084fc");
-                    boss.atkSteal = (boss.atkSteal || 0) + 0.30;
-                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [DKM] Boss ATK stolen: -${(boss.atkSteal*100).toFixed(0)}% ATK (cumulative)`, "#c084fc");
+                    if (checkC(u, "LFA DKM ATK Steal")) {
+                        boss.atkSteal = (boss.atkSteal || 0) + 0.30;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [DKM ATK STEAL] -${(boss.atkSteal*100).toFixed(0)}% boss ATK (cumulative, curse-offsettable)`, "#c084fc");
+                    }
                     // Source of Fear: fires on fear attempt (boss immune but DKM confirms attempt)
                     // Self: +12% Max HP, +25 energy, +10% ATK for 3 rounds, +7% CI
-                    u.hp = Math.min(100, u.hp + 12);
-                    u.energy += 25;
-                    tryBuff(u, "atk", 0.10, 3, "LFA Source of Fear");
-                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [SOURCE OF FEAR] LFA: +12% HP, +25 energy, +10% ATK, +7% CI (3r)`, "#c084fc");
-                    // Noble sub: Fear-Abyssal Gaze on all targets — boss immune, no effect logged
-                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA NOBLE SUB] Fear-Abyssal Gaze attempted on boss — immune`, "#c084fc");
+
                 }
                 if (u.art === "Demon Bell") {
                     // Evil Sonata: 100% +20 energy all allies, 50% additional +10 energy
                     units.forEach(a => {
-                        let overflow = Math.max(0, a.energy + 20 - 100);
-                        if (checkC(a, "DB Energy", "+20")) a.energy = Math.min(100, a.energy + 20);
+
+                        if (checkC(a, "DB Energy", "+20")) a.energy += 20;
                         if (Math.random() < 0.5) {
-                            overflow += Math.max(0, a.energy + 10 - 100);
-                            if (checkC(a, "DB Bonus", "+10")) a.energy = Math.min(100, a.energy + 10);
+
+                            if (checkC(a, "DB Bonus", "+10")) a.energy += 10;
                         }
                         // Allies at full energy: +9 SPD for 4 rounds
                         if (a.energy >= 100) {
@@ -739,6 +840,11 @@ function runOne() {
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🎵 [DB] ${a.name} at full energy: +9 SPD (4r)`, "#38bdf8");
                         }
                     });
+                }
+                // LBRM Magnification: extra 15% target Max HP on any skill (capped 3000% ATK)
+                if ((u.dreamMagicMagnification || u.mirrorMagicMagnification)) {
+                    trackStat(u, "damageDealt", 3000); // capped
+                    log(`&nbsp;&nbsp;&nbsp;🌸 [MAGNIFICATION] ${u.name} extra 15% target Max HP dmg (capped 3000% ATK)`, "#f0abfc");
                 }
                 // Island 8: ally uses active → all heroes +3% allDmg (permanent, no expiry)
                 if (is8) {
@@ -769,7 +875,7 @@ function runOne() {
                 }
 
             } else if (u.cc.fear <= 0) {
-                // ── BASIC ─────────────────────────────────────────────────────
+                // ── BASIC (seal does NOT block basic itself, only suppresses passive triggers) ─
                 u.energy += 50; didHitBoss = true; usedBasic = true;
                 log(`⚔️ ACTION: Basic Attack`);
                 log(`&nbsp;&nbsp;&nbsp;⚡ Basic Attack self energy: +50 (direct)`, "#4ade80");
@@ -777,7 +883,7 @@ function runOne() {
                 // FG basic attack trigger: BDSM gets +3 energy + 10% lost HP per FG ally basic
                 if (u.franticGluttony && u.name !== "BDSM") {
                     let bdsm = units.find(b => b.name === "BDSM");
-                    if (bdsm && bdsm.cc.seal <= 0) {
+                    if (bdsm) {
                         if (checkC(bdsm, "BDSM Passive Energy (FG Basic)", "+3")) bdsm.energy += 3;
                         let lostHp = 100 - bdsm.hp;
                         let heal = lostHp * 0.10;
@@ -786,7 +892,7 @@ function runOne() {
                         triggerBoundlessSepal(bdsm);
                     }
                 }
-                if (u.name === "STV" && !sealed) {
+                if (u.name === "STV") {
                     // Ferrywoman of Abyss: 800% ATK to backline enemies
                     trackStat(u, "damageDealt", 800);
                     log(`&nbsp;&nbsp;&nbsp;🌀 [STV FERRYWOMAN] 800% ATK damage dealt`, "#a78bfa");
@@ -815,7 +921,7 @@ function runOne() {
                 // Faint Fragrance: SM ally basic triggers FF
                 { let stvHero = units.find(s => s.name === "STV");
                   if (stvHero && u.name !== "STV" && u.stygianMark) triggerFF(u, stvHero); }
-                if (u.name === "SQH" && !sealed) {
+                if (u.name === "SQH" && !silenced) {
                     // Queen's Edict: self +18% Crit, +18% CD for 4 rounds (offsettable)
                     tryBuff(u, "crit", 0.18, 4, "SQH Queen's Edict");
                     tryBuff(u, "cd",   0.18, 4, "SQH Queen's Edict");
@@ -824,10 +930,64 @@ function runOne() {
                     boss.critDebuffRounds = 2;
                     log(`&nbsp;&nbsp;&nbsp;👑 [SQH QUEEN'S EDICT] Boss Crit -25% for 2 rounds (total: -${(boss.critDebuff*100).toFixed(0)}%)`, "#f59e0b");
                 }
-                if (u.name === "LFA" && !sealed) {
+                if (u.name === "LBRM" && !silenced) {
+                    // Check if Power of Dream ≥2 (Noble sub) → fire Dreamland Dominion instead
+                    if (u.powerOfDream >= 2) {
+                        // Fire active via basic: +6 trans, destiny treats as basic
+                        // +50 energy only if foresight imprint (as if it were a basic)
+                        if (imp === "foresight") {
+                            u.energy += 50;
+                            log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream ≥2 → Dreamland Dominion as basic (Foresight +50 energy)`, "#f0abfc");
+                        } else {
+                            log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream ≥2 → Dreamland Dominion fires as basic! (+6 trans)`, "#f0abfc");
+                        }
+                        u.trans += 6;
+                        // Dreamland Dominion fires — grant Dream Magic etc (reuse active block logic inline)
+                        let frontline2 = units.filter(a => a.isFr);
+                        trackStat(u, "damageDealt", 2400);
+                        let dmDur2 = 4;
+                        frontline2.forEach(a => {
+                            a.buffs.dr.push({ value: -0.15, rounds: dmDur2, source: "DD(BB) Frontline DR debuff" });
+                            a.buffs.ci.push({ value: -0.15, rounds: dmDur2, source: "DD(BB) Frontline CI debuff" });
+                        });
+                        units.filter(a => !a.isFr).forEach(a => {
+                            a.buffs.dr.push({ value: -0.15, rounds: dmDur2, source: "DD(BB) Backline DR debuff" });
+                        });
+                        let hs2 = units.reduce((a,b)=>(a.spd>b.spd?a:b));
+                        let ha2 = units.find(u2=>u2.isM)||units[0];
+                        let s1h2 = units.find(a=>a.lbrmSlot1)||units[0];
+                        [[hs2,"Wings"],[ha2,"Magnification"],[s1h2,"Protection"]].forEach(([tgt,type])=>{
+                            if(type==="Wings"&&!tgt.mirrorMagicWings){tgt.dreamMagicWings=true;addBuff(tgt,"ci",0.10,dmDur2,"Dream Magic Wings CI");addBuff(tgt,"spd",0.10,dmDur2,"Dream Magic Wings SPD");}
+                            if(type==="Magnification"&&!tgt.mirrorMagicMagnification){tgt.dreamMagicMagnification=true;addBuff(tgt,"allDmg",0.12,dmDur2,"Dream Magic Magnification");}
+                            if(type==="Protection"&&!tgt.mirrorMagicProtection){tgt.dreamMagicProtection=true;}
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD(BB)] Dream Magic ${type} → ${tgt.name}`, "#f0abfc");
+                        });
+                        u.powerOfDream = 0;
+                        log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream consumed → 0`, "#f0abfc");
+                        usedBasic = true; // destiny treats as basic
+                    } else {
+                        // Shadow of Blossom Realm: 1200% ATK, all allies +20 SPD 2r
+                        trackStat(u, "damageDealt", 1200);
+                        log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM SHADOW] 1200% ATK damage`, "#f0abfc");
+                        units.forEach(a => tryBuff(a, "spd", 0.20, 2, "Shadow of Blossom Realm SPD"));
+                        // +20% CI Offset to highest SPD ally for 2 rounds (direct, not offsettable)
+                        let hspd = units.reduce((a,b)=>(a.spd>b.spd?a:b));
+                        addBuff(hspd, "drOffset", 0.20, 2, "Shadow CI Offset");
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [SHADOW] All +20%SPD (2r); ${hspd.name} +20% CI Offset (2r)`, "#f0abfc");
+                        // Deep sub: 50% chance target SPD -10 for 2 rounds
+                        if (Math.random() < 0.5) log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [SHADOW DEEP] Boss SPD -10 for 2 rounds (tracked)`, "#f0abfc");
+                        // Noble sub: 50% chance +50 energy to highest SPD ally
+                        if (Math.random() < 0.5) {
+                            hspd.energy += 50;
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [SHADOW NOBLE] ${hspd.name} +50 energy (50% proc)`, "#f0abfc");
+                        }
+                    }
+                }
+                if (u.name === "LFA" && !silenced) {
                     // Deadly Grasp: 960% ATK to backline enemies
                     trackStat(u, "damageDealt", 960);
                     log(`&nbsp;&nbsp;&nbsp;👿 [LFA DEADLY GRASP] 960% ATK damage dealt`, "#c084fc");
+                    if (!sealed) {
                     // Reduce boss CI by 18% for 3 rounds (non-offsettable)
                     boss.ciDebuff = (boss.ciDebuff || 0) + 0.18;
                     boss.ciDebuffRounds = 3;
@@ -839,15 +999,10 @@ function runOne() {
                     boss.drDebuff = (boss.drDebuff || 0) + 0.05;
                     boss.drDebuffRounds = 2;
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA NOBLE SUB] Boss DR -5% for 2 rounds (total: -${(boss.drDebuff*100).toFixed(0)}%)`, "#c084fc");
-                    // 75% chance fear attempt → Source of Fear proc
-                    if (Math.random() < 0.75) {
-                        u.hp = Math.min(100, u.hp + 12);
-                        u.energy += 25;
-                        tryBuff(u, "atk", 0.10, 3, "LFA Source of Fear");
-                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [SOURCE OF FEAR] Fear attempt (75%): LFA +12% HP, +25 energy, +10% ATK, +7% CI`, "#c084fc");
-                    }
+                    } // end !sealed passive block
+
                 }
-                if (u.name === "BDSM" && !sealed) {
+                if (u.name === "BDSM" && !silenced) {
                     // Ravenous Hunger: 2000% ATK to 2 lowest HP enemies (tracked)
                     trackStat(u, "damageDealt", 2000);
                     log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM RAVENOUS HUNGER] 2000% ATK damage dealt`, "#ec4899");
@@ -892,7 +1047,7 @@ function runOne() {
 
             } else {
                 u.turnsLost++;
-                log(`🚫 ACTION: SKIPPED (Fear)`, "#ef4444");
+                log(`🚫 ACTION: SKIPPED (${u.cc.fear > 0 ? "Fear" : u.cc.silence > 0 ? "Silence+NoEnergy" : "Unknown"})`, "#ef4444");
             }
 
             // 12-stack transitions (before boss counterattack)
@@ -947,32 +1102,49 @@ function runOne() {
                         if (!a.isFr) { addBuff(a, "allDmg", 0.10, 2, "BDSM Sun Halo"); }
                     }
                     // STV transition handled at start of round — nothing here
-                    if (u.name === "LFA") {
-                        // Moon Abyss: 1500% ATK × 2 to all enemies
+                    if (u.name === "LBRM") {
+                        // 6-stack transition: 30% Max HP damage to frontline (capped 3000% ATK)
                         trackStat(u, "damageDealt", 3000);
-                        log(`&nbsp;&nbsp;&nbsp;👹 [LFA MOON ABYSS] 3000% ATK (2×1500%) to all enemies`, "#c084fc");
-                        // 100% Fear-Abyssal Gaze for 3 rounds (boss immune — triggers Source of Fear)
-                        u.hp = Math.min(100, u.hp + 12);
-                        u.energy += 25;
-                        addBuff(u, "atk", 0.10, 3, "LFA Source of Fear (Moon Abyss)");
-                        boss.fearEnergyDrain = true;
-                        log(`&nbsp;&nbsp;&nbsp;👹 [LFA MOON ABYSS] Fear attempted (immune) → Source of Fear triggers`, "#c084fc");
-                        // Boss ATK -50% for 3 rounds
-                        boss.atkDebuff = (boss.atkDebuff || 0) + 0.50;
-                        boss.atkDebuffRounds = 3;
-                        log(`&nbsp;&nbsp;&nbsp;👹 [LFA MOON ABYSS] Boss ATK -50% for 3 rounds`, "#c084fc");
-                        // Glowed Glory: +1000% ATK damage to targets (bonus damage)
-                        trackStat(u, "damageDealt", 1000);
-                        log(`&nbsp;&nbsp;&nbsp;👹 [LFA GLOWED GLORY] +1000% ATK bonus damage`, "#c084fc");
-                        // Acheron Barque: boss ATK -15% for 2 rounds
-                        boss.atkDebuff = (boss.atkDebuff || 0) + 0.15;
-                        boss.atkDebuffRounds = Math.max(boss.atkDebuffRounds || 0, 2);
-                        log(`&nbsp;&nbsp;&nbsp;👹 [LFA ACHERON BARQUE] Boss ATK -15% for 2 rounds`, "#c084fc");
-                        // Comet Hop: self CI +20% for 2 rounds
-                        tryBuff(u, "ci", 0.20, 2, "LFA Comet Hop");
-                        // Sun Halo: self allDmg +15% for 2 rounds
-                        addBuff(u, "allDmg", 0.15, 2, "LFA Sun Halo");
+                        log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANSITION] 30% Max HP dmg to frontline (capped 3000%)`, "#f0abfc");
+                        // Randomly pick 1 of 3 effects
+                        let transEffect = Math.floor(Math.random() * 3);
+                        if (transEffect === 0) {
+                            // Wings allies: +20% ATK 2r
+                            units.filter(a => a.dreamMagicWings || a.mirrorMagicWings).forEach(a => {
+                                tryBuff(a, "atk", 0.20, 2, "LBRM Trans Wings ATK");
+                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 1] ${a.name} (Wings) +20% ATK 2r`, "#f0abfc");
+                            });
+                        } else if (transEffect === 1) {
+                            // Magnification allies: allDmgReduction +10% 2r, +33% Max HP
+                            units.filter(a => a.dreamMagicMagnification || a.mirrorMagicMagnification).forEach(a => {
+                                addBuff(a, "allDmgReduction", 0.10, 2, "LBRM Trans Magnification DR");
+                                a.hp = Math.min(100, a.hp + 33);
+                                trackStat(a, "healingDone", 33);
+                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 2] ${a.name} (Magnification) +10% allDmgReduction 2r, +33% HP`, "#f0abfc");
+                            });
+                        } else {
+                            // Protection allies: Bee Sugar-coat → +50% CI for shield duration
+                            units.filter(a => a.dreamMagicProtection || a.mirrorMagicProtection).forEach(a => {
+                                a.beeSugarCoat = true;
+                                addBuff(a, "ci", 0.50, 999, "Bee Sugar-coat CI");
+                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 3] ${a.name} (Protection) Bee Sugar-coat +50% CI 4r`, "#f0abfc");
+                            });
+                        }
+                        // Spiritual Pivots: Glowed Glory (all allies armor +35% 2r), Acheron Barque (backline allDmgReduction +8% 2r)
+                        // Comet Hop (backline ATK -10% 2r = boss debuff), Sun Halo (backline allDmg +10% 3r)
+                        units.forEach(a => tryBuff(a, "armor", 0.35, 2, "LBRM Glowed Glory"));
+                        // Acheron Barque: +15% allDmg to highest ATK hero for 2r
+                        let lbrmMaxAtk = units.find(a => a.isM) || units[0];
+                        addBuff(lbrmMaxAtk, "allDmg", 0.15, 2, "LBRM Acheron Barque");
+                        // Sun Halo: backline allDmg +10% 3r
+                        units.filter(a => !a.isFr).forEach(a => {
+                            addBuff(a, "allDmg", 0.10, 3, "LBRM Sun Halo");
+                        });
+                        // Comet Hop: boss ATK -10% 2r
+                        boss.atkDebuff = (boss.atkDebuff || 0) + 0.10; boss.atkDebuffRounds = 2;
+                        log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM PIVOTS] Glowed Glory armor+35% | Acheron Barque ${lbrmMaxAtk.name} +15%allDmg 2r | Comet Hop boss ATK-10% | Sun Halo backline +10%allDmg 3r`, "#f0abfc");
                     }
+
                     if (u.name === "LFA") {
                         // Moon Abyss: 1500% ATK × 2 to all enemies, 100% Fear (boss immune), boss ATK -50% for 3r
                         trackStat(u, "damageDealt", 3000);
@@ -989,28 +1161,33 @@ function runOne() {
                         tryBuff(u, "ci", 0.20, 2, "LFA Comet Hop");
                         // Sun Halo: self allDmg +15% for 2 rounds
                         addBuff(u, "allDmg", 0.15, 2, "LFA Sun Halo");
-                        // Source of Fear proc from 100% fear attempt on all enemies
-                        u.hp = Math.min(100, u.hp + 12);
-                        u.energy += 25;
 
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [SOURCE OF FEAR] Transition fear proc: LFA +12% HP, +25 energy, +10% ATK, +7% CI`, "#c084fc");
                     }
                 });
             }
 
-            // Foresight / Destiny imprint (basic attacks only, after all hero skills)
-            if (usedBasic) {
-                if (imp === "foresight") {
-                    u.energy += 50;
-                    log(`&nbsp;&nbsp;&nbsp;⚡ [FORESIGHT] ${u.name} +50 extra (direct)`, "#4ade80");
+            // Foresight / Destiny imprint
+            if (imp === "foresight") {
+                if (usedBasic) {
+                    // +50 energy on basic (offsettable, seal-blocked)
+                    if (u.cc.seal <= 0 && checkC(u, "Foresight Energy +50")) {
+                        u.energy += 50;
+                    }
+                    // +30% allDmg on basic (direct, 15r)
+                    addBuff(u, "allDmg", 0.30, 15, "Foresight allDmg (basic)");
                 }
-                if (imp === "destiny") {
-                    log(`&nbsp;&nbsp;&nbsp;⚡ [DESTINY] Triggering for all allies`, "#38bdf8");
-                    units.forEach(a => {
-                        if (Math.random() < 0.75) { if (checkC(a,"Destiny +20","+20")) a.energy += 20; }
-                        if (Math.random() < 0.50) { if (checkC(a,"Destiny +20 bonus","+20")) a.energy += 20; }
-                    });
+                if (usedActive) {
+                    // Active: crit + cd buff (offsettable)
+                    tryBuff(u, "crit", 0.50, 2, "Foresight Crit (active)");
+                    tryBuff(u, "cd", 1.00, 2, "Foresight CD (active)");
                 }
+            }
+            if (usedBasic && imp === "destiny") {
+                log(`&nbsp;&nbsp;&nbsp;⚡ [DESTINY] Triggering for all allies`, "#38bdf8");
+                units.forEach(a => {
+                    if (Math.random() < 0.75) { if (checkC(a,"Destiny +20","+20")) a.energy += 20; }
+                    if (Math.random() < 0.50) { if (checkC(a,"Destiny +20 bonus","+20")) a.energy += 20; }
+                });
             }
 
             // BOSS COUNTERATTACK — Corrupting Touch (after all hero skills complete)
@@ -1062,6 +1239,17 @@ function runOne() {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${u.name} +2 Calamity & +2 Curse`, "#ef4444");
                 trigCal(u);
 
+                // Brilliant Boon: ally got CC from boss active → LBRM spends 30 energy
+                let lbrm2 = units.find(x => x.name === "LBRM" && x.cc.seal <= 0);
+                if (lbrm2 && lbrm2.energy >= 30) {
+                    lbrm2.energy -= 30;
+                    lbrm2.powerOfDream = Math.min(3, lbrm2.powerOfDream + 1);
+                    // Remove 1 random CC from ally
+                    let ccKeys2 = ["silence","fear","seal"].filter(k => u.cc[k] > 0);
+                    if (ccKeys2.length > 0) { let rem2 = ccKeys2[Math.floor(Math.random()*ccKeys2.length)]; u.cc[rem2]=0; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BRILLIANT BOON] ${u.name} ${rem2} removed, LBRM PoD=${lbrm2.powerOfDream}`, "#f0abfc"); }
+                    // Deep sub: grant Shield 3500% ATK to ally
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BRILLIANT BOON DEEP] ${u.name} Shield 3500% ATK granted`, "#f0abfc");
+                }
                 // +10 energy for being hit by boss active
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚡ ${u.name} hit by boss active: +10 Energy`, "#38bdf8");
                 if (checkC(u, "Boss Active Hit Energy", "+10")) u.energy += 10;
@@ -1073,6 +1261,17 @@ function runOne() {
                     if (checkC(u, "Boss Active Hit Specter Bonus", "+10")) u.energy += 10;
                 }
 
+                // Mirror Magic Wings: when LBRM is hit by CC → remove 1, +30 energy (1×/round)
+                if (u.name === "LBRM" && !u.mirrorMagicWingsUsed) {
+                    u.mirrorMagicWingsUsed = true;
+                    let ccK = ["silence","fear","seal"].filter(k => u.cc[k] > 0);
+                    if (ccK.length > 0) {
+                        let rk = ccK[Math.floor(Math.random()*ccK.length)];
+                        u.cc[rk] = 0;
+                        u.energy += 30;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [MIRROR WINGS] ${u.name} CC removed (${rk}), +30 energy`, "#f0abfc");
+                    }
+                }
                 // Fatal Allure: fires when STV is hit by boss active (didn't dodge)
                 if (u.name === "STV") {
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [FATAL ALLURE] STV hit by boss active`, "#a78bfa");
@@ -1136,42 +1335,40 @@ function runOne() {
             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SM] Boss CI -3% (3r decay)`, "#38bdf8");
         }
 
-        units.forEach(u => {
-            if (u.cc.seal > 0) return;
             // Spiritual Mirror end-of-round: +15 energy all allies, restore 6% Max HP
             if (u.art === "Spiritual Mirror") {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SPIRITUAL MIRROR] EoR: +15 energy & +6% HP to all allies`, "#38bdf8");
                 units.forEach(a => {
-                    a.energy = Math.min(100, a.energy + 15);
+                    a.energy += 15;
                     a.hp = Math.min(100, a.hp + 6);
                     trackStat(a, "healingDone", 6);
                 });
             }
 
-            // Scissors of Conviction: replicate boss ATK buff and HD stacks at 30% value
+            // Scissors of Conviction: per hero, replicate combined boss ATK (atkBuff + atkSteal) and HD
             if (u.art === "Scissors") {
-                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ [SCISSORS] Replicating boss buffs at 30% to ${u.name} and same-line allies`, "#38bdf8");
-                let sameLine = units.filter(a => a.isFr === u.isFr); // wearer + same-line allies
-                // Boss ATK buff replication (offsettable)
-                if (boss.atkBuff > 0) {
-                    let replicatedATK = boss.atkBuff * 0.30;
-                    sameLine.forEach(a => {
+                // boss.atkBuff = cumulative self-buff from Abyssal Invasion (+6%/round permanent)
+                // boss.atkSteal = cumulative ATK stolen by LFA DKM (+30%/active permanent)
+                let totalBossATK = (boss.atkBuff || 0) + (boss.atkSteal || 0);
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ [SCISSORS] Boss total ATK: +${(totalBossATK*100).toFixed(0)}% (atkBuff ${((boss.atkBuff||0)*100).toFixed(0)}% + atkSteal ${((boss.atkSteal||0)*100).toFixed(0)}%) → 30% replicated per hero`, "#38bdf8");
+                units.forEach(a => {
+                    // ATK replication: 30% of combined boss ATK buffs (offsettable)
+                    if (totalBossATK > 0) {
+                        let replicatedATK = totalBossATK * 0.30;
                         if (checkC(a, "Scissors ATK repl.")) {
-                            addBuff(a, "atk", replicatedATK, 2, "Scissors (boss ATK repl.)");
-                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ ${a.name}: +${(replicatedATK*100).toFixed(1)}% ATK (30% of boss +${(boss.atkBuff*100).toFixed(0)}%)`, "#38bdf8");
+                            addBuff(a, "atk", replicatedATK, 15, "Scissors (boss ATK repl.)");
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ ${a.name}: +${(replicatedATK*100).toFixed(1)}% ATK (30% of +${(totalBossATK*100).toFixed(0)}%)`, "#38bdf8");
                         }
-                    });
-                }
-                // Boss HD stacks replication (offsettable) — HD only, no allDmg
-                if (bossHDStacks > 0) {
-                    let replicatedHD = bossHDStacks * 0.125 * 0.30;
-                    sameLine.forEach(a => {
+                    }
+                    // HD replication: 30% of boss total HD% (offsettable)
+                    if (bossHDStacks > 0) {
+                        let replicatedHD = bossHDStacks * 0.125 * 0.30;
                         if (checkC(a, "Scissors HD repl.")) {
-                            addBuff(a, "hd", replicatedHD, 2, "Scissors (boss HD repl.)");
+                            addBuff(a, "hd", replicatedHD, 15, "Scissors (boss HD repl.)");
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ ${a.name}: +${(replicatedHD*100).toFixed(1)}% HD (30% of boss ${(bossHDStacks*12.5).toFixed(1)}% HD)`, "#38bdf8");
                         }
-                    });
-                }
+                    }
+                });
             }
             // Antlers: end of round +9% allDmg + +1% allDmgReduction stacking (10r each)
             if (u.art === "Antlers") {
@@ -1233,12 +1430,7 @@ function runOne() {
             });
         }
 
-        log(`&nbsp;&nbsp;&nbsp;⚡ MAX ATK TARGET PUNISHMENT`, "#ef4444");
-        let d = units.find(u => u.isM);
-        d.energy = Math.max(0, d.energy - 100);
-        d.curse += 3;
-        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${d.name} (Max ATK) -100 Energy & +3 Curse`, "#ef4444");
-
+       
         log(`&nbsp;&nbsp;&nbsp;❄️ CALAMITY PURGE (-1 per hero)`, "#a5b4fc");
         units.forEach(u => {
             if (u.calamity > 0) { u.calamity--; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;❄️ ${u.name}: -1 Cal (now ${u.calamity})`, "#a5b4fc"); }
@@ -1302,13 +1494,7 @@ function runOne() {
         if (boss.atkDebuffRounds > 0) { boss.atkDebuffRounds--; if (boss.atkDebuffRounds <= 0) { boss.atkDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV] Boss ATK debuff expired`, "#64748b"); } }
         if (boss.armorDebuffRounds > 0) { boss.armorDebuffRounds--; if (boss.armorDebuffRounds <= 0) { boss.armorDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV] Boss Armor debuff expired`, "#64748b"); } }
         if (boss.spdDebuffRounds > 0) { boss.spdDebuffRounds--; if (boss.spdDebuffRounds <= 0) { boss.spdDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV] Boss SPD debuff expired`, "#64748b"); } }
-        // LFA Source of Fear: end-of-round boss energy drain (when fear was attempted this round)
-        if (boss.fearEnergyDrain) {
-            let drain = 50;
-            if (Math.random() < 0.30) drain += 50;
-            log(`&nbsp;&nbsp;&nbsp;👹 [LFA SOURCE OF FEAR] Boss energy drained by ${drain} (end of round)`, "#c084fc");
-            boss.fearEnergyDrain = false;
-        }
+
 
         // SQH Ultimate Queenship: end of round, +8% max HP per surviving ally (tracked as healing)
         units.forEach(u => {
@@ -1329,7 +1515,7 @@ function runOne() {
         });
     }
 
-    return { units, hd: bossHDStacks };
+    return { units, hd: bossHDStacks, boss };
 }
 
 function sim(multi) {
@@ -1338,20 +1524,29 @@ function sim(multi) {
         runOne();
     } else {
         let stats = {}, totalHD = 0;
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < 100; i++) {
             let res = runOne();
             totalHD += res.hd;
             res.units.forEach(u => {
-                if (!stats[u.name]) stats[u.name] = { acts:0, lost:0 };
-                stats[u.name].acts += u.acts;
-                stats[u.name].lost += u.turnsLost;
+                if (!stats[u.name]) stats[u.name] = { acts:0, lost:0, finalATK:0, finalAllDmg:0, finalHD:0 };
+                stats[u.name].acts       += u.acts;
+                stats[u.name].lost       += u.turnsLost;
+                // Final buff totals at end of fight
+                // LFA: atkSteal is on boss object — add it to LFA's ATK total
+                let atkExtra = (u.name === "LFA" && res.boss) ? (res.boss.atkSteal || 0) : 0;
+                stats[u.name].finalATK    += getBuffTotal(u, "atk") + atkExtra;
+                stats[u.name].finalAllDmg += getBuffTotal(u, "allDmg");
+                stats[u.name].finalHD     += getBuffTotal(u, "hd");
             });
         }
-        let html = `<h3>AVERAGES (30 FIGHTS)</h3>`;
-        html += `<p><b>Avg Boss Holy Damage Stacks (Fear Landed):</b> <span style="color:var(--accent)">${(totalHD/30).toFixed(2)}</span></p>`;
-        html += `<table><tr><th>Hero</th><th>Avg Actives</th><th>Avg Turns Lost (CC)</th><th>Avg Damage Dealt</th></tr>`;
+        let html = `<h3>AVERAGES (100 FIGHTS)</h3>`;
+        html += `<p><b>Avg Boss Holy Damage Stacks:</b> <span style="color:var(--accent)">${(totalHD/100).toFixed(2)} stacks (+${(totalHD/100*12.5).toFixed(1)}% HD)</span></p>`;
+        html += `<table><tr><th>Hero</th><th>Avg Actives</th><th>Avg Turns Lost (CC)</th><th>Final ATK Buff %</th><th>Final allDmg Buff %</th><th>Final HD Buff %</th></tr>`;
         for (let n in stats) {
-            html += `<tr><td>${n}</td><td>${(stats[n].acts/30).toFixed(2)}</td><td>${(stats[n].lost/30).toFixed(2)}</td><td>${(stats[n].dmg/30).toFixed(0)}</td></tr>`;
+            html += `<tr><td>${n}</td><td>${(stats[n].acts/100).toFixed(2)}</td><td>${(stats[n].lost/100).toFixed(2)}</td>` +
+                    `<td>+${(stats[n].finalATK/100*100).toFixed(1)}%</td>` +
+                    `<td>+${(stats[n].finalAllDmg/100*100).toFixed(1)}%</td>` +
+                    `<td>+${(stats[n].finalHD/100*100).toFixed(1)}%</td></tr>`;
         }
         out.innerHTML = html + `</table>`;
     }
