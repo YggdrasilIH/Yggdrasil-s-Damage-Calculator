@@ -1335,6 +1335,17 @@ function runOne() {
             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SM] Boss CI -3% (3r decay)`, "#38bdf8");
         }
 
+           units.forEach(u => {
+            if (u.cc.seal > 0) return;
+            // Mirror artifact: energy (offsettable), dr (offsettable), allDmg (direct)
+            if (u.art === "Mirror") {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [MIRROR] ${u.name} EoR trigger`, "#38bdf8");
+                units.forEach(a => {
+                    if (checkC(a, "Mirror Energy +15")) a.energy += 15;
+                    tryBuff(a, "dr", 0.05, 2, "Mirror DR");
+                    addBuff(a, "allDmg", 0.05, 2, "Mirror allDmg");
+                });
+            }
             // Spiritual Mirror end-of-round: +15 energy all allies, restore 6% Max HP
             if (u.art === "Spiritual Mirror") {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SPIRITUAL MIRROR] EoR: +15 energy & +6% HP to all allies`, "#38bdf8");
