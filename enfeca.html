@@ -70,9 +70,18 @@ defaults.forEach((d, i) => {
         <select id="h${i}">${HEROES.map(h=>`<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
         <select id="a${i}">${ARTS.map(a=>`<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
         <div style="display:flex;gap:5px;">
-            <input type="number" id="s${i}"  value="${d.s}"  placeholder="SPD">
-            <input type="number" id="ci${i}" value="${d.ci}" placeholder="CI%">
-            <input type="number" id="dg${i}" value="0" min="0" max="100" placeholder="Dodge%">
+            <div style="flex:1">
+                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">SPD</label>
+                <input type="number" id="s${i}"  value="${d.s}"  placeholder="SPD" style="width:100%">
+            </div>
+            <div style="flex:1">
+                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">CI %</label>
+                <input type="number" id="ci${i}" value="${d.ci}" placeholder="CI%" style="width:100%">
+            </div>
+            <div style="flex:1">
+                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Dodge %</label>
+                <input type="number" id="dg${i}" value="0" min="0" max="100" placeholder="Dodge%" style="width:100%">
+            </div>
         </div>
         <label><input type="checkbox" id="spec${i}"> Soul Specter</label>
         <label><input type="checkbox" id="pupil${i}"> Pupil</label>
