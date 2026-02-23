@@ -75,7 +75,7 @@ defaults.forEach((d, i) => {
                 <input type="number" id="s${i}"  value="${d.s}"  placeholder="SPD" style="width:100%">
             </div>
             <div style="flex:1">
-                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">CI %</label>
+                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Pre-Battle CI %</label>
                 <input type="number" id="ci${i}" value="${d.ci}" placeholder="CI%" style="width:100%">
             </div>
             <div style="flex:1">
@@ -196,6 +196,9 @@ function trigCal(u) {
     if (u.calamity >= 5) {
         let effectiveCI = u.baseCI + getBuffTotal(u, "ci");
         let p = Math.max(0, 2.0 - effectiveCI); // p=0 at CI≥200%, p=1 at CI=100%
+        // Track peak and average CI for summary reporting
+        if (effectiveCI > u.peakCI) u.peakCI = effectiveCI;
+        u.ciTotal += effectiveCI; u.ciSamples++;
         log(`&nbsp;&nbsp;&nbsp;💠 [CI CHECK] ${u.name} effectiveCI=${(effectiveCI*100).toFixed(0)}% (base ${(u.baseCI*100).toFixed(0)}% + buffs +${(getBuffTotal(u,"ci")*100).toFixed(0)}%) → CC chance ${(p*100).toFixed(0)}%`, "#38bdf8");
         ["silence","fear","seal"].forEach(t => {
             if (u.imm !== t && Math.random() < p) {
@@ -439,7 +442,10 @@ function runOne() {
             fictionalMagicRounds: 0,
             mirrorMagicCount: 3,
             buffs: { atk:[], dr:[], ci:[], spd:[], hd:[], cd:[], crit:[], armor:[], allDmg:[], allDmgReduction:[], drOffset:[] },
-            stats: { damageDealt: 0, healingDone: 0 }
+            stats: { damageDealt: 0, healingDone: 0 },
+            peakCI: 0,
+            ciTotal: 0,
+            ciSamples: 0
         });
     }
 
@@ -483,6 +489,29 @@ function runOne() {
             if (checkC(randAlly, "Spec Start Team", "+50")) randAlly.energy += 50;
         }
     });
+
+    // ═══════════════════════════════════════════════════════
+    // BATTLE START CI BONUSES (permanent, non-offsettable)
+    // ═══════════════════════════════════════════════════════
+    log(``, "#fff");
+    log(`⚔️ ═══ BATTLE START CI BONUSES ═══`, "#facc15");
+    units.forEach(u => {
+        // 1. Team CI bonus: flat +15% to all heroes
+        u.buffs.ci.push({ value: 0.15, rounds: 999, source: "Team CI Bonus" });
+        let teamTotal = u.baseCI + getBuffTotal(u, "ci");
+        log(`&nbsp;&nbsp;&nbsp;💠 [TEAM CI BONUS] ${u.name} +15% CI (permanent) | Eff. CI now: ${(teamTotal*100).toFixed(1)}%`, "#facc15");
+
+        // 2. Sub-100% pre-battle CI bonus: 20% of remainder below 100%
+        if (u.baseCI < 1.0) {
+            let remainder = 1.0 - u.baseCI;
+            let bonus = remainder * 0.20;
+            u.buffs.ci.push({ value: bonus, rounds: 999, source: "Sub-100 CI Bonus" });
+            let newTotal = u.baseCI + getBuffTotal(u, "ci");
+            log(`&nbsp;&nbsp;&nbsp;💠 [SUB-100 CI BONUS] ${u.name} pre-battle CI ${(u.baseCI*100).toFixed(0)}% < 100% → remainder ${(remainder*100).toFixed(1)}% × 20% = +${(bonus*100).toFixed(1)}% CI (permanent) | Eff. CI now: ${(newTotal*100).toFixed(1)}%`, "#facc15");
+        }
+    });
+    log(`⚔️ ═══════════════════════════════`, "#facc15");
+    log(``, "#fff");
 
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "#ff4757");
@@ -1358,7 +1387,8 @@ function sim(multi) {
                     finalATK:0, minATK:Infinity, maxATK:-Infinity,
                     finalAllDmg:0, minAllDmg:Infinity, maxAllDmg:-Infinity,
                     finalHD:0, minHD:Infinity, maxHD:-Infinity,
-                    finalCI:0, minCI:Infinity, maxCI:-Infinity,
+                    peakCI:0, minPeakCI:Infinity, maxPeakCI:-Infinity,
+                    avgCI:0,
                     baseCI: u.baseCI
                 };
                 let s = stats[u.name];
@@ -1366,12 +1396,12 @@ function sim(multi) {
                 let atk = getBuffTotal(u, "atk") + atkExtra;
                 let ad  = getBuffTotal(u, "allDmg");
                 let hd  = getBuffTotal(u, "hd");
-                let ci  = u.baseCI + getBuffTotal(u, "ci");
                 s.acts += u.acts; s.lost += u.turnsLost;
                 s.finalATK += atk; s.minATK = Math.min(s.minATK, atk); s.maxATK = Math.max(s.maxATK, atk);
                 s.finalAllDmg += ad; s.minAllDmg = Math.min(s.minAllDmg, ad); s.maxAllDmg = Math.max(s.maxAllDmg, ad);
                 s.finalHD += hd; s.minHD = Math.min(s.minHD, hd); s.maxHD = Math.max(s.maxHD, hd);
-                s.finalCI += ci; s.minCI = Math.min(s.minCI, ci); s.maxCI = Math.max(s.maxCI, ci);
+                s.peakCI += u.peakCI; s.minPeakCI = Math.min(s.minPeakCI, u.peakCI); s.maxPeakCI = Math.max(s.maxPeakCI, u.peakCI);
+                s.avgCI += u.ciSamples > 0 ? (u.ciTotal / u.ciSamples) : u.baseCI;
             });
         }
         function pct(v) { return `${(v*100).toFixed(1)}%`; }
@@ -1380,7 +1410,7 @@ function sim(multi) {
         }
         let html = `<h3>AVERAGES + RANGES (${N} FIGHTS)</h3>`;
         html += `<p><b>Boss Holy Damage Stacks:</b> avg <span style="color:var(--accent)">${(totalHD/N).toFixed(2)}</span> stacks (+${(totalHD/N*12.5).toFixed(1)}% HD) &nbsp;|&nbsp; range <small style="color:#64748b">[${minHD} – ${maxHD} stacks / +${(minHD*12.5).toFixed(1)}% – +${(maxHD*12.5).toFixed(1)}% HD]</small></p>`;
-        html += `<table><tr><th>Hero</th><th>Base CI</th><th>Avg Actives</th><th>Avg CC Lost</th><th>Final ATK (avg [min–max])</th><th>Final allDmg (avg [min–max])</th><th>Final Eff. CI (avg [min–max])</th><th>Final HD (avg [min–max])</th></tr>`;
+        html += `<table><tr><th>Hero</th><th>Base CI</th><th>Avg Actives</th><th>Avg CC Lost</th><th>Final ATK (avg [min–max])</th><th>Final allDmg (avg [min–max])</th><th>Peak CI during fight (avg [min–max])</th><th>Avg mid-fight CI</th><th>Final HD (avg [min–max])</th></tr>`;
         for (let n in stats) {
             let s = stats[n];
             html += `<tr>
@@ -1390,7 +1420,8 @@ function sim(multi) {
                 <td>${(s.lost/N).toFixed(2)}</td>
                 <td>${range(s.finalATK/N, s.minATK, s.maxATK)}</td>
                 <td>${range(s.finalAllDmg/N, s.minAllDmg, s.maxAllDmg)}</td>
-                <td>${range(s.finalCI/N, s.minCI, s.maxCI)}</td>
+                <td>${range(s.peakCI/N, s.minPeakCI, s.maxPeakCI)}</td>
+                <td><span style="color:var(--accent)">${(s.avgCI/N*100).toFixed(1)}%</span></td>
                 <td>${range(s.finalHD/N, s.minHD, s.maxHD)}</td>
             </tr>`;
         }
