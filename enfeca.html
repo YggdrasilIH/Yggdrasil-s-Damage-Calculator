@@ -45,6 +45,63 @@
         <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="isl10" checked> Island 10 (+25% allDmg all at round start)</label></div>
         <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="isl11" checked> Island 11 (Soul Protection — random CC immunity)</label></div>
         <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="fearGT" checked> Fear Guild Train (sub-100 CI bonus applies to Fear)</label></div>
+        <div style="flex:1; margin-top:15px;">
+            <label>Boss HP Tier</label>
+            <select id="bossHP">
+                <option value="above70">Above 70%</option>
+                <option value="60-69">60–69%</option>
+                <option value="50-59" selected>50–59%</option>
+                <option value="below50">Below 50%</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ DAMAGE CALCULATOR (collapsible) ═══ -->
+<div style="margin-top:20px;">
+    <button onclick="toggleDmgCalc()" style="background:var(--card);border:1px solid #334155;width:100%;text-align:left;padding:10px 14px;font-size:14px;cursor:pointer;">
+        ⚔️ Damage Calculator (Max ATK Hero) <span id="dmgCalcArrow">▼</span>
+    </button>
+    <div id="dmgCalcPanel" style="display:none;background:var(--card);border:1px solid #334155;border-top:none;padding:16px;border-radius:0 0 8px 8px;">
+        <p style="color:#94a3b8;font-size:12px;margin-top:0;">Set base stats for the highest ATK hero. These are used to compute actual damage output per LFA active.</p>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+            <div>
+                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">ATK (absolute)</label>
+                <input type="number" id="dc_atk" value="100000" style="width:100%">
+            </div>
+            <div>
+                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Skill DMG %</label>
+                <input type="number" id="dc_skill" value="0" style="width:100%">
+            </div>
+            <div>
+                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Precision %</label>
+                <input type="number" id="dc_prec" value="0" style="width:100%">
+            </div>
+            <div>
+                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Holy DMG %</label>
+                <input type="number" id="dc_holy" value="0" style="width:100%">
+            </div>
+            <div>
+                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">All DMG Dealt %</label>
+                <input type="number" id="dc_alldmg" value="0" style="width:100%">
+            </div>
+            <div>
+                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Crit %</label>
+                <input type="number" id="dc_crit" value="0" style="width:100%">
+            </div>
+            <div>
+                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Crit DMG %</label>
+                <input type="number" id="dc_cd" value="150" style="width:100%">
+            </div>
+            <div>
+                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Temple DMG %</label>
+                <input type="number" id="dc_temple" value="150" min="0" placeholder="e.g. 150" style="width:100%">
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;padding-top:18px;">
+                <label style="font-size:12px;"><input type="checkbox" id="dc_defier"> Defier</label>
+                <label style="font-size:12px;"><input type="checkbox" id="dc_gk"> Giant Killer</label>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -392,12 +449,42 @@ function triggerNova(u) {
     }
 }
 
+function toggleDmgCalc() {
+    const panel = document.getElementById('dmgCalcPanel');
+    const arrow = document.getElementById('dmgCalcArrow');
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        arrow.textContent = '▲';
+    } else {
+        panel.style.display = 'none';
+        arrow.textContent = '▼';
+    }
+}
+
+function getDmgCalcInputs() {
+    const panel = document.getElementById('dmgCalcPanel');
+    if (panel.style.display === 'none') return null; // calculator not open = not used
+    return {
+        atk:    parseFloat(document.getElementById('dc_atk').value)    || 0,
+        skill:  parseFloat(document.getElementById('dc_skill').value)  / 100 || 0,
+        prec:   parseFloat(document.getElementById('dc_prec').value)   / 100 || 0,
+        holy:   parseFloat(document.getElementById('dc_holy').value)   / 100 || 0,
+        alldmg: parseFloat(document.getElementById('dc_alldmg').value) / 100 || 0,
+        crit:   parseFloat(document.getElementById('dc_crit').value)   / 100 || 0,
+        cd:     parseFloat(document.getElementById('dc_cd').value)     / 100 || 1.5,
+        defier: document.getElementById('dc_defier').checked,
+        gk:     document.getElementById('dc_gk').checked,
+        temple: (parseFloat(document.getElementById('dc_temple').value) || 0) / 100,
+    };
+}
+
 function runOne() {
     const imp  = document.getElementById('gImp').value;
     const is9  = document.getElementById('isl9').checked;
     const is11 = document.getElementById('isl11').checked;
     const is8  = document.getElementById('isl8').checked;
     const fearGT = document.getElementById('fearGT').checked;
+    const bossHPTier = document.getElementById('bossHP').value;
     const is10 = document.getElementById('isl10').checked;
     const mIdx = parseInt(document.querySelector('input[name="max"]:checked').value);
 
@@ -466,7 +553,8 @@ function runOne() {
             ciSamples: 0,
             fearCIPenalty: 0,
             minDR: Infinity, maxDR: -Infinity, drTotal: 0, drSamples: 0,
-            minADR: Infinity, maxADR: -Infinity, adrTotal: 0, adrSamples: 0
+            minADR: Infinity, maxADR: -Infinity, adrTotal: 0, adrSamples: 0,
+            totalEstDmg: 0
         });
     }
 
@@ -829,20 +917,139 @@ function runOne() {
                     log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream consumed → reset to 0`, "#f0abfc");
                 }
                 if (u.name === "LFA") {
-                    let baseDmg = 2400;
-                    trackStat(u, "damageDealt", baseDmg);
-                    log(`&nbsp;&nbsp;&nbsp;👿 [LFA SOUL SHIVER] ${baseDmg}% ATK base damage (2×1200%)`, "#c084fc");
-                    let extraDmg = 2400;
-                    trackStat(u, "damageDealt", extraDmg);
-                    trackStat(u, "healingDone", extraDmg * 1.20);
-                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA SOUL SHIVER] Extra ${extraDmg}% ATK (target HP<60%), self heal ${(extraDmg*1.20).toFixed(0)}% ATK`, "#c084fc");
-                    let dkmDmg = Math.round((baseDmg + extraDmg) * 1.20);
-                    trackStat(u, "damageDealt", dkmDmg - (baseDmg + extraDmg));
-                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [DKM] Boss immune to fear: +120% extra damage, steal 30% ATK`, "#c084fc");
+                    // Hit 1-2: always (2×1200%)
+                    let hits12 = 2400;
+                    trackStat(u, "damageDealt", hits12);
+                    log(`&nbsp;&nbsp;&nbsp;👿 [LFA SOUL SHIVER] Hits 1-2: ${hits12}% ATK (2×1200%, always)`, "#c084fc");
+                    // Hit 3-4: only if boss HP < 60%
+                    let hits34 = 0;
+                    if (bossHPTier === "below50" || bossHPTier === "50-59") {
+                        hits34 = 2400;
+                        trackStat(u, "damageDealt", hits34);
+                        trackStat(u, "healingDone", hits34 * 1.20);
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA SOUL SHIVER] Hits 3-4: ${hits34}% ATK (2×1200%, boss HP<60%), self heal ${(hits34*1.20).toFixed(0)}% ATK`, "#c084fc");
+                    } else {
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA SOUL SHIVER] Hits 3-4: skipped (boss HP≥60%)`, "#c084fc");
+                    }
+                    // DKM: 120% of hits 1-4 (boss always fear-immune)
+                    let dkmBonus = Math.round((hits12 + hits34) * 1.20);
+                    trackStat(u, "damageDealt", dkmBonus);
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [DKM] Boss fear-immune: 120% of hits 1-4 (${hits12+hits34}%) = ${dkmBonus}% ATK`, "#c084fc");
+                    // Hit 5: always (1×1200%), after DKM
+                    let hit5 = 1200;
+                    trackStat(u, "damageDealt", hit5);
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA SOUL SHIVER] Hit 5: ${hit5}% ATK (always)`, "#c084fc");
                     if (checkC(u, "LFA DKM ATK Steal")) {
                         boss.atkSteal = (boss.atkSteal || 0) + 0.30;
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [DKM ATK STEAL] -${(boss.atkSteal*100).toFixed(0)}% boss ATK (cumulative, curse-offsettable)`, "#c084fc");
                     }
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA TOTAL] ${hits12 + hits34 + dkmBonus + hit5}% ATK total this active`, "#c084fc");
+                    // ── Damage Calculator ─────────────────────────────────────
+                    const dc = getDmgCalcInputs();
+                    if (dc) {
+                        const atkBuff     = getBuffTotal(u, "atk");
+                        const allDmgBuff  = getBuffTotal(u, "allDmg");
+                        const precCapped  = Math.min(dc.prec / 100, 1.50);
+                        const cdCapped    = Math.min(dc.cd  / 100, 1.50);
+                        const corrMult    = 1 + 0.24 * (boss.abyssalStacks || 0);
+                        const critMult    = 1.5 * cdCapped * 2 * corrMult;
+                        const gkMult      = dc.gk ? 2.0 : 1.0;
+                        const defMult     = (dc.defier && bossHPTier === "above70") ? 1.3 : 1.0;
+                        const templeMult  = 1 + dc.temple; // e.g. 150% → dc.temple=1.5 → templeMult=2.5
+                        const shrinkMult  = boss.shrink ? 1.4 : 1.0;
+                        const allDmgMult  = 1 + allDmgBuff + dc.alldmg / 100;
+
+                        // Per-hit base formula (one hit of X% multiplier)
+                        function calcHit(multPct) {
+                            const base = dc.atk
+                                * (1 + atkBuff)
+                                * ((multPct + dc.skill / 100))
+                                * (1 + precCapped * 0.3)
+                                * (1 + (dc.holy / 100) * 0.7)
+                                * allDmgMult
+                                * gkMult * defMult * templeMult * shrinkMult;
+                            const isCrit = Math.random() < (dc.crit / 100);
+                            return isCrit ? base * critMult : base;
+                        }
+
+                        // Hits 1-2 (always, 1200% each)
+                        let totalDmg = 0;
+                        let hitLog = [];
+                        for (let h = 1; h <= 2; h++) {
+                            let d = calcHit(12); totalDmg += d;
+                            hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`);
+                        }
+                        // Hits 3-4 (below 60% HP)
+                        if (bossHPTier === "below50" || bossHPTier === "50-59") {
+                            for (let h = 3; h <= 4; h++) {
+                                let d = calcHit(12); totalDmg += d;
+                                hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`);
+                            }
+                        }
+                        // DKM: 120% of hits 1-4 base (GK, defier, shrink, allDmg apply, NOT per-hit precision/holy/skill/crit)
+                        const hits14Base = dc.atk * (1 + atkBuff) * ((bossHPTier === "below50" || bossHPTier === "50-59") ? 4*12 : 2*12) * allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+                        const dkmDmgCalc = hits14Base * 1.20;
+                        totalDmg += dkmDmgCalc;
+                        hitLog.push(`DKM: ${Math.round(dkmDmgCalc).toLocaleString()}`);
+                        // ── Re-roll hits with crit tracking for Balanced Strike ──────────────
+                        let anyCritMiss = false;
+                        function calcHitTracked(multPct) {
+                            const base = dc.atk * (1 + atkBuff) * (multPct + dc.skill / 100)
+                                * (1 + precCapped * 0.3) * (1 + (dc.holy / 100) * 0.7)
+                                * allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+                            const isCrit = Math.random() < (dc.crit / 100);
+                            if (!isCrit) anyCritMiss = true;
+                            return isCrit ? base * critMult : base;
+                        }
+                        hitLog = []; totalDmg = 0;
+                        for (let h = 1; h <= 2; h++) { let d = calcHitTracked(12); totalDmg += d; hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`); }
+                        if (bossHPTier === 'below50' || bossHPTier === '50-59') {
+                            for (let h = 3; h <= 4; h++) { let d = calcHitTracked(12); totalDmg += d; hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`); }
+                        }
+                        totalDmg += dkmDmgCalc;
+                        hitLog.push(`DKM: ${Math.round(dkmDmgCalc).toLocaleString()}`);
+                        let d5 = calcHitTracked(12); totalDmg += d5;
+                        hitLog.push(`Hit 5: ${Math.round(d5).toLocaleString()}`);
+
+                        const modMult = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+                        const initialPlusDKM = totalDmg;
+
+                        // ── Lethal Fightback: 18% of (hits 1-5 + DKM) × modMult ──────────────
+                        const lethalFB = initialPlusDKM * 0.18 * modMult;
+                        totalDmg += lethalFB;
+                        hitLog.push(`Lethal Fightback (18%): ${Math.round(lethalFB).toLocaleString()}`);
+
+                        // ── Balanced Strike: fires if any hit did NOT crit ────────────────────
+                        let balancedStrike = 0;
+                        if (anyCritMiss) {
+                            const bsPct = bossHPTier === 'below50' ? 1.95 : 0.45;
+                            balancedStrike = initialPlusDKM * bsPct * modMult;
+                            totalDmg += balancedStrike;
+                            hitLog.push(`Balanced Strike (${(bsPct*100).toFixed(0)}%, non-crit triggered): ${Math.round(balancedStrike).toLocaleString()}`);
+                        } else {
+                            hitLog.push(`Balanced Strike: skipped (all hits crit)`);
+                        }
+
+                        // ── Additional Multiplier: 80% proc if not sealed, 10% of all prior dmg ─
+                        let addlHit = 0;
+                        if (u.cc.seal <= 0 && Math.random() < 0.80) {
+                            addlHit = (initialPlusDKM + lethalFB + balancedStrike) * 0.10 * modMult;
+                            totalDmg += addlHit;
+                            hitLog.push(`Additional Multiplier (80% proc, 10%): ${Math.round(addlHit).toLocaleString()}`);
+                        } else {
+                            hitLog.push(`Additional Multiplier: ${u.cc.seal > 0 ? 'blocked (sealed)' : 'did not proc (20%)'}`);
+                        }
+
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK: ${dc.atk.toLocaleString()} | ATK buff: +${(atkBuff*100).toFixed(0)}% | Prec: ${(precCapped*100).toFixed(0)}% | Holy: ${dc.holy.toFixed(0)}% | AllDmg: +${(allDmgMult*100-100).toFixed(0)}% | Crit: ${dc.crit}%@${(cdCapped*150).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Def:${defMult>1?'✓':'✗'} Temple:×${(1+dc.temple).toFixed(2)} (${(dc.temple*100).toFixed(0)}%) Shrink:${boss.shrink?'✓':'✗'} AbyssalStacks:${boss.abyssalStacks||0}`, '#facc15');
+                        hitLog.forEach(h => log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚔️ ${h}`, '#facc15'));
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC TOTAL] ${Math.round(totalDmg).toLocaleString()} damage this active`, '#facc15');
+                        u.totalEstDmg += totalDmg;
+                    }
+                }
+                if (u.name === "ELY") {
+                    boss.shrink = true;
+                    boss.shrinkRounds = 2;
+                    log(`&nbsp;&nbsp;&nbsp;🌊 [ELY ACTIVE] Boss Shrink applied (2r, ×1.4 dmg)`, "#38bdf8");
                 }
                 if (u.art === "Demon Bell") {
                     units.forEach(a => {
@@ -1004,6 +1211,11 @@ function runOne() {
                     }
                 }
 
+                if (u.name === "ELY" && u.cc.seal <= 0) {
+                    boss.shrink = true;
+                    boss.shrinkRounds = 2;
+                    log(`&nbsp;&nbsp;&nbsp;🌊 [ELY BASIC] Boss Shrink applied/refreshed (2r, ×1.4 dmg)`, "#38bdf8");
+                }
                 tryStarSoul(u);
                 triggerPupil(u);
                 triggerNova(u);
@@ -1373,6 +1585,7 @@ function runOne() {
         }
         if (boss.veilOfMist) { boss.veilOfMistRounds--; if (boss.veilOfMistRounds <= 0) { boss.veilOfMist = false; log(`&nbsp;&nbsp;&nbsp;🌀 [VoM] Boss Veil of Mist expired`, "#64748b"); } }
         if (boss.healReductionRounds > 0) { boss.healReductionRounds--; if (boss.healReductionRounds <= 0) { boss.healReduction = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV COMET HOP] Boss heal reduction expired`, "#64748b"); } }
+        if (boss.shrinkRounds > 0) { boss.shrinkRounds--; if (boss.shrinkRounds <= 0) { boss.shrink = false; log(`&nbsp;&nbsp;&nbsp;🌊 [SHRINK] Boss shrink expired`, "#38bdf8"); } }
 
         if (boss.bleed && boss.bleed.length > 0) {
             log(`&nbsp;&nbsp;&nbsp;🩸 BLEED PHASE`, "#f59e0b");
@@ -1440,6 +1653,7 @@ function sim(multi) {
                     avgCI:0,
                     minDR:Infinity, maxDR:-Infinity, avgDR:0,
                     minADR:Infinity, maxADR:-Infinity, avgADR:0,
+                    totalEstDmg:0, minEstDmg:Infinity, maxEstDmg:-Infinity,
                     baseCI: u.baseCI
                 };
                 let s = stats[u.name];
@@ -1455,11 +1669,20 @@ function sim(multi) {
                 s.avgCI += u.ciSamples > 0 ? (u.ciTotal / u.ciSamples) : u.baseCI;
                 let snapDR  = u.drSamples  > 0 ? u.drTotal  / u.drSamples  : 0;
                 let snapADR = u.adrSamples > 0 ? u.adrTotal / u.adrSamples : 0;
+                if (u.totalEstDmg > 0) {
+                    s.totalEstDmg += u.totalEstDmg;
+                    s.minEstDmg = Math.min(s.minEstDmg, u.totalEstDmg);
+                    s.maxEstDmg = Math.max(s.maxEstDmg, u.totalEstDmg);
+                }
                 s.minDR  = Math.min(s.minDR,  u.minDR  === Infinity  ? 0 : u.minDR);  s.maxDR  = Math.max(s.maxDR,  u.maxDR  === -Infinity ? 0 : u.maxDR);  s.avgDR  += u.drSamples  > 0 ? u.drTotal  / u.drSamples  : 0;
                 s.minADR = Math.min(s.minADR, u.minADR === Infinity  ? 0 : u.minADR); s.maxADR = Math.max(s.maxADR, u.maxADR === -Infinity ? 0 : u.maxADR); s.avgADR += u.adrSamples > 0 ? u.adrTotal / u.adrSamples : 0;
             });
         }
         function pct(v) { return `${(v*100).toFixed(1)}%`; }
+        function dmgRange(avg, mn, mx) {
+            const fmt = v => Math.round(v).toLocaleString();
+            return `<span style="color:var(--accent)">${fmt(avg)}</span> <small style="color:#64748b">[${fmt(mn)} – ${fmt(mx)}]</small>`;
+        }
         function range(avg, mn, mx) {
             return `<span style="color:var(--accent)">${pct(avg)}</span> <small style="color:#64748b">[${pct(mn)} – ${pct(mx)}]</small>`;
         }
@@ -1479,12 +1702,27 @@ function sim(multi) {
                 <td><span style="color:var(--accent)">${(s.avgCI/N*100).toFixed(1)}%</span></td>
                 <td>${range(s.avgDR/N, s.minDR === Infinity ? 0 : s.minDR, s.maxDR === -Infinity ? 0 : s.maxDR)}</td>
                 <td>${range(s.avgADR/N, s.minADR === Infinity ? 0 : s.minADR, s.maxADR === -Infinity ? 0 : s.maxADR)}</td>
+
                 <td>${range(s.finalHD/N, s.minHD, s.maxHD)}</td>
             </tr>`;
         }
-        out.innerHTML = html + `</table>`;
+        // Estimated fight damage line below table
+        let dmgLine = '';
+        const dmgEntry = Object.values(stats).find(s => s.totalEstDmg > 0);
+        if (dmgEntry) {
+            const avg = Math.round(dmgEntry.totalEstDmg / N).toLocaleString();
+            const mn  = Math.round(dmgEntry.minEstDmg).toLocaleString();
+            const mx  = Math.round(dmgEntry.maxEstDmg).toLocaleString();
+            dmgLine = `<div style="margin-top:12px;padding:12px 16px;background:var(--card);border:1px solid #334155;border-radius:8px;font-size:13px;">
+                ⚔️ <strong>Estimated Fight Damage (Max ATK Hero)</strong> —
+                Avg: <span style="color:var(--accent);font-weight:bold">${avg}</span>
+                &nbsp;<small style="color:#64748b">[${mn} – ${mx}]</small>
+            </div>`;
+        }
+        out.innerHTML = html + `</table>` + dmgLine;
     }
 }
 </script>
 </body>
 </html>
+
