@@ -736,8 +736,8 @@ function runOne() {
                         if (type === "Protection"     && target.mirrorMagicProtection)    { log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${target.name} already has Mirror Magic Protection — skip`, "#f0abfc"); return; }
                         if (type === "Wings") {
                             target.dreamMagicWings = true;
-                            addBuff(target, "ci", 0.10, dmDur, "Dream Magic Wings CI");
-                            addBuff(target, "spd", 0.10, dmDur, "Dream Magic Wings SPD");
+                            refreshBuff(target, "ci", 0.10, dmDur, "Dream Magic Wings CI");
+                            refreshBuff(target, "spd", 0.10, dmDur, "Dream Magic Wings SPD");
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${target.name} → Dream Magic Wings (+10%CI, +10%SPD, ${dmDur}r)`, "#f0abfc");
                         }
                         if (type === "Magnification") {
@@ -884,7 +884,7 @@ function runOne() {
                         let ha2 = units.find(u2=>u2.isM)||units[0];
                         let s1h2 = units.find(a=>a.lbrmSlot1)||units[0];
                         [[hs2,"Wings"],[ha2,"Magnification"],[s1h2,"Protection"]].forEach(([tgt,type])=>{
-                            if(type==="Wings"&&!tgt.mirrorMagicWings){tgt.dreamMagicWings=true;addBuff(tgt,"ci",0.10,dmDur2,"Dream Magic Wings CI");addBuff(tgt,"spd",0.10,dmDur2,"Dream Magic Wings SPD");}
+                            if(type==="Wings"&&!tgt.mirrorMagicWings){tgt.dreamMagicWings=true;refreshBuff(tgt,"ci",0.10,dmDur2,"Dream Magic Wings CI");refreshBuff(tgt,"spd",0.10,dmDur2,"Dream Magic Wings SPD");}
                             if(type==="Magnification"&&!tgt.mirrorMagicMagnification){tgt.dreamMagicMagnification=true;addBuff(tgt,"allDmg",0.12,dmDur2,"Dream Magic Magnification");}
                             if(type==="Protection"&&!tgt.mirrorMagicProtection){tgt.dreamMagicProtection=true;}
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD(BB)] Dream Magic ${type} → ${tgt.name}`, "#f0abfc");
@@ -967,20 +967,25 @@ function runOne() {
                 u.trans -= 12;
                 log(`&nbsp;&nbsp;&nbsp;💎 12-Stack Transition`);
                 units.forEach(a => {
-                    if (u.name === "SQH" && a !== u) {
+                    if (u.name === "SQH") {
+                        // Moon Abyss + Comet Hop: all heroes including self
                         tryBuff(a, "atk",    0.10, 2, "SQH Transition (Moon Abyss)");
                         addBuff(a, "allDmg", 0.10, 2, "SQH Transition (Moon Abyss)");
                         addBuff(a, "allDmgReduction", 0.20, 2, "SQH Transition (Moon Abyss)");
                         trackStat(a, "healingDone", 50);
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👑 [SQH MOON ABYSS] ${a.name} +50% Max HP healed`, "#f59e0b");
                         tryBuff(a, "dr", 0.20, 2, "SQH Comet Hop");
-                        a.energy += 20;
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👑 [SQH GLOWED GLORY] ${a.name} +20 Energy (direct)`, "#f59e0b");
                     }
                     if (u.name === "SQH") {
-                        addBuff(u, "allDmg", 0.15, 2, "SQH Sun Halo");
-                        boss.spdDebuff = (boss.spdDebuff || 0) + 20;
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👑 [SQH ACHERON BARQUE] Boss SPD -20 (total: -${boss.spdDebuff})`, "#f59e0b");
+                        // Glowed Glory: +20 energy to ALL allies including self
+                        a.energy += 20;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👑 [SQH GLOWED GLORY] ${a.name} +20 Energy (direct)`, "#f59e0b");
+                        // Sun Halo + Acheron Barque: self only
+                        if (a === u) {
+                            addBuff(u, "allDmg", 0.15, 2, "SQH Sun Halo");
+                            boss.spdDebuff = (boss.spdDebuff || 0) + 20;
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👑 [SQH ACHERON BARQUE] Boss SPD -20 (total: -${boss.spdDebuff})`, "#f59e0b");
+                        }
                     }
                     if (u.name === "BDSM") {
                         if (a.franticGluttony) {
@@ -1017,7 +1022,7 @@ function runOne() {
                         } else {
                             units.filter(a => a.dreamMagicProtection || a.mirrorMagicProtection).forEach(a => {
                                 a.beeSugarCoat = true;
-                                addBuff(a, "ci", 0.50, 999, "Bee Sugar-coat CI");
+                                refreshBuff(a, "ci", 0.50, 999, "Bee Sugar-coat CI");
                                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 3] ${a.name} (Protection) Bee Sugar-coat +50% CI 4r`, "#f0abfc");
                             });
                         }
