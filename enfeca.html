@@ -369,8 +369,8 @@ function triggerNova(u) {
     log(`&nbsp;&nbsp;&nbsp;💫 [NOVA] ${u.name} action count: ${u.novaActionCount}/4`, "#fcd34d");
     if (u.novaActionCount >= 4) {
         u.novaActionCount = 0;
-        u.energy += 100;
-        log(`&nbsp;&nbsp;&nbsp;💫 [NOVA BURST] ${u.name} +100 Energy (direct)! (now ${u.energy})`, "#fcd34d");
+        if (checkC(u, "Nova Burst", "+100")) u.energy += 100;
+        log(`&nbsp;&nbsp;&nbsp;💫 [NOVA BURST] ${u.name} +100 Energy (offsettable) (now ${u.energy})`, "#fcd34d");
     }
 }
 
@@ -612,7 +612,7 @@ function runOne() {
                 log(`🔥 ACTION: Active`);
 
                 units.forEach(target => {
-                    if (target.name === "BDSM" && u.name !== "BDSM" && target.cc.silence <= 0) {
+                    if (target.name === "BDSM" && u.name !== "BDSM" && target.cc.seal <= 0) {
                         if (checkC(target, "BDSM Passive Energy", "+3")) target.energy += 3;
                         if (u.franticGluttony) {
                             let lostHp = 100 - target.hp;
@@ -864,7 +864,7 @@ function runOne() {
                 if (u.name === "LBRM" && !silenced) {
                     if (u.powerOfDream >= 2) {
                         if (imp === "foresight") {
-                            u.energy += 50;
+                            if (checkC(u, "LBRM PoD Foresight", "+50")) u.energy += 50;
                             log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream ≥2 → Dreamland Dominion as basic (Foresight +50 energy)`, "#f0abfc");
                         } else {
                             log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream ≥2 → Dreamland Dominion fires as basic! (+6 trans)`, "#f0abfc");
@@ -901,7 +901,7 @@ function runOne() {
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [SHADOW] All +20%SPD (2r); ${hspd.name} +20% CI Offset (2r)`, "#f0abfc");
                         if (Math.random() < 0.5) log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [SHADOW DEEP] Boss SPD -10 for 2 rounds (tracked)`, "#f0abfc");
                         if (Math.random() < 0.5) {
-                            hspd.energy += 50;
+                            if (checkC(hspd, "LBRM Shadow Noble", "+50")) hspd.energy += 50;
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [SHADOW NOBLE] ${hspd.name} +50 energy (50% proc)`, "#f0abfc");
                         }
                     }
@@ -930,8 +930,8 @@ function runOne() {
                     log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM BASIC] Self +${(lostHp*0.20).toFixed(1)}% HP restored (now ${u.hp.toFixed(1)}%)`, "#ec4899");
                     triggerBoundlessSepal(u);
                     if (Math.random() < 0.5) {
-                        u.energy += 20;
-                        log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM NOBLE SUB] +20 Energy (direct)`, "#ec4899");
+                        if (checkC(u, "BDSM Noble Sub", "+20")) u.energy += 20;
+                        log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM NOBLE SUB] +20 Energy (offsettable)`, "#ec4899");
                     }
                 }
 
@@ -978,8 +978,8 @@ function runOne() {
                     }
                     if (u.name === "SQH") {
                         // Glowed Glory: +20 energy to ALL allies including self
-                        a.energy += 20;
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👑 [SQH GLOWED GLORY] ${a.name} +20 Energy (direct)`, "#f59e0b");
+                        if (checkC(a, "SQH Glowed Glory", "+20")) a.energy += 20;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👑 [SQH GLOWED GLORY] ${a.name} +20 Energy (offsettable)`, "#f59e0b");
                         // Sun Halo + Acheron Barque: self only
                         if (a === u) {
                             addBuff(u, "allDmg", 0.15, 2, "SQH Sun Halo");
@@ -993,8 +993,8 @@ function runOne() {
                             tryBuff(a, "cd",  0.25, 3, "BDSM Moon Abyss");
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BDSM MOON ABYSS] ${a.name} (FG) +25% ATK, +25% CD (3r, direct)`, "#ec4899");
                         }
-                        a.energy += 20;
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BDSM GLOWED GLORY] ${a.name} +20 Energy (direct)`, "#ec4899");
+                        if (checkC(a, "BDSM Glowed Glory", "+20")) a.energy += 20;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BDSM GLOWED GLORY] ${a.name} +20 Energy (offsettable)`, "#ec4899");
                         if (a.isM) { addBuff(a, "allDmg", 0.15, 2, "BDSM Acheron Barque"); }
                         if (a === units[0]) {
                             boss.allDmgDealtDebuff = (boss.allDmgDealtDebuff || 0) + 0.10;
@@ -1099,7 +1099,7 @@ function runOne() {
             if (dodged) {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;💨 ${u.name} DODGED the boss active! (no Calamity/Curse)`, "#a3e635");
                 pupilUnits.forEach(pw => {
-                    pw.energy += 10;
+                    if (checkC(pw, "Pupil Dodge Energy", "+10")) pw.energy += 10;
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👁️ [PUPIL] ${pw.name} +10 Energy (ally ${u.name} dodged)`, "#e879f9");
                 });
             } else {
@@ -1131,7 +1131,7 @@ function runOne() {
                     if (ccK.length > 0) {
                         let rk = ccK[Math.floor(Math.random()*ccK.length)];
                         u.cc[rk] = 0;
-                        u.energy += 30;
+                        if (checkC(u, "LBRM Mirror Wings", "+30")) u.energy += 30;
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [MIRROR WINGS] ${u.name} CC removed (${rk}), +30 energy`, "#f0abfc");
                     }
                 }
@@ -1197,7 +1197,7 @@ function runOne() {
             if (u.art === "Spiritual Mirror") {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SPIRITUAL MIRROR] EoR: +15 energy & +6% HP to all allies`, "#38bdf8");
                 units.forEach(a => {
-                    a.energy += 15;
+                    if (checkC(a, "Spiritual Mirror Energy", "+15")) a.energy += 15;
                     a.hp = Math.min(100, a.hp + 6);
                     trackStat(a, "healingDone", 6);
                 });
