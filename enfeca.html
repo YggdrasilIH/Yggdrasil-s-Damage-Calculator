@@ -44,6 +44,7 @@
         <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="isl9" checked> Island 9 (allDmgReduction decay + HD ramp)</label></div>
         <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="isl10" checked> Island 10 (+25% allDmg all at round start)</label></div>
         <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="isl11" checked> Island 11 (Soul Protection — random CC immunity)</label></div>
+        <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="fearGT" checked> Fear Guild Train (sub-100 CI bonus applies to Fear)</label></div>
     </div>
 </div>
 
@@ -195,12 +196,16 @@ function trackStat(u, key, value) {
 function trigCal(u) {
     if (u.calamity >= 5) {
         let effectiveCI = u.baseCI + getBuffTotal(u, "ci");
-        let p = Math.max(0, 2.0 - effectiveCI); // p=0 at CI≥200%, p=1 at CI=100%
+        let fearCI = effectiveCI - (u.fearCIPenalty || 0);
+        let pStd  = Math.max(0, 2.0 - effectiveCI); // silence & seal
+        let pFear = Math.max(0, 2.0 - fearCI);       // fear (may be higher if GT off)
         // Track peak and average CI for summary reporting
         if (effectiveCI > u.peakCI) u.peakCI = effectiveCI;
         u.ciTotal += effectiveCI; u.ciSamples++;
-        log(`&nbsp;&nbsp;&nbsp;💠 [CI CHECK] ${u.name} effectiveCI=${(effectiveCI*100).toFixed(0)}% (base ${(u.baseCI*100).toFixed(0)}% + buffs +${(getBuffTotal(u,"ci")*100).toFixed(0)}%) → CC chance ${(p*100).toFixed(0)}%`, "#38bdf8");
+        let fearNote = (u.fearCIPenalty > 0) ? ` | Fear CI: ${(fearCI*100).toFixed(0)}% (GT off, chance ${(pFear*100).toFixed(0)}%)` : "";
+        log(`&nbsp;&nbsp;&nbsp;💠 [CI CHECK] ${u.name} effectiveCI=${(effectiveCI*100).toFixed(0)}% (base ${(u.baseCI*100).toFixed(0)}% + buffs +${(getBuffTotal(u,"ci")*100).toFixed(0)}%) → CC chance ${(pStd*100).toFixed(0)}%${fearNote}`, "#38bdf8");
         ["silence","fear","seal"].forEach(t => {
+            let p = (t === "fear") ? pFear : pStd;
             if (u.imm !== t && Math.random() < p) {
                 u.cc[t] = 2;
                 log(`&nbsp;&nbsp;&nbsp;🛑 [CC APPLIED] ${u.name} is ${t.toUpperCase()}ED!`, "#ef4444");
@@ -382,6 +387,7 @@ function runOne() {
     const is9  = document.getElementById('isl9').checked;
     const is11 = document.getElementById('isl11').checked;
     const is8  = document.getElementById('isl8').checked;
+    const fearGT = document.getElementById('fearGT').checked;
     const is10 = document.getElementById('isl10').checked;
     const mIdx = parseInt(document.querySelector('input[name="max"]:checked').value);
 
@@ -445,7 +451,8 @@ function runOne() {
             stats: { damageDealt: 0, healingDone: 0 },
             peakCI: 0,
             ciTotal: 0,
-            ciSamples: 0
+            ciSamples: 0,
+            fearCIPenalty: 0
         });
     }
 
@@ -506,8 +513,11 @@ function runOne() {
             let remainder = 1.0 - u.baseCI;
             let bonus = remainder * 0.20;
             u.buffs.ci.push({ value: bonus, rounds: 999, source: "Sub-100 CI Bonus" });
+            // If Fear Guild Train is OFF, this bonus doesn't apply to fear resistance
+            u.fearCIPenalty = fearGT ? 0 : bonus;
             let newTotal = u.baseCI + getBuffTotal(u, "ci");
-            log(`&nbsp;&nbsp;&nbsp;💠 [SUB-100 CI BONUS] ${u.name} pre-battle CI ${(u.baseCI*100).toFixed(0)}% < 100% → remainder ${(remainder*100).toFixed(1)}% × 20% = +${(bonus*100).toFixed(1)}% CI (permanent) | Eff. CI now: ${(newTotal*100).toFixed(1)}%`, "#facc15");
+            let fearNote = fearGT ? "" : ` | ⚠️ Fear CI: ${((newTotal - bonus)*100).toFixed(1)}% (GT off)`;
+            log(`&nbsp;&nbsp;&nbsp;💠 [SUB-100 CI BONUS] ${u.name} pre-battle CI ${(u.baseCI*100).toFixed(0)}% < 100% → remainder ${(remainder*100).toFixed(1)}% × 20% = +${(bonus*100).toFixed(1)}% CI (permanent) | Eff. CI now: ${(newTotal*100).toFixed(1)}%${fearNote}`, "#facc15");
         }
     });
     log(`⚔️ ═══════════════════════════════`, "#facc15");
