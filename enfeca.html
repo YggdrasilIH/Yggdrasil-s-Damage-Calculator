@@ -465,8 +465,8 @@ function runOne() {
             ciTotal: 0,
             ciSamples: 0,
             fearCIPenalty: 0,
-            peakDR: 0, drTotal: 0, drSamples: 0,
-            peakADR: 0, adrTotal: 0, adrSamples: 0
+            minDR: Infinity, maxDR: -Infinity, drTotal: 0, drSamples: 0,
+            minADR: Infinity, maxADR: -Infinity, adrTotal: 0, adrSamples: 0
         });
     }
 
@@ -1352,13 +1352,15 @@ function runOne() {
 
         log(`&nbsp;&nbsp;&nbsp;⏱️ BUFF TICK (end of round)`, "#34d399");
         units.forEach(u => {
-            // Sample DR and ADR before ticking (while buffs are still active)
-            let snapDR  = u.baseDR  + getBuffTotal(u, "dr");
-            let snapADR = u.baseADR + getBuffTotal(u, "allDmgReduction");
-            if (snapDR  > u.peakDR)  u.peakDR  = snapDR;
-            if (snapADR > u.peakADR) u.peakADR = snapADR;
-            u.drTotal  += snapDR;  u.drSamples++;
-            u.adrTotal += snapADR; u.adrSamples++;
+            // Sample DR and ADR rounds 6-15 only (avoids Island 9 decay skew)
+            if (r >= 6) {
+                let snapDR  = getBuffTotal(u, "dr");
+                let snapADR = getBuffTotal(u, "allDmgReduction");
+                u.minDR  = Math.min(u.minDR,  snapDR);  u.maxDR  = Math.max(u.maxDR,  snapDR);
+                u.minADR = Math.min(u.minADR, snapADR); u.maxADR = Math.max(u.maxADR, snapADR);
+                u.drTotal += snapDR; u.drSamples++;
+                u.adrTotal += snapADR; u.adrSamples++;
+            }
             tickBuffs(u);
             if (u.stygianMark) { u.stygianMark = false; log(`&nbsp;&nbsp;&nbsp;🌀 [SM] ${u.name} Stygian Mark expired`, "#64748b"); }
             if (u.veilOfMist) { u.veilOfMistRounds--; if (u.veilOfMistRounds <= 0) { u.veilOfMist = false; log(`&nbsp;&nbsp;&nbsp;🌀 [VoM] ${u.name} Veil of Mist expired`, "#64748b"); } }
@@ -1436,8 +1438,8 @@ function sim(multi) {
                     finalHD:0, minHD:Infinity, maxHD:-Infinity,
                     peakCI:0, minPeakCI:Infinity, maxPeakCI:-Infinity,
                     avgCI:0,
-                    peakDR:0, minPeakDR:Infinity, maxPeakDR:-Infinity, avgDR:0,
-                    peakADR:0, minPeakADR:Infinity, maxPeakADR:-Infinity, avgADR:0,
+                    minDR:Infinity, maxDR:-Infinity, avgDR:0,
+                    minADR:Infinity, maxADR:-Infinity, avgADR:0,
                     baseCI: u.baseCI
                 };
                 let s = stats[u.name];
@@ -1453,8 +1455,8 @@ function sim(multi) {
                 s.avgCI += u.ciSamples > 0 ? (u.ciTotal / u.ciSamples) : u.baseCI;
                 let snapDR  = u.drSamples  > 0 ? u.drTotal  / u.drSamples  : 0;
                 let snapADR = u.adrSamples > 0 ? u.adrTotal / u.adrSamples : 0;
-                s.peakDR  += u.peakDR;  s.minPeakDR  = Math.min(s.minPeakDR,  u.peakDR);  s.maxPeakDR  = Math.max(s.maxPeakDR,  u.peakDR);  s.avgDR  += snapDR;
-                s.peakADR += u.peakADR; s.minPeakADR = Math.min(s.minPeakADR, u.peakADR); s.maxPeakADR = Math.max(s.maxPeakADR, u.peakADR); s.avgADR += snapADR;
+                s.minDR  = Math.min(s.minDR,  u.minDR  === Infinity  ? 0 : u.minDR);  s.maxDR  = Math.max(s.maxDR,  u.maxDR  === -Infinity ? 0 : u.maxDR);  s.avgDR  += u.drSamples  > 0 ? u.drTotal  / u.drSamples  : 0;
+                s.minADR = Math.min(s.minADR, u.minADR === Infinity  ? 0 : u.minADR); s.maxADR = Math.max(s.maxADR, u.maxADR === -Infinity ? 0 : u.maxADR); s.avgADR += u.adrSamples > 0 ? u.adrTotal / u.adrSamples : 0;
             });
         }
         function pct(v) { return `${(v*100).toFixed(1)}%`; }
@@ -1463,7 +1465,7 @@ function sim(multi) {
         }
         let html = `<h3>AVERAGES + RANGES (${N} FIGHTS)</h3>`;
         html += `<p><b>Boss Holy Damage Stacks:</b> avg <span style="color:var(--accent)">${(totalHD/N).toFixed(2)}</span> stacks (+${(totalHD/N*12.5).toFixed(1)}% HD) &nbsp;|&nbsp; range <small style="color:#64748b">[${minHD} – ${maxHD} stacks / +${(minHD*12.5).toFixed(1)}% – +${(maxHD*12.5).toFixed(1)}% HD]</small></p>`;
-        html += `<table><tr><th>Hero</th><th>Base CI</th><th>Avg Actives</th><th>Avg CC Lost</th><th>Final ATK (avg [min–max])</th><th>Final allDmg (avg [min–max])</th><th>Peak CI during fight (avg [min–max])</th><th>Avg mid-fight CI</th><th>Peak DR (avg [min–max])</th><th>Avg mid-fight DR</th><th>Peak ADR (avg [min–max])</th><th>Avg mid-fight ADR</th><th>Final HD (avg [min–max])</th></tr>`;
+        html += `<table><tr><th>Hero</th><th>Base CI</th><th>Avg Actives</th><th>Avg CC Lost</th><th>Final ATK (avg [min–max])</th><th>Final allDmg (avg [min–max])</th><th>Peak CI during fight (avg [min–max])</th><th>Avg mid-fight CI</th><th>DR R6-15 (avg [min–max])</th><th>ADR R6-15 (avg [min–max])</th><th>Final HD (avg [min–max])</th></tr>`;
         for (let n in stats) {
             let s = stats[n];
             html += `<tr>
@@ -1475,10 +1477,8 @@ function sim(multi) {
                 <td>${range(s.finalAllDmg/N, s.minAllDmg, s.maxAllDmg)}</td>
                 <td>${range(s.peakCI/N, s.minPeakCI, s.maxPeakCI)}</td>
                 <td><span style="color:var(--accent)">${(s.avgCI/N*100).toFixed(1)}%</span></td>
-                <td>${range(s.peakDR/N, s.minPeakDR, s.maxPeakDR)}</td>
-                <td><span style="color:var(--accent)">${(s.avgDR/N*100).toFixed(1)}%</span></td>
-                <td>${range(s.peakADR/N, s.minPeakADR, s.maxPeakADR)}</td>
-                <td><span style="color:var(--accent)">${(s.avgADR/N*100).toFixed(1)}%</span></td>
+                <td>${range(s.avgDR/N, s.minDR === Infinity ? 0 : s.minDR, s.maxDR === -Infinity ? 0 : s.maxDR)}</td>
+                <td>${range(s.avgADR/N, s.minADR === Infinity ? 0 : s.minADR, s.maxADR === -Infinity ? 0 : s.maxADR)}</td>
                 <td>${range(s.finalHD/N, s.minHD, s.maxHD)}</td>
             </tr>`;
         }
