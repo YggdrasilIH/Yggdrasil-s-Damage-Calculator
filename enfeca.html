@@ -84,6 +84,16 @@ defaults.forEach((d, i) => {
                 <input type="number" id="dg${i}" value="0" min="0" max="100" placeholder="Dodge%" style="width:100%">
             </div>
         </div>
+        <div style="display:flex;gap:5px;margin-top:4px;">
+            <div style="flex:1">
+                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Pre-Battle DR %</label>
+                <input type="number" id="dr${i}" value="0" min="0" placeholder="DR%" style="width:100%">
+            </div>
+            <div style="flex:1">
+                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">All DMG Reduction %</label>
+                <input type="number" id="adr${i}" value="0" min="0" placeholder="ADR%" style="width:100%">
+            </div>
+        </div>
         <label><input type="checkbox" id="spec${i}"> Soul Specter</label>
         <label><input type="checkbox" id="pupil${i}"> Pupil</label>
         <label><input type="checkbox" id="nova${i}"> Nova</label>
@@ -413,6 +423,8 @@ function runOne() {
             isM: (i === mIdx), isFr: (i < 2), bDone: false,
             dodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
             baseDodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
+            baseDR:  (parseFloat(document.getElementById(`dr${i}`).value)  || 0) / 100,
+            baseADR: (parseFloat(document.getElementById(`adr${i}`).value) || 0) / 100,
             starSoulTally: 0,
             pupilActionCount: 0,
             pupilDodgeRounds: 0,
@@ -452,7 +464,9 @@ function runOne() {
             peakCI: 0,
             ciTotal: 0,
             ciSamples: 0,
-            fearCIPenalty: 0
+            fearCIPenalty: 0,
+            peakDR: 0, drTotal: 0, drSamples: 0,
+            peakADR: 0, adrTotal: 0, adrSamples: 0
         });
     }
 
@@ -522,6 +536,18 @@ function runOne() {
     });
     log(`⚔️ ═══════════════════════════════`, "#facc15");
     log(``, "#fff");
+
+    // Apply pre-battle DR and ADR as permanent buffs
+    units.forEach(u => {
+        if (u.baseDR > 0) {
+            u.buffs.dr.push({ value: u.baseDR, rounds: 999, source: "Pre-Battle DR" });
+            log(`&nbsp;&nbsp;&nbsp;🛡️ [PRE-BATTLE DR] ${u.name} +${(u.baseDR*100).toFixed(0)}% DR (permanent)`, "#94a3b8");
+        }
+        if (u.baseADR > 0) {
+            u.buffs.allDmgReduction.push({ value: u.baseADR, rounds: 999, source: "Pre-Battle ADR" });
+            log(`&nbsp;&nbsp;&nbsp;🛡️ [PRE-BATTLE ADR] ${u.name} +${(u.baseADR*100).toFixed(0)}% All DMG Reduction (permanent)`, "#94a3b8");
+        }
+    });
 
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "#ff4757");
@@ -1322,6 +1348,13 @@ function runOne() {
 
         log(`&nbsp;&nbsp;&nbsp;⏱️ BUFF TICK (end of round)`, "#34d399");
         units.forEach(u => {
+            // Sample DR and ADR before ticking (while buffs are still active)
+            let snapDR  = u.baseDR  + getBuffTotal(u, "dr");
+            let snapADR = u.baseADR + getBuffTotal(u, "allDmgReduction");
+            if (snapDR  > u.peakDR)  u.peakDR  = snapDR;
+            if (snapADR > u.peakADR) u.peakADR = snapADR;
+            u.drTotal  += snapDR;  u.drSamples++;
+            u.adrTotal += snapADR; u.adrSamples++;
             tickBuffs(u);
             if (u.stygianMark) { u.stygianMark = false; log(`&nbsp;&nbsp;&nbsp;🌀 [SM] ${u.name} Stygian Mark expired`, "#64748b"); }
             if (u.veilOfMist) { u.veilOfMistRounds--; if (u.veilOfMistRounds <= 0) { u.veilOfMist = false; log(`&nbsp;&nbsp;&nbsp;🌀 [VoM] ${u.name} Veil of Mist expired`, "#64748b"); } }
@@ -1399,6 +1432,8 @@ function sim(multi) {
                     finalHD:0, minHD:Infinity, maxHD:-Infinity,
                     peakCI:0, minPeakCI:Infinity, maxPeakCI:-Infinity,
                     avgCI:0,
+                    peakDR:0, minPeakDR:Infinity, maxPeakDR:-Infinity, avgDR:0,
+                    peakADR:0, minPeakADR:Infinity, maxPeakADR:-Infinity, avgADR:0,
                     baseCI: u.baseCI
                 };
                 let s = stats[u.name];
@@ -1412,6 +1447,10 @@ function sim(multi) {
                 s.finalHD += hd; s.minHD = Math.min(s.minHD, hd); s.maxHD = Math.max(s.maxHD, hd);
                 s.peakCI += u.peakCI; s.minPeakCI = Math.min(s.minPeakCI, u.peakCI); s.maxPeakCI = Math.max(s.maxPeakCI, u.peakCI);
                 s.avgCI += u.ciSamples > 0 ? (u.ciTotal / u.ciSamples) : u.baseCI;
+                let snapDR  = u.drSamples  > 0 ? u.drTotal  / u.drSamples  : 0;
+                let snapADR = u.adrSamples > 0 ? u.adrTotal / u.adrSamples : 0;
+                s.peakDR  += u.peakDR;  s.minPeakDR  = Math.min(s.minPeakDR,  u.peakDR);  s.maxPeakDR  = Math.max(s.maxPeakDR,  u.peakDR);  s.avgDR  += snapDR;
+                s.peakADR += u.peakADR; s.minPeakADR = Math.min(s.minPeakADR, u.peakADR); s.maxPeakADR = Math.max(s.maxPeakADR, u.peakADR); s.avgADR += snapADR;
             });
         }
         function pct(v) { return `${(v*100).toFixed(1)}%`; }
@@ -1420,7 +1459,7 @@ function sim(multi) {
         }
         let html = `<h3>AVERAGES + RANGES (${N} FIGHTS)</h3>`;
         html += `<p><b>Boss Holy Damage Stacks:</b> avg <span style="color:var(--accent)">${(totalHD/N).toFixed(2)}</span> stacks (+${(totalHD/N*12.5).toFixed(1)}% HD) &nbsp;|&nbsp; range <small style="color:#64748b">[${minHD} – ${maxHD} stacks / +${(minHD*12.5).toFixed(1)}% – +${(maxHD*12.5).toFixed(1)}% HD]</small></p>`;
-        html += `<table><tr><th>Hero</th><th>Base CI</th><th>Avg Actives</th><th>Avg CC Lost</th><th>Final ATK (avg [min–max])</th><th>Final allDmg (avg [min–max])</th><th>Peak CI during fight (avg [min–max])</th><th>Avg mid-fight CI</th><th>Final HD (avg [min–max])</th></tr>`;
+        html += `<table><tr><th>Hero</th><th>Base CI</th><th>Avg Actives</th><th>Avg CC Lost</th><th>Final ATK (avg [min–max])</th><th>Final allDmg (avg [min–max])</th><th>Peak CI during fight (avg [min–max])</th><th>Avg mid-fight CI</th><th>Peak DR (avg [min–max])</th><th>Avg mid-fight DR</th><th>Peak ADR (avg [min–max])</th><th>Avg mid-fight ADR</th><th>Final HD (avg [min–max])</th></tr>`;
         for (let n in stats) {
             let s = stats[n];
             html += `<tr>
@@ -1432,6 +1471,10 @@ function sim(multi) {
                 <td>${range(s.finalAllDmg/N, s.minAllDmg, s.maxAllDmg)}</td>
                 <td>${range(s.peakCI/N, s.minPeakCI, s.maxPeakCI)}</td>
                 <td><span style="color:var(--accent)">${(s.avgCI/N*100).toFixed(1)}%</span></td>
+                <td>${range(s.peakDR/N, s.minPeakDR, s.maxPeakDR)}</td>
+                <td><span style="color:var(--accent)">${(s.avgDR/N*100).toFixed(1)}%</span></td>
+                <td>${range(s.peakADR/N, s.minPeakADR, s.maxPeakADR)}</td>
+                <td><span style="color:var(--accent)">${(s.avgADR/N*100).toFixed(1)}%</span></td>
                 <td>${range(s.finalHD/N, s.minHD, s.maxHD)}</td>
             </tr>`;
         }
