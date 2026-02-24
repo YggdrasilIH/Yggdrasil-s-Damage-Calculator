@@ -1182,11 +1182,19 @@ function runOne(ov = null) {
                 }
                 if (u.name === "LBRM" && !silenced) {
                     if (u.powerOfDream >= 2) {
+                        log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream ≥2 → Dreamland Dominion fires as basic! (+6 trans)`, "#f0abfc");
+                        // Apply imprint basic effects as if this were a basic action
                         if (imp === "foresight") {
-                            if (checkC(u, "LBRM PoD Foresight", "+50")) u.energy += 50;
-                            log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream ≥2 → Dreamland Dominion as basic (Foresight +50 energy)`, "#f0abfc");
-                        } else {
-                            log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream ≥2 → Dreamland Dominion fires as basic! (+6 trans)`, "#f0abfc");
+                            if (u.cc.seal <= 0 && checkC(u, "Foresight Energy +50")) { u.energy += 50; }
+                            addBuff(u, "allDmg", 0.30, 15, "Foresight allDmg (basic)");
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM PoD] Foresight basic: +50 energy, +30% allDmg`, "#f0abfc");
+                        }
+                        if (imp === "destiny") {
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM PoD] Destiny basic: triggering for all allies`, "#f0abfc");
+                            units.forEach(a => {
+                                if (Math.random() < 0.75) { if (checkC(a, "Destiny +20", "+20")) a.energy += 20; }
+                                if (Math.random() < 0.50) { if (checkC(a, "Destiny +20 bonus", "+20")) a.energy += 20; }
+                            });
                         }
                         u.trans += 6;
                         let frontline2 = units.filter(a => a.isFr);
