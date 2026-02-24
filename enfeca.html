@@ -1976,13 +1976,13 @@ function runOptimizer() {
 
         // Phase 2: top 30 art+speed combos × all 10 positions
         p1results.sort((a,b) => b.dmg - a.dmg);
-        const top30 = p1results.slice(0, 30);
+        const top50 = p1results.slice(0, 50);
         const phase2 = [];
-        for (const r of top30)
+        for (const r of top50)
             for (const frArr of posArrs)
                 phase2.push({ arts: r.arts, spds: r.spds, frArr });
 
-        prog.textContent = `Phase 2/3: testing ${phase2.length} position combos on top 30 builds...`;
+        prog.textContent = `Phase 2/3: testing ${phase2.length} position combos on top 50 builds...`;
         let p2idx = 0, p2results = [];
 
         function runPhase2Chunk() {
@@ -2002,7 +2002,7 @@ function runOptimizer() {
             // Phase 3: top 20 × 100 fights retest
             p2results.sort((a,b) => b.dmg - a.dmg);
             const top20 = p2results.slice(0, 20);
-            prog.textContent = `Phase 3/3: re-testing top 20 builds with 100 fights each...`;
+            prog.textContent = `Phase 3/3: re-testing top 20 builds with 500 fights each...`;
             let p3idx = 0, p3results = [];
 
             function runPhase3Chunk() {
@@ -2017,12 +2017,12 @@ function runOptimizer() {
                 const r = top20[p3idx];
                 let total = 0;
                 silent = true;
-                for (let f = 0; f < 100; f++) {
+                for (let f = 0; f < 500; f++) {
                     const heroes = Array.from({length:6}, (_,i) => ({ art:r.arts[i], spd:r.spds[i], isFr:r.frArr[i] }));
                     total += runOne({ heroes }).units[mIdx]?.totalEstDmg || 0;
                 }
                 silent = false;
-                p3results.push({ ...r, avgDmg: total/100 });
+                p3results.push({ ...r, avgDmg: total/500 });
                 prog.textContent = `Phase 3/3: re-testing top 20 — ${p3idx+1}/20 done`;
                 p3idx++;
                 requestAnimationFrame(runPhase3Chunk);
@@ -2079,8 +2079,8 @@ function finishOptimizer(results, heroNames, mIdx, totalCombos) {
 
     html += `</tbody></table>
     <p style="color:#64748b;font-size:11px;margin-top:8px">
-        Initial scan: 1 fight per combination. Top 20 re-tested with 100 fights each for stable estimates.
-        ${totalCombos.toLocaleString()} total combinations evaluated (staged: art×speed then positions).
+        Initial scan: 1 fight per combination. Top 20 re-tested with 500 fights each for stable estimates.
+        ${totalCombos.toLocaleString()} total combinations evaluated (staged: art×speed then positions; phase 3 = 500 fights each).
     </p></div>`;
 
     document.getElementById('optOutput').innerHTML = html;
