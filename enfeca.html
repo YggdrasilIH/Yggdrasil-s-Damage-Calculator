@@ -107,6 +107,12 @@
 
 <button onclick="sim(false)">Simulate 15-Round Battle (Full Log)</button>
 <button onclick="sim(true)">Statistical Batch (1000 Fights Summary)</button>
+<button onclick="runOptimizer()" id="optBtn" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;color:#fff;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;">⚡ Find Optimal Build</button>
+<button onclick="runCritOptimizer()" id="critOptBtn" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);border:none;color:#fff;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;">🎯 Optimal Crit %</button>
+<div id="critOptProgress" style="display:none;margin-top:10px;padding:10px 14px;background:var(--card);border-radius:8px;font-size:13px;color:#94a3b8;"></div>
+<div id="critOptOutput"></div>
+<div id="optProgress" style="display:none;margin-top:10px;padding:10px 14px;background:var(--card);border-radius:8px;font-size:13px;color:#94a3b8;"></div>
+<div id="optOutput"></div>
 <div id="output"></div>
 
 <script>
@@ -477,7 +483,7 @@ function getDmgCalcInputs() {
     };
 }
 
-function runOne() {
+function runOne(ov = null) {
     const imp  = document.getElementById('gImp').value;
     const is9  = document.getElementById('isl9').checked;
     const is11 = document.getElementById('isl11').checked;
@@ -493,7 +499,9 @@ function runOne() {
     let isl9DRStacks = 6;
 
     for (let i = 0; i < 6; i++) {
-        let art = document.getElementById(`a${i}`).value;
+        let art = (ov && ov.heroes) ? ov.heroes[i].art : document.getElementById(`a${i}`).value;
+        const heroSpd = (ov && ov.heroes) ? ov.heroes[i].spd : parseInt(document.getElementById(`s${i}`).value);
+        const heroIsFr = (ov && ov.heroes) ? ov.heroes[i].isFr : (i < 2);
         units.push({
             pos: i+1,
             name: document.getElementById(`h${i}`).value,
@@ -502,11 +510,11 @@ function runOne() {
             cc: { silence:0, fear:0, seal:0 },
             imm: is11 ? ["silence","fear","seal"][Math.floor(Math.random()*3)] : "none",
             art: art,
-            spd: parseInt(document.getElementById(`s${i}`).value),
+            spd: heroSpd,
             baseCI: parseInt(document.getElementById(`ci${i}`).value) / 100,
             hasS: document.getElementById(`spec${i}`).checked,
             hasPupil: document.getElementById(`pupil${i}`).checked,
-            isM: (i === mIdx), isFr: (i < 2), bDone: false,
+            isM: (i === mIdx), isFr: heroIsFr, bDone: false,
             dodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
             baseDodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
             baseDR:  (parseFloat(document.getElementById(`dr${i}`).value)  || 0) / 100,
@@ -557,7 +565,7 @@ function runOne() {
         });
     }
 
-    boss = { abyssalCorruption: 0, bleed: [], spdDebuff: 0, spiritMirrorRound: 0, atkDebuff: 0, atkDebuffRounds: 0, armorDebuff: 0, armorDebuffRounds: 0, lethalIncense: false, lethalIncenseRounds: 0, veilOfMist: false, veilOfMistRounds: 0, healReduction: 0, healReductionRounds: 0, atkSteal: 0, atkStealRounds: 0, abyssalStacks: 0, shrink: false, shrinkRounds: 0, burn: 0, watcherMark: 0 };
+    boss = { abyssalCorruption: 0, bleed: [], spdDebuff: 0, spiritMirrorRound: 0, atkDebuff: 0, atkDebuffRounds: 0, armorDebuff: 0, armorDebuffRounds: 0, lethalIncense: false, lethalIncenseRounds: 0, veilOfMist: false, veilOfMistRounds: 0, healReduction: 0, healReductionRounds: 0, atkSteal: 0, atkStealRounds: 0, shrink: false, shrinkRounds: 0, burn: 0, watcherMark: 0 };
     let pet = { energy: 0 };
 
     for (let s = 0; s < 3; s++) {
@@ -965,7 +973,7 @@ function runOne() {
                         const critBuff    = dc.crit / 100 + getBuffTotal(u, "crit"); // user base + in-fight gains
                         const precCapped  = Math.min(dc.prec / 100, 1.50);
                         const cdCapped    = Math.min(dc.cd / 100 + getBuffTotal(u, "cd"), 1.50); // capped 150%
-                        const corrMult    = 1 + 0.24 * (boss.abyssalStacks || 0);
+                        const corrMult    = 1 + 0.24 * (boss.abyssalCorruption || 0);
                         const critMult    = 1.5 * cdCapped * 2 * corrMult;
                         const gkMult      = dc.gk ? 2.0 : 1.0;
                         const defMult     = (dc.defier && bossHPTier === "above70") ? 1.3 : 1.0;
@@ -1000,7 +1008,7 @@ function runOne() {
                                 * (1 + holyBuff * 0.7)
                                 * allDmgMult * gkMult * defMult * templeMult * shrinkMult
                                 * antiwarriorMult * watcherMarkMult * burnBonusMult;
-                            const isCrit = Math.random() < critBuff;
+                            const isCrit = Math.random() < (critBuff + 0.10); // LFA active +10% crit
                             if (!isCrit) anyCritMiss = true;
                             return isCrit ? base * critMult : base;
                         }
@@ -1066,7 +1074,7 @@ function runOne() {
                         u.srcBS     = (u.srcBS     || 0) + srcBS;
                         u.srcAddl   = (u.srcAddl   || 0) + srcAddl;
 
-                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK:${dc.atk.toLocaleString()} | ATKbuff:+${(atkBuff*100).toFixed(0)}% | Skill:+${dc.skill.toFixed(0)}% | Prec:${dc.prec.toFixed(0)}% | Holy:${(holyBuff*100).toFixed(0)}% (base ${dc.holy.toFixed(0)}%+fight ${(getBuffTotal(u,'hd')*100).toFixed(0)}%) | AllDmg:+${(allDmgMult*100-100).toFixed(0)}% | Crit:${(critBuff*100).toFixed(1)}%@${(cdCapped*100).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Def:${defMult>1?'✓':'✗'} Temple:×${templeMult.toFixed(2)} Shrink:${boss.shrink?'✓':'✗'} AbyssalStacks:${boss.abyssalStacks||0}${antiwarriorMult>1?' | Antiwarrior:×1.90':''} | WatcherMark:×${watcherMarkMult.toFixed(2)} | BurnBonus:×${burnBonusMult.toFixed(2)}`, '#facc15');
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK:${dc.atk.toLocaleString()} | ATKbuff:+${(atkBuff*100).toFixed(0)}% | Skill:+${dc.skill.toFixed(0)}% | Prec:${dc.prec.toFixed(0)}% | Holy:${(holyBuff*100).toFixed(0)}% (base ${dc.holy.toFixed(0)}%+fight ${(getBuffTotal(u,'hd')*100).toFixed(0)}%) | AllDmg:+${(allDmgMult*100-100).toFixed(0)}% | Crit:${(critBuff*100).toFixed(1)}%@${(cdCapped*100).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Def:${defMult>1?'✓':'✗'} Temple:×${templeMult.toFixed(2)} Shrink:${boss.shrink?'✓':'✗'} AbyssalCorruption:${boss.abyssalCorruption||0}${antiwarriorMult>1?' | Antiwarrior:×1.90':''} | WatcherMark:×${watcherMarkMult.toFixed(2)} | BurnBonus:×${burnBonusMult.toFixed(2)}`, '#facc15');
                         log('&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA] ATK × (1+ATKbuff) × (hitMult%+Skill%) × (1+min(Prec,150%)×0.3) × (1+Holy×0.7) × (1+AllDmg) × GK × Defier × Temple × Shrink' + (antiwarriorMult>1?' × Antiwarrior(1.9)':'') + ` × WatcherMark(${watcherMarkMult.toFixed(2)})` + ' → ×CritMult if crit', '#94a3b8');
                         log(`&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA VALUES] ATK:${dc.atk.toLocaleString()} × (1+${(atkBuff*100).toFixed(0)}%) × (12+${dc.skill.toFixed(0)}%) × (1+${(precCapped*100).toFixed(0)}%×0.3=${(1+precCapped*0.3).toFixed(3)}) × (1+${(holyBuff*100).toFixed(0)}%×0.7=${(1+holyBuff*0.7).toFixed(3)}) × ${allDmgMult.toFixed(3)} × ${gkMult} × ${defMult} × ${templeMult.toFixed(3)} × ${shrinkMult}${antiwarriorMult>1?' × 1.9':''} × ${watcherMarkMult.toFixed(2)}(WM) → CritMult: 1.5×${(cdCapped*100).toFixed(0)}%×2×${corrMult.toFixed(2)}=${critMult.toFixed(3)}`, '#94a3b8');
                         hitLog.forEach(h => log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚔️ ${h}`, '#facc15'));
@@ -1168,8 +1176,6 @@ function runOne() {
                     boss.critDebuff = (boss.critDebuff || 0) + 0.25;
                     boss.critDebuffRounds = 2;
                     log(`&nbsp;&nbsp;&nbsp;👑 [SQH QUEEN'S EDICT] Boss Crit -25% for 2 rounds (total: -${(boss.critDebuff*100).toFixed(0)}%)`, "#f59e0b");
-                    boss.abyssalStacks = (boss.abyssalStacks || 0) + 1;
-                    log(`&nbsp;&nbsp;&nbsp;👑 [SQH ABYSSAL CORRUPTION] Stack ${boss.abyssalStacks} → crit mult ×${(1 + 0.24*boss.abyssalStacks).toFixed(2)}`, "#f59e0b");
                 }
                 if (u.name === "LBRM" && !silenced) {
                     if (u.powerOfDream >= 2) {
@@ -1730,7 +1736,7 @@ function sim(multi) {
             maxHD = Math.max(maxHD, res.hd);
             const wm = (res.boss.watcherMark || 0) * 100; // as %
             totalWM += wm; minWM = Math.min(minWM, wm); maxWM = Math.max(maxWM, wm);
-            const as_ = res.boss.abyssalStacks || 0;
+            const as_ = res.boss.abyssalCorruption || 0;
             totalAS += as_; minAS = Math.min(minAS, as_); maxAS = Math.max(maxAS, as_);
             res.units.forEach(u => {
                 if (!stats[u.name]) stats[u.name] = {
@@ -1851,6 +1857,413 @@ function sim(multi) {
         out.innerHTML = html + `</table>` + dmgLine;
     }
 }
+// ═══════════════════════════════════════════════════════════════════════════
+// OPTIMIZER
+// ═══════════════════════════════════════════════════════════════════════════
+function runOptimizer() {
+    const btn  = document.getElementById('optBtn');
+    const prog = document.getElementById('optProgress');
+    const out  = document.getElementById('optOutput');
+
+    const dcPanel = document.getElementById('dmgCalcPanel');
+    if (!dcPanel || dcPanel.style.display === 'none') {
+        alert('Please open the Damage Calculator panel and fill in LFA\'s stats before running the optimizer.');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Optimizing...';
+    prog.style.display = 'block';
+    out.innerHTML = '';
+
+    const heroNames = Array.from({length:6}, (_,i) => document.getElementById(`h${i}`).value);
+    const mIdx      = parseInt(document.querySelector('input[name="max"]:checked').value);
+    const sqhIdx    = heroNames.indexOf('SQH');
+    const bdsmIdx   = heroNames.indexOf('BDSM');
+    const others    = [0,1,2,3,4,5].filter(i => i!==mIdx && i!==sqhIdx && i!==bdsmIdx);
+
+    const lfaArts   = ['Antiwarrior','Antlers','Scissors'];
+    const otherArts = ['Demon Bell','Spiritual Mirror','Scissors'];
+
+    // ── Artifact combos with ≥2 scissors ──────────────────────────────────
+    function buildArtCombos() {
+        const combos = [];
+        const nonLfa = [0,1,2,3,4,5].filter(i => i !== mIdx);
+        const n = nonLfa.length;
+        const total = Math.pow(otherArts.length, n);
+        for (const la of lfaArts) {
+            for (let mask = 0; mask < total; mask++) {
+                const arts = new Array(6);
+                arts[mIdx] = la;
+                let m = mask;
+                for (let k = 0; k < n; k++) {
+                    arts[nonLfa[k]] = otherArts[m % otherArts.length];
+                    m = Math.floor(m / otherArts.length);
+                }
+                if (arts.filter(a => a === 'Scissors').length >= 2) combos.push(arts);
+            }
+        }
+        return combos;
+    }
+
+    // ── Speed orderings: LFA last, SQH+BDSM in slots 0-1, others permuted ─
+    function buildSpeedOrds() {
+        const ords = [];
+        function permute(arr) {
+            if (arr.length <= 1) return [arr];
+            return arr.flatMap((v,i) => permute([...arr.slice(0,i),...arr.slice(i+1)]).map(p=>[v,...p]));
+        }
+        const otherPerms = permute(others);
+        for (const [s1,s2] of [[sqhIdx,bdsmIdx],[bdsmIdx,sqhIdx]]) {
+            for (const op of otherPerms) {
+                const order = [s1, s2, ...op, mIdx];
+                const spds = new Array(6);
+                order.forEach((hi, slot) => { spds[hi] = 2000 - slot*100; });
+                ords.push(spds);
+            }
+        }
+        return ords;
+    }
+
+    // ── Position arrangements: exactly 2 front, 4 back, LFA always back ───
+    function buildPosArrs() {
+        const nonLfa = [0,1,2,3,4,5].filter(i => i !== mIdx);
+        const arrs = [];
+        // choose 2 of the 5 non-LFA heroes to be frontline
+        for (let i = 0; i < nonLfa.length; i++) {
+            for (let j = i+1; j < nonLfa.length; j++) {
+                const isFr = new Array(6).fill(false);
+                isFr[nonLfa[i]] = true;
+                isFr[nonLfa[j]] = true;
+                // LFA stays false (backline)
+                arrs.push(isFr);
+            }
+        }
+        return arrs; // C(5,2) = 10
+    }
+
+    const artCombos  = buildArtCombos();
+    const speedOrds  = buildSpeedOrds();
+    const posArrs    = buildPosArrs();
+
+    // Default position for phase 1: first posArr (doesn't matter much, consistent)
+    const defaultPos = posArrs[0];
+
+    // Phase 1 combos: all arts × all speeds, fixed defaultPos
+    const phase1 = [];
+    for (const arts of artCombos)
+        for (const spds of speedOrds)
+            phase1.push({ arts, spds, frArr: defaultPos });
+
+    prog.textContent = `Phase 1: testing ${phase1.length.toLocaleString()} art×speed combos...`;
+
+    let p1idx = 0, p1results = [];
+    const CHUNK = 20;
+
+    function runPhase1Chunk() {
+        const end = Math.min(p1idx + CHUNK, phase1.length);
+        silent = true;
+        for (; p1idx < end; p1idx++) {
+            const { arts, spds, frArr } = phase1[p1idx];
+            const heroes = Array.from({length:6}, (_,i) => ({ art:arts[i], spd:spds[i], isFr:frArr[i] }));
+            const res = runOne({ heroes });
+            p1results.push({ dmg: res.units[mIdx]?.totalEstDmg||0, arts:[...arts], spds:[...spds] });
+        }
+        silent = false;
+        const pct = Math.round(p1idx/phase1.length*100);
+        prog.textContent = `Phase 1/3: art×speed — ${pct}% (${p1idx.toLocaleString()}/${phase1.length.toLocaleString()})`;
+        if (p1idx < phase1.length) { requestAnimationFrame(runPhase1Chunk); return; }
+
+        // Phase 2: top 30 art+speed combos × all 10 positions
+        p1results.sort((a,b) => b.dmg - a.dmg);
+        const top30 = p1results.slice(0, 30);
+        const phase2 = [];
+        for (const r of top30)
+            for (const frArr of posArrs)
+                phase2.push({ arts: r.arts, spds: r.spds, frArr });
+
+        prog.textContent = `Phase 2/3: testing ${phase2.length} position combos on top 30 builds...`;
+        let p2idx = 0, p2results = [];
+
+        function runPhase2Chunk() {
+            const end = Math.min(p2idx + CHUNK, phase2.length);
+            silent = true;
+            for (; p2idx < end; p2idx++) {
+                const { arts, spds, frArr } = phase2[p2idx];
+                const heroes = Array.from({length:6}, (_,i) => ({ art:arts[i], spd:spds[i], isFr:frArr[i] }));
+                const res = runOne({ heroes });
+                p2results.push({ dmg: res.units[mIdx]?.totalEstDmg||0, arts:[...arts], spds:[...spds], frArr:[...frArr] });
+            }
+            silent = false;
+            const pct2 = Math.round(p2idx/phase2.length*100);
+            prog.textContent = `Phase 2/3: positions — ${pct2}% (${p2idx}/${phase2.length})`;
+            if (p2idx < phase2.length) { requestAnimationFrame(runPhase2Chunk); return; }
+
+            // Phase 3: top 20 × 100 fights retest
+            p2results.sort((a,b) => b.dmg - a.dmg);
+            const top20 = p2results.slice(0, 20);
+            prog.textContent = `Phase 3/3: re-testing top 20 builds with 100 fights each...`;
+            let p3idx = 0, p3results = [];
+
+            function runPhase3Chunk() {
+                if (p3idx >= top20.length) {
+                    p3results.sort((a,b) => b.avgDmg - a.avgDmg);
+                    finishOptimizer(p3results, heroNames, mIdx, phase1.length + phase2.length);
+                    btn.disabled = false;
+                    btn.textContent = '⚡ Find Optimal Build';
+                    prog.style.display = 'none';
+                    return;
+                }
+                const r = top20[p3idx];
+                let total = 0;
+                silent = true;
+                for (let f = 0; f < 100; f++) {
+                    const heroes = Array.from({length:6}, (_,i) => ({ art:r.arts[i], spd:r.spds[i], isFr:r.frArr[i] }));
+                    total += runOne({ heroes }).units[mIdx]?.totalEstDmg || 0;
+                }
+                silent = false;
+                p3results.push({ ...r, avgDmg: total/100 });
+                prog.textContent = `Phase 3/3: re-testing top 20 — ${p3idx+1}/20 done`;
+                p3idx++;
+                requestAnimationFrame(runPhase3Chunk);
+            }
+            requestAnimationFrame(runPhase3Chunk);
+        }
+        requestAnimationFrame(runPhase2Chunk);
+    }
+    requestAnimationFrame(runPhase1Chunk);
+}
+
+function finishOptimizer(results, heroNames, mIdx, totalCombos) {
+    // Sort by damage descending
+    results.sort((a,b) => b.dmg - a.dmg);
+    const top = results; // already top 20 from phase 3
+
+    const rerun = results; // already retested in phase 3
+
+    const fmt = v => v > 0 ? Math.round(v).toLocaleString() : '—';
+    const artColors = {
+        'Antiwarrior': '#f59e0b', 'Antlers': '#4ade80',
+        'Scissors': '#38bdf8', 'Demon Bell': '#ec4899',
+        'Spiritual Mirror': '#a78bfa', 'None': '#64748b'
+    };
+    const badge = (art) => `<span style="background:${artColors[art]||'#475569'}22;color:${artColors[art]||'#94a3b8'};border:1px solid ${artColors[art]||'#475569'}44;padding:1px 6px;border-radius:4px;font-size:11px">${art}</span>`;
+
+    let html = `<div style="margin-top:16px">
+    <h3 style="color:#a78bfa;margin-bottom:12px">⚡ Top 20 Optimal Builds (100-fight re-test)</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:#1e293b;color:#94a3b8">
+        <th style="padding:8px;text-align:left">#</th>
+        <th style="padding:8px;text-align:left">Avg Damage</th>
+        <th style="padding:8px;text-align:left">Speed Order</th>
+        <th style="padding:8px;text-align:left">Positions</th>
+        <th style="padding:8px;text-align:left">Artifacts</th>
+    </tr></thead><tbody>`;
+
+    rerun.forEach((r, rank) => {
+        const spdOrder = Array.from({length:6},(_,i)=>i).sort((a,b)=>r.spds[b]-r.spds[a]);
+        const spdStr = spdOrder.map(i => heroNames[i]).join(' → ');
+        const posStr = Array.from({length:6},(_,i)=>i).map(i => `${heroNames[i]}:${r.frArr[i]?'Front':'Back'}`).join(' ');
+        const artStr = Array.from({length:6},(_,i)=>i).map(i => `${heroNames[i]}: ${badge(r.arts[i])}`).join(' ');
+
+        const rowBg = rank === 0 ? '#1e293b' : 'transparent';
+        const dmgColor = rank === 0 ? '#4ade80' : 'var(--accent)';
+        html += `<tr style="background:${rowBg};border-bottom:1px solid #1e293b">
+            <td style="padding:8px;color:#64748b">${rank+1}</td>
+            <td style="padding:8px;color:${dmgColor};font-weight:bold">${fmt(r.avgDmg)}</td>
+            <td style="padding:8px;color:#e2e8f0;white-space:nowrap">${spdStr}</td>
+            <td style="padding:8px;color:#94a3b8;font-size:11px">${posStr}</td>
+            <td style="padding:8px">${artStr}</td>
+        </tr>`;
+    });
+
+    html += `</tbody></table>
+    <p style="color:#64748b;font-size:11px;margin-top:8px">
+        Initial scan: 1 fight per combination. Top 20 re-tested with 100 fights each for stable estimates.
+        ${totalCombos.toLocaleString()} total combinations evaluated (staged: art×speed then positions).
+    </p></div>`;
+
+    document.getElementById('optOutput').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CRIT % OPTIMIZER
+// ═══════════════════════════════════════════════════════════════════════════
+function runCritOptimizer() {
+    const btn  = document.getElementById('critOptBtn');
+    const prog = document.getElementById('critOptProgress');
+    const out  = document.getElementById('critOptOutput');
+
+    // Check damage calc panel is open
+    const dcPanel = document.getElementById('dmgCalcPanel');
+    if (!dcPanel || dcPanel.style.display === 'none') {
+        alert('Please open the Damage Calculator panel and fill in LFA\'s stats before running the crit optimizer.');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Optimizing...';
+    prog.style.display = 'block';
+    out.innerHTML = '';
+
+    const mIdx = parseInt(document.querySelector('input[name="max"]:checked').value);
+    const FIGHTS_PER_VALUE = 100;
+    const results = []; // { crit, avgDmg }
+
+    // Sweep crit 0% to 100% in 1% steps
+    const critValues = Array.from({length: 101}, (_, i) => i); // 0..100
+
+    let ci = 0; // current crit index
+
+    function runNextCrit() {
+        if (ci >= critValues.length) {
+            finishCritOptimizer(results, mIdx);
+            btn.disabled = false;
+            btn.textContent = '🎯 Optimal Crit %';
+            prog.style.display = 'none';
+            return;
+        }
+
+        const critPct = critValues[ci];
+        // Temporarily override the crit input
+        const critInput = document.getElementById('dc_crit');
+        const origCrit = critInput.value;
+        critInput.value = critPct;
+
+        let total = 0;
+        silent = true;
+        for (let f = 0; f < FIGHTS_PER_VALUE; f++) {
+            const res = runOne();
+            total += res.units[mIdx]?.totalEstDmg || 0;
+        }
+        silent = false;
+
+        critInput.value = origCrit; // restore
+        results.push({ crit: critPct, avgDmg: total / FIGHTS_PER_VALUE });
+
+        const pct = Math.round((ci + 1) / critValues.length * 100);
+        prog.textContent = `Sweeping crit %... ${critPct}% tested | ${pct}% complete`;
+
+        ci++;
+        requestAnimationFrame(runNextCrit);
+    }
+
+    requestAnimationFrame(runNextCrit);
+}
+
+function finishCritOptimizer(results, mIdx) {
+    const out = document.getElementById('critOptOutput');
+
+    // Find optimum
+    const best = results.reduce((a, b) => b.avgDmg > a.avgDmg ? b : a);
+    const maxDmg = Math.max(...results.map(r => r.avgDmg));
+    const minDmg = Math.min(...results.map(r => r.avgDmg));
+    const dmgRange = maxDmg - minDmg || 1;
+
+    const fmt = v => Math.round(v).toLocaleString();
+
+    // Build SVG chart
+    const W = 600, H = 220, PAD = { t:20, r:20, b:40, l:60 };
+    const cW = W - PAD.l - PAD.r;
+    const cH = H - PAD.t - PAD.b;
+
+    const toX = crit => PAD.l + (crit / 100) * cW;
+    const toY = dmg  => PAD.t + cH - ((dmg - minDmg) / dmgRange) * cH;
+
+    // Polyline points
+    const pts = results.map(r => `${toX(r.crit).toFixed(1)},${toY(r.avgDmg).toFixed(1)}`).join(' ');
+
+    // X-axis labels every 10%
+    const xLabels = Array.from({length:11}, (_,i) => i*10).map(v =>
+        `<text x="${toX(v)}" y="${PAD.t+cH+18}" text-anchor="middle" fill="#64748b" font-size="10">${v}%</text>`
+    ).join('');
+
+    // Y-axis labels (3 ticks)
+    const yLabels = [0, 0.5, 1].map(t => {
+        const dmgVal = minDmg + t * dmgRange;
+        const y = toY(dmgVal);
+        return `<text x="${PAD.l-6}" y="${y+4}" text-anchor="end" fill="#64748b" font-size="10">${Math.round(dmgVal/1e9).toFixed(1)}B</text>
+                <line x1="${PAD.l}" y1="${y}" x2="${PAD.l+cW}" y2="${y}" stroke="#1e293b" stroke-width="1"/>`;
+    }).join('');
+
+    // Best marker
+    const bx = toX(best.crit), by = toY(best.avgDmg);
+
+    // Balanced Strike boundary — probability BS fires = 1 - (crit/100)^numHits
+    // At boss HP 50-59%: 5 hits. Show BS probability on secondary axis as dashed line
+    const bsPts = results.map(r => {
+        const bsProb = 1 - Math.pow(r.crit/100, 5);
+        const bsY = PAD.t + cH - bsProb * cH; // scale 0-100% probability to chart height
+        return `${toX(r.crit).toFixed(1)},${bsY.toFixed(1)}`;
+    }).join(' ');
+
+    const svgChart = `<svg width="${W}" height="${H}" style="display:block;margin:0 auto;overflow:visible">
+        <!-- grid -->
+        ${yLabels}
+        <!-- BS probability dashed line -->
+        <polyline points="${bsPts}" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
+        <!-- damage line -->
+        <polyline points="${pts}" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+        <!-- best marker -->
+        <circle cx="${bx}" cy="${by}" r="6" fill="#4ade80" stroke="#fff" stroke-width="1.5"/>
+        <line x1="${bx}" y1="${PAD.t}" x2="${bx}" y2="${PAD.t+cH}" stroke="#4ade80" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="${bx}" y="${PAD.t-6}" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="bold">${best.crit}% optimal</text>
+        <!-- axes -->
+        <line x1="${PAD.l}" y1="${PAD.t}" x2="${PAD.l}" y2="${PAD.t+cH}" stroke="#334155" stroke-width="1"/>
+        <line x1="${PAD.l}" y1="${PAD.t+cH}" x2="${PAD.l+cW}" y2="${PAD.t+cH}" stroke="#334155" stroke-width="1"/>
+        ${xLabels}
+        <text x="${PAD.l+cW/2}" y="${H-2}" text-anchor="middle" fill="#64748b" font-size="11">Pre-Battle Crit %</text>
+        <text x="12" y="${PAD.t+cH/2}" text-anchor="middle" fill="#64748b" font-size="11" transform="rotate(-90,12,${PAD.t+cH/2})">Avg Damage</text>
+        <!-- legend -->
+        <line x1="${PAD.l+cW-120}" y1="${PAD.t+8}" x2="${PAD.l+cW-100}" y2="${PAD.t+8}" stroke="#38bdf8" stroke-width="2"/>
+        <text x="${PAD.l+cW-96}" y="${PAD.t+12}" fill="#38bdf8" font-size="10">Avg Damage</text>
+        <line x1="${PAD.l+cW-120}" y1="${PAD.t+22}" x2="${PAD.l+cW-100}" y2="${PAD.t+22}" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <text x="${PAD.l+cW-96}" y="${PAD.t+26}" fill="#f59e0b" font-size="10">BS Proc Rate</text>
+    </svg>`;
+
+    // Top 5 table
+    const sorted = [...results].sort((a,b) => b.avgDmg - a.avgDmg).slice(0,5);
+    const tableRows = sorted.map((r, i) => {
+        const bsProb = (1 - Math.pow(r.crit/100, 5)) * 100;
+        const color = i === 0 ? '#4ade80' : 'var(--accent)';
+        return `<tr style="border-bottom:1px solid #1e293b">
+            <td style="padding:6px 10px;color:#64748b">${i+1}</td>
+            <td style="padding:6px 10px;color:${color};font-weight:bold">${r.crit}%</td>
+            <td style="padding:6px 10px;color:var(--accent)">${fmt(r.avgDmg)}</td>
+            <td style="padding:6px 10px;color:#f59e0b">${bsProb.toFixed(1)}%</td>
+        </tr>`;
+    }).join('');
+
+    out.innerHTML = `<div style="margin-top:16px;padding:16px;background:var(--card);border:1px solid #334155;border-radius:8px;">
+        <h3 style="color:#0ea5e9;margin:0 0 4px">🎯 Optimal Pre-Battle Crit %</h3>
+        <p style="color:#64748b;font-size:12px;margin:0 0 14px">
+            Sweeping 0–100% crit in 1% steps × 100 fights each. Crit DMG %, Holy, AllDmg and all other stats held at current damage calculator values.
+            <br>Tradeoff: higher crit = stronger hits but fewer Balanced Strike procs (fires when any of the 5 hits misses crit).
+        </p>
+        ${svgChart}
+        <div style="margin-top:16px;display:flex;align-items:center;gap:24px;padding:12px;background:#0f172a;border-radius:8px;">
+            <div><div style="color:#64748b;font-size:11px">Optimal Crit %</div><div style="color:#4ade80;font-size:22px;font-weight:bold">${best.crit}%</div></div>
+            <div><div style="color:#64748b;font-size:11px">Avg Damage at Optimum</div><div style="color:#4ade80;font-size:18px;font-weight:bold">${fmt(best.avgDmg)}</div></div>
+            <div><div style="color:#64748b;font-size:11px">BS Proc Rate at Optimum</div><div style="color:#f59e0b;font-size:18px;font-weight:bold">${((1-Math.pow(best.crit/100,5))*100).toFixed(1)}%</div></div>
+            <div><div style="color:#64748b;font-size:11px">Damage vs 100% Crit</div>
+                <div style="color:${best.crit<100?'#4ade80':'#64748b'};font-size:18px;font-weight:bold">
+                    ${best.crit < 100 ? '+' + (((best.avgDmg - (results[100]?.avgDmg||best.avgDmg)) / (results[100]?.avgDmg||1))*100).toFixed(1) + '%' : 'N/A'}
+                </div>
+            </div>
+        </div>
+        <table style="width:100%;margin-top:12px;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:#1e293b;color:#94a3b8">
+                <th style="padding:6px 10px;text-align:left">#</th>
+                <th style="padding:6px 10px;text-align:left">Crit %</th>
+                <th style="padding:6px 10px;text-align:left">Avg Damage</th>
+                <th style="padding:6px 10px;text-align:left">BS Proc Rate</th>
+            </tr></thead>
+            <tbody>${tableRows}</tbody>
+        </table>
+        <p style="color:#475569;font-size:11px;margin-top:8px">100 fights per crit value. Chart Y-axis normalized to damage range. Orange dashed = Balanced Strike proc probability.</p>
+    </div>`;
+}
+
 </script>
 </body>
 </html>
