@@ -986,7 +986,7 @@ function runOne(ov = null) {
                         function calcHit(multPct) {
                             const base = dc.atk
                                 * (1 + atkBuff)
-                                * ((multPct + dc.skill / 100))
+                                * ((multPct + (dc.skill + antlersSkill) / 100))
                                 * (1 + precCapped * 0.3)
                                 * (1 + (dc.holy / 100) * 0.7)
                                 * allDmgMult
@@ -999,6 +999,7 @@ function runOne(ov = null) {
                         let anyCritMiss = false;
                         let hits14Sum = 0; // sum of fully calculated hits 1-4 (for DKM)
                         const antiwarriorMult = (u.art === "Antiwarrior") ? 1.90 : 1.0;
+                        const antlersSkill    = (ov && ov.fromOptimizer) ? (u.art === "Antlers" ? 300 : u.art === "Antiwarrior" ? 50 : 0) : 0; // optimizer only
                         const watcherMarkMult  = 1 + (boss.watcherMark || 0); // e.g. 300% → ×4
                         const burnBonusMult    = (boss.burn > 0) ? 1 + getBuffTotal(u, "burnBonus") : 1.0; // only vs burn targets
                         function calcHitTracked(multPct) {
@@ -1075,7 +1076,7 @@ function runOne(ov = null) {
                         u.srcBS     = (u.srcBS     || 0) + srcBS;
                         u.srcAddl   = (u.srcAddl   || 0) + srcAddl;
 
-                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK:${dc.atk.toLocaleString()} | ATKbuff:+${(atkBuff*100).toFixed(0)}% | Skill:+${dc.skill.toFixed(0)}% | Prec:${dc.prec.toFixed(0)}% | Holy:${(holyBuff*100).toFixed(0)}% (base ${dc.holy.toFixed(0)}%+fight ${(getBuffTotal(u,'hd')*100).toFixed(0)}%) | AllDmg:+${(allDmgMult*100-100).toFixed(0)}% | Crit:${(critBuff*100).toFixed(1)}%@${(cdCapped*100).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Def:${defMult>1?'✓':'✗'} Temple:×${templeMult.toFixed(2)} Shrink:${boss.shrink?'✓':'✗'} AbyssalCorruption:${boss.abyssalCorruption||0}${antiwarriorMult>1?' | Antiwarrior:×1.90':''} | WatcherMark:×${watcherMarkMult.toFixed(2)} | BurnBonus:×${burnBonusMult.toFixed(2)}`, '#facc15');
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK:${dc.atk.toLocaleString()} | ATKbuff:+${(atkBuff*100).toFixed(0)}% | Skill:+${(dc.skill + antlersSkill).toFixed(0)}%${antlersSkill===300?" (incl +300 Antlers)":antlersSkill===50?" (incl +50 Antiwarrior)":""} | Prec:${dc.prec.toFixed(0)}% | Holy:${(holyBuff*100).toFixed(0)}% (base ${dc.holy.toFixed(0)}%+fight ${(getBuffTotal(u,'hd')*100).toFixed(0)}%) | AllDmg:+${(allDmgMult*100-100).toFixed(0)}% | Crit:${(critBuff*100).toFixed(1)}%@${(cdCapped*100).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Def:${defMult>1?'✓':'✗'} Temple:×${templeMult.toFixed(2)} Shrink:${boss.shrink?'✓':'✗'} AbyssalCorruption:${boss.abyssalCorruption||0}${antiwarriorMult>1?' | Antiwarrior:×1.90':''} | WatcherMark:×${watcherMarkMult.toFixed(2)} | BurnBonus:×${burnBonusMult.toFixed(2)}`, '#facc15');
                         log('&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA] ATK × (1+ATKbuff) × (hitMult%+Skill%) × (1+min(Prec,150%)×0.3) × (1+Holy×0.7) × (1+AllDmg) × GK × Defier × Temple × Shrink' + (antiwarriorMult>1?' × Antiwarrior(1.9)':'') + ` × WatcherMark(${watcherMarkMult.toFixed(2)})` + ' → ×CritMult if crit', '#94a3b8');
                         log(`&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA VALUES] ATK:${dc.atk.toLocaleString()} × (1+${(atkBuff*100).toFixed(0)}%) × (12+${dc.skill.toFixed(0)}%) × (1+${(precCapped*100).toFixed(0)}%×0.3=${(1+precCapped*0.3).toFixed(3)}) × (1+${(holyBuff*100).toFixed(0)}%×0.7=${(1+holyBuff*0.7).toFixed(3)}) × ${allDmgMult.toFixed(3)} × ${gkMult} × ${defMult} × ${templeMult.toFixed(3)} × ${shrinkMult}${antiwarriorMult>1?' × 1.9':''} × ${watcherMarkMult.toFixed(2)}(WM) → CritMult: 1.5×${(cdCapped*100).toFixed(0)}%×2×${corrMult.toFixed(2)}=${critMult.toFixed(3)}`, '#94a3b8');
                         hitLog.forEach(h => log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚔️ ${h}`, '#facc15'));
@@ -2058,7 +2059,7 @@ function runOptimizer() {
                     const hi = slotAssign[slot];
                     return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi };
                 });
-                dmgSum += runOne({ heroes }).units.find(u=>u.name==="LFA")?.totalEstDmg || 0;
+                dmgSum += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name==="LFA")?.totalEstDmg || 0;
             }
             p1results.push({ dmg: dmgSum / 3, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign] });
         }
@@ -2088,7 +2089,7 @@ function runOptimizer() {
                     const hi = sa[slot];
                     return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi };
                 });
-                const res = runOne({ heroes });
+                const res = runOne({ heroes, fromOptimizer: true });
                 p2results.push({ dmg: res.units.find(u=>u.name==="LFA")?.totalEstDmg||0, arts:[...arts], spds:[...spds], slotAssign:[...sa] });
             }
             silent = false;
@@ -2119,7 +2120,7 @@ function runOptimizer() {
                         const hi = r.slotAssign[slot];
                         return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi };
                     });
-                    const r3 = runOne({ heroes }); total += r3.units.find(u=>u.name==="LFA")?.totalEstDmg || 0;
+                    const r3 = runOne({ heroes, fromOptimizer: true }); total += r3.units.find(u=>u.name==="LFA")?.totalEstDmg || 0;
                 }
                 silent = false;
                 p3results.push({ ...r, avgDmg: total/500 });
