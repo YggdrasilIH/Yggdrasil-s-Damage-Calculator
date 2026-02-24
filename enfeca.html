@@ -78,7 +78,7 @@
                 <input type="number" id="dc_prec" value="0" style="width:100%">
             </div>
             <div>
-                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Holy DMG %</label>
+                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Holy DMG % (base)</label>
                 <input type="number" id="dc_holy" value="0" style="width:100%">
             </div>
             <div>
@@ -111,7 +111,7 @@
 
 <script>
 const HEROES = ["LFA","SQH","STV","BDSM","LBRM","ELY","HW"];
-const ARTS   = ["None","Demon Bell","Spiritual Mirror","Antlers","Scissors"];
+const ARTS   = ["None","Demon Bell","Spiritual Mirror","Antlers","Scissors","Antiwarrior"];
 const defaults = [
     { h:"BDSM", a:"Demon Bell", s:2000, ci:120 },
     { h:"SQH",  a:"Spiritual Mirror", s:1900, ci:110 },
@@ -466,15 +466,15 @@ function getDmgCalcInputs() {
     if (panel.style.display === 'none') return null; // calculator not open = not used
     return {
         atk:    parseFloat(document.getElementById('dc_atk').value)    || 0,
-        skill:  parseFloat(document.getElementById('dc_skill').value)  / 100 || 0,
-        prec:   parseFloat(document.getElementById('dc_prec').value)   / 100 || 0,
-        holy:   parseFloat(document.getElementById('dc_holy').value)   / 100 || 0,
-        alldmg: parseFloat(document.getElementById('dc_alldmg').value) / 100 || 0,
-        crit:   parseFloat(document.getElementById('dc_crit').value)   / 100 || 0,
-        cd:     parseFloat(document.getElementById('dc_cd').value)     / 100 || 1.5,
+        skill:  parseFloat(document.getElementById('dc_skill').value)  || 0,   // raw %, e.g. 45
+        prec:   parseFloat(document.getElementById('dc_prec').value)   || 0,   // raw %, e.g. 150
+        holy:   parseFloat(document.getElementById('dc_holy').value)   || 0,   // raw %, e.g. 150
+        alldmg: parseFloat(document.getElementById('dc_alldmg').value) || 0,   // raw %, e.g. 800
+        crit:   parseFloat(document.getElementById('dc_crit').value)   || 0,   // raw %, e.g. 45
+        cd:     parseFloat(document.getElementById('dc_cd').value)     || 150, // raw %, e.g. 150
         defier: document.getElementById('dc_defier').checked,
         gk:     document.getElementById('dc_gk').checked,
-        temple: (parseFloat(document.getElementById('dc_temple').value) || 0) / 100,
+        temple: parseFloat(document.getElementById('dc_temple').value) || 0,   // raw %, e.g. 150
     };
 }
 
@@ -949,15 +949,17 @@ function runOne() {
                     if (dc) {
                         const atkBuff     = getBuffTotal(u, "atk");
                         const allDmgBuff  = getBuffTotal(u, "allDmg");
+                        const holyBuff    = dc.holy / 100 + getBuffTotal(u, "hd");   // user base + in-fight gains
+                        const critBuff    = dc.crit / 100 + getBuffTotal(u, "crit"); // user base + in-fight gains
                         const precCapped  = Math.min(dc.prec / 100, 1.50);
-                        const cdCapped    = Math.min(dc.cd  / 100, 1.50);
+                        const cdCapped    = Math.min(dc.cd / 100 + getBuffTotal(u, "cd"), 1.50); // capped 150%
                         const corrMult    = 1 + 0.24 * (boss.abyssalStacks || 0);
                         const critMult    = 1.5 * cdCapped * 2 * corrMult;
                         const gkMult      = dc.gk ? 2.0 : 1.0;
                         const defMult     = (dc.defier && bossHPTier === "above70") ? 1.3 : 1.0;
-                        const templeMult  = 1 + dc.temple; // e.g. 150% → dc.temple=1.5 → templeMult=2.5
+                        const templeMult  = 1 + dc.temple / 100; // e.g. 150% → dc.temple=150 → templeMult=2.5
                         const shrinkMult  = boss.shrink ? 1.4 : 1.0;
-                        const allDmgMult  = 1 + allDmgBuff + dc.alldmg / 100;
+                        const allDmgMult  = 1 + allDmgBuff + dc.alldmg / 100; // dc.alldmg raw %, allDmgBuff already decimal
 
                         // Per-hit base formula (one hit of X% multiplier)
                         function calcHit(multPct) {
@@ -972,78 +974,89 @@ function runOne() {
                             return isCrit ? base * critMult : base;
                         }
 
-                        // Hits 1-2 (always, 1200% each)
-                        let totalDmg = 0;
-                        let hitLog = [];
-                        for (let h = 1; h <= 2; h++) {
-                            let d = calcHit(12); totalDmg += d;
-                            hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`);
-                        }
-                        // Hits 3-4 (below 60% HP)
-                        if (bossHPTier === "below50" || bossHPTier === "50-59") {
-                            for (let h = 3; h <= 4; h++) {
-                                let d = calcHit(12); totalDmg += d;
-                                hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`);
-                            }
-                        }
-                        // DKM: 120% of hits 1-4 base (GK, defier, shrink, allDmg apply, NOT per-hit precision/holy/skill/crit)
-                        const hits14Base = dc.atk * (1 + atkBuff) * ((bossHPTier === "below50" || bossHPTier === "50-59") ? 4*12 : 2*12) * allDmgMult * gkMult * defMult * templeMult * shrinkMult;
-                        const dkmDmgCalc = hits14Base * 1.20;
-                        totalDmg += dkmDmgCalc;
-                        hitLog.push(`DKM: ${Math.round(dkmDmgCalc).toLocaleString()}`);
-                        // ── Re-roll hits with crit tracking for Balanced Strike ──────────────
+                              // ── Damage calculation ──────────────────────────────────────────────────
                         let anyCritMiss = false;
+                        let hits14Sum = 0; // sum of fully calculated hits 1-4 (for DKM)
+                        const antiwarriorMult = (u.art === "Antiwarrior") ? 1.90 : 1.0;
                         function calcHitTracked(multPct) {
-                            const base = dc.atk * (1 + atkBuff) * (multPct + dc.skill / 100)
-                                * (1 + precCapped * 0.3) * (1 + (dc.holy / 100) * 0.7)
-                                * allDmgMult * gkMult * defMult * templeMult * shrinkMult;
-                            const isCrit = Math.random() < (dc.crit / 100);
+                            const base = dc.atk
+                                * (1 + atkBuff)
+                                * (multPct + dc.skill / 100)
+                                * (1 + precCapped * 0.3)
+                                * (1 + holyBuff * 0.7)
+                                * allDmgMult * gkMult * defMult * templeMult * shrinkMult
+                                * antiwarriorMult;
+                            const isCrit = Math.random() < critBuff;
                             if (!isCrit) anyCritMiss = true;
                             return isCrit ? base * critMult : base;
                         }
-                        hitLog = []; totalDmg = 0;
-                        for (let h = 1; h <= 2; h++) { let d = calcHitTracked(12); totalDmg += d; hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`); }
-                        if (bossHPTier === 'below50' || bossHPTier === '50-59') {
-                            for (let h = 3; h <= 4; h++) { let d = calcHitTracked(12); totalDmg += d; hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`); }
+                        const modMult = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+                        let hitLog = []; let totalDmg = 0;
+                        let srcHits = 0, srcDKM = 0, srcLethal = 0, srcBS = 0, srcAddl = 0;
+
+                        // Hits 1-2 (always)
+                        for (let h = 1; h <= 2; h++) {
+                            const d = calcHitTracked(12); totalDmg += d; hits14Sum += d;
+                            hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`);
                         }
+                        // Hits 3-4 (boss below 60%)
+                        if (bossHPTier === 'below50' || bossHPTier === '50-59') {
+                            for (let h = 3; h <= 4; h++) {
+                                const d = calcHitTracked(12); totalDmg += d; hits14Sum += d;
+                                hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`);
+                            }
+                        }
+                        srcHits += totalDmg; // hits 1-4 damage before DKM and hit 5
+
+                        // DKM: 120% of fully calculated hits 1-4 × modMult
+                        const dkmDmgCalc = hits14Sum * 1.20 * modMult;
+                        srcDKM = dkmDmgCalc;
                         totalDmg += dkmDmgCalc;
-                        hitLog.push(`DKM: ${Math.round(dkmDmgCalc).toLocaleString()}`);
-                        let d5 = calcHitTracked(12); totalDmg += d5;
+                        hitLog.push(`DKM (120% of hits 1-4 × modMult): ${Math.round(dkmDmgCalc).toLocaleString()}`);
+
+                        // Hit 5 (always)
+                        const d5 = calcHitTracked(12); totalDmg += d5; srcHits += d5;
                         hitLog.push(`Hit 5: ${Math.round(d5).toLocaleString()}`);
 
-                        const modMult = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
                         const initialPlusDKM = totalDmg;
 
-                        // ── Lethal Fightback: 18% of (hits 1-5 + DKM) × modMult ──────────────
+                        // ── Lethal Fightback: 18% of (hits 1-5 + DKM) × modMult ─────────────────
                         const lethalFB = initialPlusDKM * 0.18 * modMult;
+                        srcLethal = lethalFB;
                         totalDmg += lethalFB;
                         hitLog.push(`Lethal Fightback (18%): ${Math.round(lethalFB).toLocaleString()}`);
 
-                        // ── Balanced Strike: fires if any hit did NOT crit ────────────────────
-                        let balancedStrike = 0;
+                        // ── Balanced Strike: fires if any hit did NOT crit ────────────────────────
                         if (anyCritMiss) {
                             const bsPct = bossHPTier === 'below50' ? 1.95 : 0.45;
-                            balancedStrike = initialPlusDKM * bsPct * modMult;
-                            totalDmg += balancedStrike;
-                            hitLog.push(`Balanced Strike (${(bsPct*100).toFixed(0)}%, non-crit triggered): ${Math.round(balancedStrike).toLocaleString()}`);
+                            srcBS = initialPlusDKM * bsPct * modMult;
+                            totalDmg += srcBS;
+                            hitLog.push(`Balanced Strike (${(bsPct*100).toFixed(0)}%, non-crit): ${Math.round(srcBS).toLocaleString()}`);
                         } else {
                             hitLog.push(`Balanced Strike: skipped (all hits crit)`);
                         }
 
-                        // ── Additional Multiplier: 80% proc if not sealed, 10% of all prior dmg ─
-                        let addlHit = 0;
+                        // ── Additional Multiplier: 80% proc, not sealed, 10% of all prior ────────
                         if (u.cc.seal <= 0 && Math.random() < 0.80) {
-                            addlHit = (initialPlusDKM + lethalFB + balancedStrike) * 0.10 * modMult;
-                            totalDmg += addlHit;
-                            hitLog.push(`Additional Multiplier (80% proc, 10%): ${Math.round(addlHit).toLocaleString()}`);
+                            srcAddl = (initialPlusDKM + lethalFB + srcBS) * 0.10 * modMult;
+                            totalDmg += srcAddl;
+                            hitLog.push(`Additional Multiplier (80% proc, 10%): ${Math.round(srcAddl).toLocaleString()}`);
                         } else {
                             hitLog.push(`Additional Multiplier: ${u.cc.seal > 0 ? 'blocked (sealed)' : 'did not proc (20%)'}`);
                         }
 
-                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK: ${dc.atk.toLocaleString()} | ATK buff: +${(atkBuff*100).toFixed(0)}% | Prec: ${(precCapped*100).toFixed(0)}% | Holy: ${dc.holy.toFixed(0)}% | AllDmg: +${(allDmgMult*100-100).toFixed(0)}% | Crit: ${dc.crit}%@${(cdCapped*150).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Def:${defMult>1?'✓':'✗'} Temple:×${(1+dc.temple).toFixed(2)} (${(dc.temple*100).toFixed(0)}%) Shrink:${boss.shrink?'✓':'✗'} AbyssalStacks:${boss.abyssalStacks||0}`, '#facc15');
+                        // Accumulate per-source damage on unit
+                        u.srcHits   = (u.srcHits   || 0) + srcHits;
+                        u.srcDKM    = (u.srcDKM    || 0) + srcDKM;
+                        u.srcLethal = (u.srcLethal || 0) + srcLethal;
+                        u.srcBS     = (u.srcBS     || 0) + srcBS;
+                        u.srcAddl   = (u.srcAddl   || 0) + srcAddl;
+
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK:${dc.atk.toLocaleString()} | ATKbuff:+${(atkBuff*100).toFixed(0)}% | Skill:+${dc.skill.toFixed(0)}% | Prec:${dc.prec.toFixed(0)}% | Holy:${(holyBuff*100).toFixed(0)}% (base ${dc.holy.toFixed(0)}%+fight ${(getBuffTotal(u,'hd')*100).toFixed(0)}%) | AllDmg:+${(allDmgMult*100-100).toFixed(0)}% | Crit:${(critBuff*100).toFixed(1)}%@${(cdCapped*100).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Def:${defMult>1?'✓':'✗'} Temple:×${templeMult.toFixed(2)} Shrink:${boss.shrink?'✓':'✗'} AbyssalStacks:${boss.abyssalStacks||0}${antiwarriorMult>1?' | Antiwarrior:×1.90':''}`, '#facc15');
+                        log('&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA] ATK × (1+ATKbuff) × (hitMult%+Skill%) × (1+min(Prec,150%)×0.3) × (1+Holy×0.7) × (1+AllDmg) × GK × Defier × Temple × Shrink' + (antiwarriorMult>1?' × Antiwarrior(1.9)':'') + ' → ×CritMult if crit', '#94a3b8');
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA VALUES] ATK:${dc.atk.toLocaleString()} × (1+${(atkBuff*100).toFixed(0)}%) × (12+${dc.skill.toFixed(0)}%) × (1+${(precCapped*100).toFixed(0)}%×0.3=${(1+precCapped*0.3).toFixed(3)}) × (1+${(holyBuff*100).toFixed(0)}%×0.7=${(1+holyBuff*0.7).toFixed(3)}) × ${allDmgMult.toFixed(3)} × ${gkMult} × ${defMult} × ${templeMult.toFixed(3)} × ${shrinkMult}${antiwarriorMult>1?' × 1.9':''} → CritMult: 1.5×${(cdCapped*100).toFixed(0)}%×2×${corrMult.toFixed(2)}=${critMult.toFixed(3)}`, '#94a3b8');
                         hitLog.forEach(h => log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚔️ ${h}`, '#facc15'));
-                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC TOTAL] ${Math.round(totalDmg).toLocaleString()} damage this active`, '#facc15');
-                        u.totalEstDmg += totalDmg;
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC TOTAL] ${Math.round(totalDmg).toLocaleString()} damage this active`, '#facc15');                       u.totalEstDmg += totalDmg;
                     }
                 }
                 if (u.name === "ELY") {
@@ -1136,6 +1149,8 @@ function runOne() {
                     boss.critDebuff = (boss.critDebuff || 0) + 0.25;
                     boss.critDebuffRounds = 2;
                     log(`&nbsp;&nbsp;&nbsp;👑 [SQH QUEEN'S EDICT] Boss Crit -25% for 2 rounds (total: -${(boss.critDebuff*100).toFixed(0)}%)`, "#f59e0b");
+                    boss.abyssalStacks = (boss.abyssalStacks || 0) + 1;
+                    log(`&nbsp;&nbsp;&nbsp;👑 [SQH ABYSSAL CORRUPTION] Stack ${boss.abyssalStacks} → crit mult ×${(1 + 0.24*boss.abyssalStacks).toFixed(2)}`, "#f59e0b");
                 }
                 if (u.name === "LBRM" && !silenced) {
                     if (u.powerOfDream >= 2) {
@@ -1654,6 +1669,7 @@ function sim(multi) {
                     minDR:Infinity, maxDR:-Infinity, avgDR:0,
                     minADR:Infinity, maxADR:-Infinity, avgADR:0,
                     totalEstDmg:0, minEstDmg:Infinity, maxEstDmg:-Infinity,
+                    srcHits:0, srcDKM:0, srcLethal:0, srcBS:0, srcAddl:0,
                     baseCI: u.baseCI
                 };
                 let s = stats[u.name];
@@ -1673,6 +1689,11 @@ function sim(multi) {
                     s.totalEstDmg += u.totalEstDmg;
                     s.minEstDmg = Math.min(s.minEstDmg, u.totalEstDmg);
                     s.maxEstDmg = Math.max(s.maxEstDmg, u.totalEstDmg);
+                    s.srcHits   += (u.srcHits   || 0);
+                    s.srcDKM    += (u.srcDKM    || 0);
+                    s.srcLethal += (u.srcLethal || 0);
+                    s.srcBS     += (u.srcBS     || 0);
+                    s.srcAddl   += (u.srcAddl   || 0);
                 }
                 s.minDR  = Math.min(s.minDR,  u.minDR  === Infinity  ? 0 : u.minDR);  s.maxDR  = Math.max(s.maxDR,  u.maxDR  === -Infinity ? 0 : u.maxDR);  s.avgDR  += u.drSamples  > 0 ? u.drTotal  / u.drSamples  : 0;
                 s.minADR = Math.min(s.minADR, u.minADR === Infinity  ? 0 : u.minADR); s.maxADR = Math.max(s.maxADR, u.maxADR === -Infinity ? 0 : u.maxADR); s.avgADR += u.adrSamples > 0 ? u.adrTotal / u.adrSamples : 0;
@@ -1700,6 +1721,7 @@ function sim(multi) {
                 <td>${range(s.finalAllDmg/N, s.minAllDmg, s.maxAllDmg)}</td>
                 <td>${range(s.peakCI/N, s.minPeakCI, s.maxPeakCI)}</td>
                 <td><span style="color:var(--accent)">${(s.avgCI/N*100).toFixed(1)}%</span></td>
+
                 <td>${range(s.avgDR/N, s.minDR === Infinity ? 0 : s.minDR, s.maxDR === -Infinity ? 0 : s.maxDR)}</td>
                 <td>${range(s.avgADR/N, s.minADR === Infinity ? 0 : s.minADR, s.maxADR === -Infinity ? 0 : s.maxADR)}</td>
 
@@ -1710,13 +1732,41 @@ function sim(multi) {
         let dmgLine = '';
         const dmgEntry = Object.values(stats).find(s => s.totalEstDmg > 0);
         if (dmgEntry) {
-            const avg = Math.round(dmgEntry.totalEstDmg / N).toLocaleString();
-            const mn  = Math.round(dmgEntry.minEstDmg).toLocaleString();
-            const mx  = Math.round(dmgEntry.maxEstDmg).toLocaleString();
-            dmgLine = `<div style="margin-top:12px;padding:12px 16px;background:var(--card);border:1px solid #334155;border-radius:8px;font-size:13px;">
-                ⚔️ <strong>Estimated Fight Damage (Max ATK Hero)</strong> —
-                Avg: <span style="color:var(--accent);font-weight:bold">${avg}</span>
-                &nbsp;<small style="color:#64748b">[${mn} – ${mx}]</small>
+            const s = dmgEntry;
+            const fmt = v => Math.round(v/N).toLocaleString();
+            const pct = (part, total) => total > 0 ? (part/total*100).toFixed(1)+'%' : '—';
+            const tot = s.totalEstDmg / N;
+            dmgLine = `<div style="margin-top:12px;padding:14px 16px;background:var(--card);border:1px solid #334155;border-radius:8px;font-size:13px;line-height:1.8;">
+                <div>⚔️ <strong>Estimated Fight Damage (Max ATK Hero)</strong> —
+                Avg: <span style="color:var(--accent);font-weight:bold">${Math.round(tot).toLocaleString()}</span>
+                <small style="color:#64748b">[${Math.round(s.minEstDmg).toLocaleString()} – ${Math.round(s.maxEstDmg).toLocaleString()}]</small></div>
+                <div style="margin-top:6px;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;font-size:12px;">
+                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;">
+                        <div style="color:#94a3b8">Hits 1-5</div>
+                        <div style="color:var(--accent)">${fmt(s.srcHits)}</div>
+                        <div style="color:#64748b">${pct(s.srcHits, s.totalEstDmg)}</div>
+                    </div>
+                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;">
+                        <div style="color:#94a3b8">DKM</div>
+                        <div style="color:var(--accent)">${fmt(s.srcDKM)}</div>
+                        <div style="color:#64748b">${pct(s.srcDKM, s.totalEstDmg)}</div>
+                    </div>
+                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;">
+                        <div style="color:#94a3b8">Lethal Fightback</div>
+                        <div style="color:var(--accent)">${fmt(s.srcLethal)}</div>
+                        <div style="color:#64748b">${pct(s.srcLethal, s.totalEstDmg)}</div>
+                    </div>
+                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;">
+                        <div style="color:#94a3b8">Balanced Strike</div>
+                        <div style="color:var(--accent)">${fmt(s.srcBS)}</div>
+                        <div style="color:#64748b">${pct(s.srcBS, s.totalEstDmg)}</div>
+                    </div>
+                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;">
+                        <div style="color:#94a3b8">Addl. Multiplier</div>
+                        <div style="color:var(--accent)">${fmt(s.srcAddl)}</div>
+                        <div style="color:#64748b">${pct(s.srcAddl, s.totalEstDmg)}</div>
+                    </div>
+                </div>
             </div>`;
         }
         out.innerHTML = html + `</table>` + dmgLine;
