@@ -324,8 +324,7 @@ function triggerBoundlessSepal(bdsm) {
         log(`&nbsp;&nbsp;&nbsp;🌸 [BOUNDLESS SEPAL] Limit reached!`, "#ec4899");
         if (Math.random() < 0.60) {
             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 Boss STUNNED for 2 rounds (60% proc)`, "#ec4899");
-            boss.stunned = (boss.stunned || 0) + 2;
-        }
+            }
         boss.ciDebuff = (boss.ciDebuff || 0) + 0.10;
         boss.ciDebuffRounds = 2;
         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BOUNDLESS DEEP SUB] Boss back-line CI -10% for 2 rounds`, "#ec4899");
@@ -394,10 +393,7 @@ function triggerFF(actor, stv) {
     let heal = (100 - lowest.hp) * 0.15;
     lowest.hp = Math.min(100, lowest.hp + heal);
     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [FF] ${lowest.name} +${heal.toFixed(1)}% lost HP restored (now ${lowest.hp.toFixed(1)}%)`, "#a78bfa");
-    if (Math.random() < 0.70) {
-        boss.stunned = (boss.stunned || 0) + 2;
-        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [FF DEEP SUB] Boss STUNNED 2 rounds (70% proc)`, "#a78bfa");
-    }
+
     lowest.shield = Math.min(100, (lowest.shield || 0) + 1000);
     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [FF NOBLE SUB] ${lowest.name} gains Shield (1000% ATK)`, "#a78bfa");
 }
@@ -441,6 +437,9 @@ function triggerPupil(actor) {
 function triggerNova(u) {
     if (!u.hasNova) return;
     u.novaActionCount++;
+    // Burn: applied to boss every action
+    boss.burn = (boss.burn || 0) + 1;
+    log(`&nbsp;&nbsp;&nbsp;💫 [NOVA BURN] Boss Burn stack ${boss.burn} applied by ${u.name}`, "#fcd34d");
     log(`&nbsp;&nbsp;&nbsp;💫 [NOVA] ${u.name} action count: ${u.novaActionCount}/4`, "#fcd34d");
     if (u.novaActionCount >= 4) {
         u.novaActionCount = 0;
@@ -546,7 +545,7 @@ function runOne() {
             fictionalMagic: false,
             fictionalMagicRounds: 0,
             mirrorMagicCount: 3,
-            buffs: { atk:[], dr:[], ci:[], spd:[], hd:[], cd:[], crit:[], armor:[], allDmg:[], allDmgReduction:[], drOffset:[] },
+            buffs: { atk:[], dr:[], ci:[], spd:[], hd:[], cd:[], crit:[], armor:[], allDmg:[], allDmgReduction:[], drOffset:[], burnBonus:[] },
             stats: { damageDealt: 0, healingDone: 0 },
             peakCI: 0,
             ciTotal: 0,
@@ -558,7 +557,8 @@ function runOne() {
         });
     }
 
-    boss = { abyssalCorruption: 0, bleed: [], spdDebuff: 0, spiritMirrorRound: 0, atkDebuff: 0, atkDebuffRounds: 0, armorDebuff: 0, armorDebuffRounds: 0, lethalIncense: false, lethalIncenseRounds: 0, veilOfMist: false, veilOfMistRounds: 0, healReduction: 0, healReductionRounds: 0, atkSteal: 0, atkStealRounds: 0 };
+    boss = { abyssalCorruption: 0, bleed: [], spdDebuff: 0, spiritMirrorRound: 0, atkDebuff: 0, atkDebuffRounds: 0, armorDebuff: 0, armorDebuffRounds: 0, lethalIncense: false, lethalIncenseRounds: 0, veilOfMist: false, veilOfMistRounds: 0, healReduction: 0, healReductionRounds: 0, atkSteal: 0, atkStealRounds: 0, abyssalStacks: 0, shrink: false, shrinkRounds: 0, burn: 0, watcherMark: 0 };
+    let pet = { energy: 0 };
 
     for (let s = 0; s < 3; s++) {
         let val = document.getElementById(`lowhp${s}`).value;
@@ -641,6 +641,18 @@ function runOne() {
 
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "#ff4757");
+
+        // ── Pet activation ────────────────────────────────────────────────────
+        if (pet.energy >= 100) {
+            pet.energy = 0;
+            log(`&nbsp;&nbsp;&nbsp;🐾 [PET ACTIVATE] Energy ≥100 — burst! Gives +80% burn bonus dmg to 4 heroes (3r)`, "#a78bfa");
+            // Pick 4 random heroes
+            const shuffled = [...units].sort(() => Math.random() - 0.5);
+            shuffled.slice(0, 4).forEach(h => {
+                addBuff(h, "burnBonus", 0.80, 3, "Pet Burn Bonus");
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🐾 ${h.name} +80% burn bonus dmg (3r)`, "#a78bfa");
+            });
+        }
 
         units.forEach(u => { if (u.pupilDodgeRounds > 0) u.pupilDodgeRounds--; });
 
@@ -978,6 +990,8 @@ function runOne() {
                         let anyCritMiss = false;
                         let hits14Sum = 0; // sum of fully calculated hits 1-4 (for DKM)
                         const antiwarriorMult = (u.art === "Antiwarrior") ? 1.90 : 1.0;
+                        const watcherMarkMult  = 1 + (boss.watcherMark || 0); // e.g. 300% → ×4
+                        const burnBonusMult    = (boss.burn > 0) ? 1 + getBuffTotal(u, "burnBonus") : 1.0; // only vs burn targets
                         function calcHitTracked(multPct) {
                             const base = dc.atk
                                 * (1 + atkBuff)
@@ -985,7 +999,7 @@ function runOne() {
                                 * (1 + precCapped * 0.3)
                                 * (1 + holyBuff * 0.7)
                                 * allDmgMult * gkMult * defMult * templeMult * shrinkMult
-                                * antiwarriorMult;
+                                * antiwarriorMult * watcherMarkMult * burnBonusMult;
                             const isCrit = Math.random() < critBuff;
                             if (!isCrit) anyCritMiss = true;
                             return isCrit ? base * critMult : base;
@@ -1052,9 +1066,9 @@ function runOne() {
                         u.srcBS     = (u.srcBS     || 0) + srcBS;
                         u.srcAddl   = (u.srcAddl   || 0) + srcAddl;
 
-                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK:${dc.atk.toLocaleString()} | ATKbuff:+${(atkBuff*100).toFixed(0)}% | Skill:+${dc.skill.toFixed(0)}% | Prec:${dc.prec.toFixed(0)}% | Holy:${(holyBuff*100).toFixed(0)}% (base ${dc.holy.toFixed(0)}%+fight ${(getBuffTotal(u,'hd')*100).toFixed(0)}%) | AllDmg:+${(allDmgMult*100-100).toFixed(0)}% | Crit:${(critBuff*100).toFixed(1)}%@${(cdCapped*100).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Def:${defMult>1?'✓':'✗'} Temple:×${templeMult.toFixed(2)} Shrink:${boss.shrink?'✓':'✗'} AbyssalStacks:${boss.abyssalStacks||0}${antiwarriorMult>1?' | Antiwarrior:×1.90':''}`, '#facc15');
-                        log('&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA] ATK × (1+ATKbuff) × (hitMult%+Skill%) × (1+min(Prec,150%)×0.3) × (1+Holy×0.7) × (1+AllDmg) × GK × Defier × Temple × Shrink' + (antiwarriorMult>1?' × Antiwarrior(1.9)':'') + ' → ×CritMult if crit', '#94a3b8');
-                        log(`&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA VALUES] ATK:${dc.atk.toLocaleString()} × (1+${(atkBuff*100).toFixed(0)}%) × (12+${dc.skill.toFixed(0)}%) × (1+${(precCapped*100).toFixed(0)}%×0.3=${(1+precCapped*0.3).toFixed(3)}) × (1+${(holyBuff*100).toFixed(0)}%×0.7=${(1+holyBuff*0.7).toFixed(3)}) × ${allDmgMult.toFixed(3)} × ${gkMult} × ${defMult} × ${templeMult.toFixed(3)} × ${shrinkMult}${antiwarriorMult>1?' × 1.9':''} → CritMult: 1.5×${(cdCapped*100).toFixed(0)}%×2×${corrMult.toFixed(2)}=${critMult.toFixed(3)}`, '#94a3b8');
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK:${dc.atk.toLocaleString()} | ATKbuff:+${(atkBuff*100).toFixed(0)}% | Skill:+${dc.skill.toFixed(0)}% | Prec:${dc.prec.toFixed(0)}% | Holy:${(holyBuff*100).toFixed(0)}% (base ${dc.holy.toFixed(0)}%+fight ${(getBuffTotal(u,'hd')*100).toFixed(0)}%) | AllDmg:+${(allDmgMult*100-100).toFixed(0)}% | Crit:${(critBuff*100).toFixed(1)}%@${(cdCapped*100).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Def:${defMult>1?'✓':'✗'} Temple:×${templeMult.toFixed(2)} Shrink:${boss.shrink?'✓':'✗'} AbyssalStacks:${boss.abyssalStacks||0}${antiwarriorMult>1?' | Antiwarrior:×1.90':''} | WatcherMark:×${watcherMarkMult.toFixed(2)} | BurnBonus:×${burnBonusMult.toFixed(2)}`, '#facc15');
+                        log('&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA] ATK × (1+ATKbuff) × (hitMult%+Skill%) × (1+min(Prec,150%)×0.3) × (1+Holy×0.7) × (1+AllDmg) × GK × Defier × Temple × Shrink' + (antiwarriorMult>1?' × Antiwarrior(1.9)':'') + ` × WatcherMark(${watcherMarkMult.toFixed(2)})` + ' → ×CritMult if crit', '#94a3b8');
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA VALUES] ATK:${dc.atk.toLocaleString()} × (1+${(atkBuff*100).toFixed(0)}%) × (12+${dc.skill.toFixed(0)}%) × (1+${(precCapped*100).toFixed(0)}%×0.3=${(1+precCapped*0.3).toFixed(3)}) × (1+${(holyBuff*100).toFixed(0)}%×0.7=${(1+holyBuff*0.7).toFixed(3)}) × ${allDmgMult.toFixed(3)} × ${gkMult} × ${defMult} × ${templeMult.toFixed(3)} × ${shrinkMult}${antiwarriorMult>1?' × 1.9':''} × ${watcherMarkMult.toFixed(2)}(WM) → CritMult: 1.5×${(cdCapped*100).toFixed(0)}%×2×${corrMult.toFixed(2)}=${critMult.toFixed(3)}`, '#94a3b8');
                         hitLog.forEach(h => log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚔️ ${h}`, '#facc15'));
                         log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC TOTAL] ${Math.round(totalDmg).toLocaleString()} damage this active`, '#facc15');                       u.totalEstDmg += totalDmg;
                     }
@@ -1063,6 +1077,11 @@ function runOne() {
                     boss.shrink = true;
                     boss.shrinkRounds = 2;
                     log(`&nbsp;&nbsp;&nbsp;🌊 [ELY ACTIVE] Boss Shrink applied (2r, ×1.4 dmg)`, "#38bdf8");
+                }
+                if (u.name === "HW") {
+                    const prev = boss.watcherMark || 0;
+                    boss.watcherMark = Math.min(3.0, prev + 0.45);
+                    log(`&nbsp;&nbsp;&nbsp;👁️ [HW ACTIVE] Watcher Mark +45% → ${(boss.watcherMark*100).toFixed(0)}% (cap 300%)`, "#38bdf8");
                 }
                 if (u.art === "Demon Bell") {
                     units.forEach(a => {
@@ -1231,6 +1250,11 @@ function runOne() {
                     boss.shrinkRounds = 2;
                     log(`&nbsp;&nbsp;&nbsp;🌊 [ELY BASIC] Boss Shrink applied/refreshed (2r, ×1.4 dmg)`, "#38bdf8");
                 }
+                if (u.name === "HW" && u.cc.seal <= 0) {
+                    const prev = boss.watcherMark || 0;
+                    boss.watcherMark = Math.min(3.0, prev + 0.35);
+                    log(`&nbsp;&nbsp;&nbsp;👁️ [HW BASIC] Watcher Mark +35% → ${(boss.watcherMark*100).toFixed(0)}% (cap 300%)`, "#38bdf8");
+                }
                 tryStarSoul(u);
                 triggerPupil(u);
                 triggerNova(u);
@@ -1364,7 +1388,10 @@ function runOne() {
             }
 
             // BOSS COUNTERATTACK
-            if (didHitBoss) {
+            // Pet gains 10 energy per boss hit (cannot be sealed/blocked)
+                pet.energy += 10;
+                log(`&nbsp;&nbsp;&nbsp;🐾 [PET] ${u.name} hit boss → Pet +10 energy (now ${pet.energy})`, "#a78bfa");
+                if (didHitBoss) {
                 log(`&nbsp;&nbsp;&nbsp;☠️ [BOSS COUNTER] Corrupting Touch triggered!`, "#ef4444");
                 units.forEach(h => {
                     h.calamity++;
@@ -1577,6 +1604,10 @@ function runOne() {
             if (u.calamity > 0) { u.calamity--; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;❄️ ${u.name}: -1 Cal (now ${u.calamity})`, "#a5b4fc"); }
         });
 
+        // Pet end-of-round +20 energy
+        pet.energy += 20;
+        log(`&nbsp;&nbsp;&nbsp;🐾 [PET EoR] +20 energy → ${pet.energy} total`, "#a78bfa");
+
         log(`&nbsp;&nbsp;&nbsp;⏱️ BUFF TICK (end of round)`, "#34d399");
         units.forEach(u => {
             // Sample DR and ADR rounds 6-15 only (avoids Island 9 decay skew)
@@ -1601,6 +1632,43 @@ function runOne() {
         if (boss.veilOfMist) { boss.veilOfMistRounds--; if (boss.veilOfMistRounds <= 0) { boss.veilOfMist = false; log(`&nbsp;&nbsp;&nbsp;🌀 [VoM] Boss Veil of Mist expired`, "#64748b"); } }
         if (boss.healReductionRounds > 0) { boss.healReductionRounds--; if (boss.healReductionRounds <= 0) { boss.healReduction = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV COMET HOP] Boss heal reduction expired`, "#64748b"); } }
         if (boss.shrinkRounds > 0) { boss.shrinkRounds--; if (boss.shrinkRounds <= 0) { boss.shrink = false; log(`&nbsp;&nbsp;&nbsp;🌊 [SHRINK] Boss shrink expired`, "#38bdf8"); } }
+
+        // ── Boss removes 3 random debuffs ────────────────────────────────────
+        {
+            const activeDebuffs = [];
+            if ((boss.atkDebuff || 0) > 0 || (boss.atkSteal || 0) > 0) activeDebuffs.push("atk");
+            if ((boss.armorDebuff || 0) > 0) activeDebuffs.push("armor");
+            if ((boss.drDebuff || 0) > 0) activeDebuffs.push("dr");
+            if ((boss.ciDebuff || 0) > 0) activeDebuffs.push("ci");
+            if ((boss.spdDebuff || 0) > 0) activeDebuffs.push("spd");
+            if ((boss.critDebuff || 0) > 0) activeDebuffs.push("crit");
+            if ((boss.healReduction || 0) > 0) activeDebuffs.push("heal");
+            if (boss.bleed && boss.bleed.length > 0) activeDebuffs.push("bleed");
+            if ((boss.burn || 0) > 0) activeDebuffs.push("burn");
+            if ((boss.watcherMark || 0) > 0) activeDebuffs.push("watcherMark");
+
+            // Shuffle and pick up to 3
+            for (let i = activeDebuffs.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [activeDebuffs[i], activeDebuffs[j]] = [activeDebuffs[j], activeDebuffs[i]];
+            }
+            const toRemove = activeDebuffs.slice(0, 3);
+            if (toRemove.length > 0) {
+                log(`&nbsp;&nbsp;&nbsp;💀 [BOSS CLEANSE] Removes ${toRemove.length} debuff(s): ${toRemove.join(", ")}`, "#ef4444");
+                toRemove.forEach(d => {
+                    if (d === "atk")        { boss.atkDebuff = 0; boss.atkSteal = 0; boss.atkDebuffRounds = 0; }
+                    if (d === "armor")      { boss.armorDebuff = 0; boss.armorDebuffRounds = 0; }
+                    if (d === "dr")         { boss.drDebuff = 0; boss.drDebuffRounds = 0; }
+                    if (d === "ci")         { boss.ciDebuff = 0; boss.ciDebuffRounds = 0; }
+                    if (d === "spd")        { boss.spdDebuff = 0; boss.spdDebuffRounds = 0; }
+                    if (d === "crit")       { boss.critDebuff = 0; boss.critDebuffRounds = 0; }
+                    if (d === "heal")       { boss.healReduction = 0; boss.healReductionRounds = 0; }
+                    if (d === "bleed")      { boss.bleed = []; }
+                    if (d === "burn")       { boss.burn = 0; }
+                    if (d === "watcherMark"){ boss.watcherMark = 0; }
+                });
+            }
+        }
 
         if (boss.bleed && boss.bleed.length > 0) {
             log(`&nbsp;&nbsp;&nbsp;🩸 BLEED PHASE`, "#f59e0b");
@@ -1653,11 +1721,17 @@ function sim(multi) {
     } else {
         const N = 1000;
         let stats = {}, totalHD = 0, minHD = Infinity, maxHD = -Infinity;
+        let totalWM = 0, minWM = Infinity, maxWM = -Infinity;
+        let totalAS = 0, minAS = Infinity, maxAS = -Infinity;
         for (let i = 0; i < N; i++) {
             let res = runOne();
             totalHD += res.hd;
             minHD = Math.min(minHD, res.hd);
             maxHD = Math.max(maxHD, res.hd);
+            const wm = (res.boss.watcherMark || 0) * 100; // as %
+            totalWM += wm; minWM = Math.min(minWM, wm); maxWM = Math.max(maxWM, wm);
+            const as_ = res.boss.abyssalStacks || 0;
+            totalAS += as_; minAS = Math.min(minAS, as_); maxAS = Math.max(maxAS, as_);
             res.units.forEach(u => {
                 if (!stats[u.name]) stats[u.name] = {
                     acts:0, lost:0,
@@ -1707,7 +1781,12 @@ function sim(multi) {
         function range(avg, mn, mx) {
             return `<span style="color:var(--accent)">${pct(avg)}</span> <small style="color:#64748b">[${pct(mn)} – ${pct(mx)}]</small>`;
         }
-        let html = `<h3>AVERAGES + RANGES (${N} FIGHTS)</h3>`;
+        const fmtR = (avg, mn, mx, dec=1) => `<span style="color:var(--accent);font-weight:bold">${avg.toFixed(dec)}</span> <small style="color:#64748b">[${mn.toFixed(dec)}&ndash;${mx.toFixed(dec)}]</small>`;
+        let html = `<div style="margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid #334155;border-radius:8px;font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>👁️ <strong>Watcher Mark (end of fight)</strong><br>Avg: ${fmtR(totalWM/N, minWM, maxWM)}%</div>
+            <div>👑 <strong>Abyssal Corruption stacks (end of fight)</strong><br>Avg: ${fmtR(totalAS/N, minAS, maxAS)}</div>
+        </div>`;
+        html += `<h3>AVERAGES + RANGES (${N} FIGHTS)</h3>`;
         html += `<p><b>Boss Holy Damage Stacks:</b> avg <span style="color:var(--accent)">${(totalHD/N).toFixed(2)}</span> stacks (+${(totalHD/N*12.5).toFixed(1)}% HD) &nbsp;|&nbsp; range <small style="color:#64748b">[${minHD} – ${maxHD} stacks / +${(minHD*12.5).toFixed(1)}% – +${(maxHD*12.5).toFixed(1)}% HD]</small></p>`;
         html += `<table><tr><th>Hero</th><th>Base CI</th><th>Avg Actives</th><th>Avg CC Lost</th><th>Final ATK (avg [min–max])</th><th>Final allDmg (avg [min–max])</th><th>Peak CI during fight (avg [min–max])</th><th>Avg mid-fight CI</th><th>DR R6-15 (avg [min–max])</th><th>ADR R6-15 (avg [min–max])</th><th>Final HD (avg [min–max])</th></tr>`;
         for (let n in stats) {
