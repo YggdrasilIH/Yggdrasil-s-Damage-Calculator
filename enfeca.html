@@ -504,7 +504,7 @@ function runOne(ov = null) {
         const heroIsFr = (ov && ov.heroes) ? ov.heroes[i].isFr : (i < 2);
         units.push({
             pos: i+1,
-            name: document.getElementById(`h${i}`).value,
+            name: (ov && ov.heroes && ov.heroes[i].name) ? ov.heroes[i].name : document.getElementById(`h${i}`).value,
             energy: (art === "Demon Bell" || art === "Spiritual Mirror") ? 100 : 50,
             curse: 0, calamity: 0, trans: 0, acts: 0, turnsLost: 0,
             cc: { silence:0, fear:0, seal:0 },
@@ -512,9 +512,9 @@ function runOne(ov = null) {
             art: art,
             spd: heroSpd,
             baseCI: parseInt(document.getElementById(`ci${i}`).value) / 100,
-            hasS: document.getElementById(`spec${i}`).checked,
-            hasPupil: document.getElementById(`pupil${i}`).checked,
-            isM: (i === mIdx), isFr: heroIsFr, bDone: false,
+            hasS: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? document.getElementById(`spec${ov.heroes[i].cardIdx}`).checked : document.getElementById(`spec${i}`).checked,
+            hasPupil: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? document.getElementById(`pupil${ov.heroes[i].cardIdx}`).checked : document.getElementById(`pupil${i}`).checked,
+            isM: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? (ov.heroes[i].cardIdx === mIdx) : (i === mIdx), isFr: heroIsFr, bDone: false,
             dodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
             baseDodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
             baseDR:  (parseFloat(document.getElementById(`dr${i}`).value)  || 0) / 100,
@@ -522,7 +522,7 @@ function runOne(ov = null) {
             starSoulTally: 0,
             pupilActionCount: 0,
             pupilDodgeRounds: 0,
-            hasNova: document.getElementById(`nova${i}`).checked,
+            hasNova: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? document.getElementById(`nova${ov.heroes[i].cardIdx}`).checked : document.getElementById(`nova${i}`).checked,
             novaActionCount: 0,
             isLowHP: false,
             lbrmSlot1: (i === 0),
@@ -1925,35 +1925,48 @@ function runOptimizer() {
         return ords;
     }
 
-    // ── Position arrangements: exactly 2 front, 4 back, LFA always back ───
-    function buildPosArrs() {
+    // ── Slot arrangements: assign heroes to slots 0-5 ───────────────────
+    // Slots 0,1 = frontline, slots 2-5 = backline
+    // LFA can be in any backline slot (2,3,4,5)
+    // Returns array of slot assignments: slotAssign[slotIdx] = heroCardIdx
+    function buildSlotArrs() {
         const nonLfa = [0,1,2,3,4,5].filter(i => i !== mIdx);
         const arrs = [];
-        // choose 2 of the 5 non-LFA heroes to be frontline
-        for (let i = 0; i < nonLfa.length; i++) {
-            for (let j = i+1; j < nonLfa.length; j++) {
-                const isFr = new Array(6).fill(false);
-                isFr[nonLfa[i]] = true;
-                isFr[nonLfa[j]] = true;
-                // LFA stays false (backline)
-                arrs.push(isFr);
+        function permute(arr) {
+            if (arr.length <= 1) return [arr];
+            return arr.flatMap((v,i) => permute([...arr.slice(0,i),...arr.slice(i+1)]).map(p=>[v,...p]));
+        }
+        // Choose ordered pair for slots 0,1 (front): P(5,2) = 20
+        for (let fi = 0; fi < nonLfa.length; fi++) {
+            for (let fj = 0; fj < nonLfa.length; fj++) {
+                if (fi === fj) continue;
+                const front2 = [nonLfa[fi], nonLfa[fj]];
+                const remaining3 = nonLfa.filter((_,k) => k!==fi && k!==fj);
+                // LFA can go in any of 4 backline positions (slots 2-5)
+                for (let lfaBackSlot = 0; lfaBackSlot <= 3; lfaBackSlot++) {
+                    // remaining3 fill the other 3 backline slots
+                    for (const perm of permute(remaining3)) {
+                        const back4 = [...perm.slice(0, lfaBackSlot), mIdx, ...perm.slice(lfaBackSlot)];
+                        arrs.push([...front2, ...back4]);
+                    }
+                }
             }
         }
-        return arrs; // C(5,2) = 10
+        return arrs; // P(5,2) × 4 × 3! = 20 × 4 × 6 = 480
     }
 
     const artCombos  = buildArtCombos();
     const speedOrds  = buildSpeedOrds();
-    const posArrs    = buildPosArrs();
+    const slotArrs   = buildSlotArrs();
 
     // Default position for phase 1: first posArr (doesn't matter much, consistent)
-    const defaultPos = posArrs[0];
+    const defaultSlot = slotArrs[0];
 
     // Phase 1 combos: all arts × all speeds, fixed defaultPos
     const phase1 = [];
     for (const arts of artCombos)
         for (const spds of speedOrds)
-            phase1.push({ arts, spds, frArr: defaultPos });
+            phase1.push({ arts, spds, slotAssign: defaultSlot });
 
     prog.textContent = `Phase 1: testing ${phase1.length.toLocaleString()} art×speed combos...`;
 
@@ -1965,9 +1978,12 @@ function runOptimizer() {
         silent = true;
         for (; p1idx < end; p1idx++) {
             const { arts, spds, frArr } = phase1[p1idx];
-            const heroes = Array.from({length:6}, (_,i) => ({ art:arts[i], spd:spds[i], isFr:frArr[i] }));
+            const heroes = Array.from({length:6}, (_,slot) => {
+                const hi = phase1[p1idx].slotAssign[slot];
+                return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi };
+            });
             const res = runOne({ heroes });
-            p1results.push({ dmg: res.units[mIdx]?.totalEstDmg||0, arts:[...arts], spds:[...spds] });
+            p1results.push({ dmg: res.units.find(u=>u.name==="LFA")?.totalEstDmg||0, arts:[...arts], spds:[...spds] });
         }
         silent = false;
         const pct = Math.round(p1idx/phase1.length*100);
@@ -1979,8 +1995,8 @@ function runOptimizer() {
         const top50 = p1results.slice(0, 50);
         const phase2 = [];
         for (const r of top50)
-            for (const frArr of posArrs)
-                phase2.push({ arts: r.arts, spds: r.spds, frArr });
+            for (const slotAssign of slotArrs)
+                phase2.push({ arts: r.arts, spds: r.spds, slotAssign });
 
         prog.textContent = `Phase 2/3: testing ${phase2.length} position combos on top 50 builds...`;
         let p2idx = 0, p2results = [];
@@ -1990,9 +2006,13 @@ function runOptimizer() {
             silent = true;
             for (; p2idx < end; p2idx++) {
                 const { arts, spds, frArr } = phase2[p2idx];
-                const heroes = Array.from({length:6}, (_,i) => ({ art:arts[i], spd:spds[i], isFr:frArr[i] }));
+                const sa = phase2[p2idx].slotAssign;
+                const heroes = Array.from({length:6}, (_,slot) => {
+                    const hi = sa[slot];
+                    return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi };
+                });
                 const res = runOne({ heroes });
-                p2results.push({ dmg: res.units[mIdx]?.totalEstDmg||0, arts:[...arts], spds:[...spds], frArr:[...frArr] });
+                p2results.push({ dmg: res.units.find(u=>u.name==="LFA")?.totalEstDmg||0, arts:[...arts], spds:[...spds], slotAssign:[...sa] });
             }
             silent = false;
             const pct2 = Math.round(p2idx/phase2.length*100);
@@ -2018,8 +2038,11 @@ function runOptimizer() {
                 let total = 0;
                 silent = true;
                 for (let f = 0; f < 500; f++) {
-                    const heroes = Array.from({length:6}, (_,i) => ({ art:r.arts[i], spd:r.spds[i], isFr:r.frArr[i] }));
-                    total += runOne({ heroes }).units[mIdx]?.totalEstDmg || 0;
+                    const heroes = Array.from({length:6}, (_,slot) => {
+                        const hi = r.slotAssign[slot];
+                        return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi };
+                    });
+                    const r3 = runOne({ heroes }); total += r3.units.find(u=>u.name==="LFA")?.totalEstDmg || 0;
                 }
                 silent = false;
                 p3results.push({ ...r, avgDmg: total/500 });
@@ -2052,33 +2075,38 @@ function finishOptimizer(results, heroNames, mIdx, totalCombos) {
     <thead><tr style="background:#1e293b;color:#94a3b8">
         <th style="padding:8px;text-align:left">#</th>
         <th style="padding:8px;text-align:left">Avg Damage (500 fights)</th>
-        <th style="padding:8px;text-align:left">Build (Speed Order → Pos · Artifact)</th>
+        <th style="padding:8px;text-align:left">Acting Order</th>
+        <th style="padding:8px;text-align:left">Slot 1→6 (1-2 Front · Artifact)</th>
     </tr></thead><tbody>`;
 
     results.forEach((r, rank) => {
-        // Speed order: heroes sorted by spd descending
-        const spdOrder = Array.from({length:6},(_,i)=>i).sort((a,b)=>r.spds[b]-r.spds[a]);
+        // Speed order (acting order) sorted by spd descending
+        // spds[heroCardIdx] = spd value; slotAssign[slot] = heroCardIdx
+        const spdOrder = Array.from({length:6},(_,i)=>i)
+            .sort((a,b) => r.spds[b] - r.spds[a]);
+        const actingOrder = spdOrder.map(i => heroNames[i]).join(' → ');
 
-        // Combined column: for each hero in speed order, show Name (Front/Back) [Artifact badge]
-        const buildStr = spdOrder.map((heroI, slot) =>
-            `<span style="color:#e2e8f0">${slot+1}. ${heroNames[heroI]}</span> ` +
-            `<span style="color:${r.frArr[heroI]?'#f87171':'#94a3b8'};font-size:10px">${r.frArr[heroI]?'Fr':'Bk'}</span> ` +
-            badge(r.arts[heroI])
-        ).join('<span style="color:#334155"> &nbsp;|&nbsp; </span>');
+        // Slot order display: slot 1-6 in order, slots 1-2 are front (no label needed)
+        // slotAssign[slot] = heroCardIdx
+        const slotStr = r.slotAssign.map((hi, slot) =>
+            `<span style="color:#64748b;font-size:10px">${slot+1}.</span> ` +
+            `<span style="color:${slot<2?'#f87171':'#94a3b8'}">${heroNames[hi]}</span> ` +
+            badge(r.arts[hi])
+        ).join('<span style="color:#1e293b"> | </span>');
 
         const rowBg = rank === 0 ? '#172033' : 'transparent';
         const dmgColor = rank === 0 ? '#4ade80' : 'var(--accent)';
         html += `<tr style="background:${rowBg};border-bottom:1px solid #1e293b">
             <td style="padding:8px;color:#64748b;font-weight:bold">${rank+1}</td>
             <td style="padding:8px;color:${dmgColor};font-weight:bold;white-space:nowrap">${fmt(r.avgDmg)}</td>
-            <td style="padding:8px;line-height:2">${buildStr}</td>
+            <td style="padding:8px;color:#e2e8f0;white-space:nowrap">${actingOrder}</td>
+            <td style="padding:8px;line-height:2">${slotStr}</td>
         </tr>`;
     });
 
     html += `</tbody></table>
     <p style="color:#64748b;font-size:11px;margin-top:8px">
-        Phase 1: ${(totalCombos - 500).toLocaleString()} art×speed combos (1 fight each) → top 50 into position sweep →
-        top 20 re-tested with 500 fights each. Ranked strictly by 500-fight average damage.
+        Phase 1: art×speed combos (1 fight each) → top 50 into slot arrangement sweep (480 arrangements, LFA any backline slot) → top 20 re-tested with 500 fights each. Ranked strictly by 500-fight average damage. Red = frontline slots (1-2), grey = backline (3-6).
     </p></div>`;
 
     document.getElementById('optOutput').innerHTML = html;
