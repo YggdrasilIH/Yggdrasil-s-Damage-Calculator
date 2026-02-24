@@ -2035,52 +2035,50 @@ function runOptimizer() {
 }
 
 function finishOptimizer(results, heroNames, mIdx, totalCombos) {
-    // Sort by damage descending
-    results.sort((a,b) => b.dmg - a.dmg);
-    const top = results; // already top 20 from phase 3
-
-    const rerun = results; // already retested in phase 3
+    // Sort by avgDmg (500-fight average) descending — this is the only correct sort
+    results.sort((a,b) => b.avgDmg - a.avgDmg);
 
     const fmt = v => v > 0 ? Math.round(v).toLocaleString() : '—';
     const artColors = {
         'Antiwarrior': '#f59e0b', 'Antlers': '#4ade80',
         'Scissors': '#38bdf8', 'Demon Bell': '#ec4899',
-        'Spiritual Mirror': '#a78bfa', 'None': '#64748b'
+        'Spiritual Mirror': '#a78bfa'
     };
     const badge = (art) => `<span style="background:${artColors[art]||'#475569'}22;color:${artColors[art]||'#94a3b8'};border:1px solid ${artColors[art]||'#475569'}44;padding:1px 6px;border-radius:4px;font-size:11px">${art}</span>`;
 
     let html = `<div style="margin-top:16px">
-    <h3 style="color:#a78bfa;margin-bottom:12px">⚡ Top 20 Optimal Builds (100-fight re-test)</h3>
+    <h3 style="color:#a78bfa;margin-bottom:12px">⚡ Top 20 Optimal Builds (500-fight average)</h3>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
     <thead><tr style="background:#1e293b;color:#94a3b8">
         <th style="padding:8px;text-align:left">#</th>
-        <th style="padding:8px;text-align:left">Avg Damage</th>
-        <th style="padding:8px;text-align:left">Speed Order</th>
-        <th style="padding:8px;text-align:left">Positions</th>
-        <th style="padding:8px;text-align:left">Artifacts</th>
+        <th style="padding:8px;text-align:left">Avg Damage (500 fights)</th>
+        <th style="padding:8px;text-align:left">Build (Speed Order → Pos · Artifact)</th>
     </tr></thead><tbody>`;
 
-    rerun.forEach((r, rank) => {
+    results.forEach((r, rank) => {
+        // Speed order: heroes sorted by spd descending
         const spdOrder = Array.from({length:6},(_,i)=>i).sort((a,b)=>r.spds[b]-r.spds[a]);
-        const spdStr = spdOrder.map(i => heroNames[i]).join(' → ');
-        const posStr = Array.from({length:6},(_,i)=>i).map(i => `${heroNames[i]}:${r.frArr[i]?'Front':'Back'}`).join(' ');
-        const artStr = Array.from({length:6},(_,i)=>i).map(i => `${heroNames[i]}: ${badge(r.arts[i])}`).join(' ');
 
-        const rowBg = rank === 0 ? '#1e293b' : 'transparent';
+        // Combined column: for each hero in speed order, show Name (Front/Back) [Artifact badge]
+        const buildStr = spdOrder.map((heroI, slot) =>
+            `<span style="color:#e2e8f0">${slot+1}. ${heroNames[heroI]}</span> ` +
+            `<span style="color:${r.frArr[heroI]?'#f87171':'#94a3b8'};font-size:10px">${r.frArr[heroI]?'Fr':'Bk'}</span> ` +
+            badge(r.arts[heroI])
+        ).join('<span style="color:#334155"> &nbsp;|&nbsp; </span>');
+
+        const rowBg = rank === 0 ? '#172033' : 'transparent';
         const dmgColor = rank === 0 ? '#4ade80' : 'var(--accent)';
         html += `<tr style="background:${rowBg};border-bottom:1px solid #1e293b">
-            <td style="padding:8px;color:#64748b">${rank+1}</td>
-            <td style="padding:8px;color:${dmgColor};font-weight:bold">${fmt(r.avgDmg)}</td>
-            <td style="padding:8px;color:#e2e8f0;white-space:nowrap">${spdStr}</td>
-            <td style="padding:8px;color:#94a3b8;font-size:11px">${posStr}</td>
-            <td style="padding:8px">${artStr}</td>
+            <td style="padding:8px;color:#64748b;font-weight:bold">${rank+1}</td>
+            <td style="padding:8px;color:${dmgColor};font-weight:bold;white-space:nowrap">${fmt(r.avgDmg)}</td>
+            <td style="padding:8px;line-height:2">${buildStr}</td>
         </tr>`;
     });
 
     html += `</tbody></table>
     <p style="color:#64748b;font-size:11px;margin-top:8px">
-        Initial scan: 1 fight per combination. Top 20 re-tested with 500 fights each for stable estimates.
-        ${totalCombos.toLocaleString()} total combinations evaluated (staged: art×speed then positions; phase 3 = 500 fights each).
+        Phase 1: ${(totalCombos - 500).toLocaleString()} art×speed combos (1 fight each) → top 50 into position sweep →
+        top 20 re-tested with 500 fights each. Ranked strictly by 500-fight average damage.
     </p></div>`;
 
     document.getElementById('optOutput').innerHTML = html;
