@@ -63,7 +63,7 @@
         ⚔️ Damage Calculator (Max ATK Hero) <span id="dmgCalcArrow">▼</span>
     </button>
     <div id="dmgCalcPanel" style="display:none;background:var(--card);border:1px solid #334155;border-top:none;padding:16px;border-radius:0 0 8px 8px;">
-        <p style="color:#94a3b8;font-size:12px;margin-top:0;">Set base stats for the highest ATK hero. These are used to compute actual damage output per LFA active.</p>
+        <p style="color:#94a3b8;font-size:12px;margin-top:0;">Set base stats for the highest ATK hero (<span id="dcHeroLabel" style="color:var(--accent);font-weight:bold">LFA</span>). Used to compute damage output per active.</p>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
             <div>
                 <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">ATK (absolute)</label>
@@ -116,7 +116,7 @@
 <div id="output"></div>
 
 <script>
-const HEROES = ["LFA","SQH","STV","BDSM","LBRM","ELY","HW"];
+const HEROES = ["LFA","SQH","STV","BDSM","LBRM","ELY","HW","DGN"];
 const ARTS   = ["None","Demon Bell","Spiritual Mirror","Antlers","Scissors","Antiwarrior"];
 const defaults = [
     { h:"BDSM", a:"Demon Bell", s:2000, ci:120 },
@@ -131,7 +131,7 @@ const container = document.getElementById('hero-inputs');
 defaults.forEach((d, i) => {
     container.innerHTML += `<div class="card">
         <h3>POS ${i+1}</h3>
-        <select id="h${i}">${HEROES.map(h=>`<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
+        <select id="h${i}" onchange="updateDCLabel()">${HEROES.map(h=>`<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
         <select id="a${i}">${ARTS.map(a=>`<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
         <div style="display:flex;gap:5px;">
             <div style="flex:1">
@@ -160,7 +160,7 @@ defaults.forEach((d, i) => {
         <label><input type="checkbox" id="spec${i}"> Soul Specter</label>
         <label><input type="checkbox" id="pupil${i}"> Pupil</label>
         <label><input type="checkbox" id="nova${i}"> Nova</label>
-        <label><input type="radio" name="max" value="${i}" ${i===0?'checked':''}> Max ATK</label>
+        <label><input type="radio" name="max" value="${i}" ${i===0?'checked':''}  onchange="updateDCLabel()"> Max ATK</label>
     </div>`;
 });
 
@@ -184,7 +184,7 @@ window.addEventListener('load', () => {
     for (let i = 0; i < 6; i++) document.getElementById(`h${i}`).addEventListener('change', refreshLowHPDropdowns);
 });
 
-let units = [], boss = {}, silent = false, bossHDStacks = 0;
+let units = [], boss = {}, silent = false, bossHDStacks = 0, bossHPTier = "above70";
 
 function log(msg, color="#fff") {
     if (!silent) document.getElementById('output').innerHTML += `<div style="color:${color}">${msg}</div>`;
@@ -484,16 +484,18 @@ function getDmgCalcInputs() {
 }
 
 function runOne(ov = null) {
+    window.optimizerContext = !!(ov && ov.fromOptimizer);
     const imp  = document.getElementById('gImp').value;
     const is9  = document.getElementById('isl9').checked;
     const is11 = document.getElementById('isl11').checked;
     const is8  = document.getElementById('isl8').checked;
     const fearGT = document.getElementById('fearGT').checked;
-    const bossHPTier = document.getElementById('bossHP').value;
+    bossHPTier = document.getElementById('bossHP').value;
     const is10 = document.getElementById('isl10').checked;
     const mIdx = parseInt(document.querySelector('input[name="max"]:checked').value);
 
     bossHDStacks = 0;
+    boss.undyingShadow = false;
     units = [];
     let isl9HDStacks = 0;
     let isl9DRStacks = 6;
@@ -534,6 +536,8 @@ function runOne(ov = null) {
             hp: 100,
             stygianMark: false,
             stygianMarkStack: 0,
+            transPower: 0,
+            brightBlessing: false,
             lethalIncense: false,
             lethalIncenseRounds: 0,
             veilOfMist: false,
@@ -589,6 +593,9 @@ function runOne(ov = null) {
         addBuff(lbrm, "dr",     0.18, 999, "Mirror Magic Deep Sub DR (3×6%)");
         log(`[LBRM INIT] Dreamlike Illusion: 3 Mirror Magic (+8%CI +8%SPD +10%allDmg +18%DR)`, "#f0abfc");
     });
+
+    // DGN battle start
+    if (units.find(u => u.name === "DGN")) initDGN(units);
 
     units.forEach(u => {
         if (u.name === "SQH") {
@@ -696,6 +703,10 @@ function runOne(ov = null) {
 
         let stv = units.find(u => u.name === "STV");
         if (stv) grantSM(units);
+
+        // DGN transition at end of round
+        { const dgn = units.find(u => u.name === "DGN");
+          if (dgn) fireDGNTransition(dgn, r); }
 
         units.forEach(u => {
             u.infuseUsed = false;
@@ -1084,6 +1095,11 @@ function runOne(ov = null) {
                     if (u.dmgPerRound) u.dmgPerRound[r-1] = (u.dmgPerRound[r-1]||0) + totalDmg;
                     }
                 }
+                if (u.name === "DGN") {
+                    fireDGNActive(u, true, r);
+                    u.transPower = (u.transPower || 0) + 6;
+                    log(`&nbsp;&nbsp;&nbsp;🌑 [DGN PHANTOM DAWN] +6 Transition Power → ${u.transPower}`, "#c084fc");
+                }
                 if (u.name === "ELY") {
                     boss.shrink = true;
                     boss.shrinkRounds = 2;
@@ -1385,6 +1401,9 @@ function runOne(ov = null) {
                 });
             }
 
+            // DGN basic
+            if (usedBasic && u.name === "DGN") fireDGNBasic(u, r);
+
             // Foresight / Destiny imprint
             if (imp === "foresight") {
                 if (usedBasic) {
@@ -1430,6 +1449,8 @@ function runOne(ov = null) {
         log(`&nbsp;&nbsp;&nbsp;☄️ BOSS ACTIVE: CATASTROPHIC ROAR (3000% ATK × 3, +2 Cal & Curse, dodge applies)`, "#ef4444");
         boss.atkSteal = (boss.atkSteal || 0) + 0.08;
         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [CATASTROPHIC ROAR] Boss steals 8% ATK (3r), enemy Armor -100%`, "#ef4444");
+         // DGN Double Nature counter triggers on boss active
+         { const dgn = units.find(u => u.name === "DGN" && u.cc.seal <= 0); if (dgn) triggerDGNDoubleNature(dgn, r); }
         units.forEach(u => {
             let effectiveDodge = (u.pupilDodgeRounds > 0) ? 1.0 : u.dodge;
             if (u.pupilDodgeRounds > 0) {
@@ -1761,7 +1782,7 @@ function sim(multi) {
                     minADR:Infinity, maxADR:-Infinity, avgADR:0,
                     totalEstDmg:0, minEstDmg:Infinity, maxEstDmg:-Infinity,
                     dmgPerRound: new Array(15).fill(0),
-                    srcHits:0, srcDKM:0, srcLethal:0, srcBS:0, srcAddl:0,
+                    srcHits:0, srcDKM:0, srcLethal:0, srcBS:0, srcAddl:0, srcMain:0, srcUndying:0,
                     baseCI: u.baseCI
                 };
                 let s = stats[u.name];
@@ -1787,6 +1808,8 @@ function sim(multi) {
                     s.srcLethal += (u.srcLethal || 0);
                     s.srcBS     += (u.srcBS     || 0);
                     s.srcAddl   += (u.srcAddl   || 0);
+                    s.srcMain   += (u.srcMain   || 0);
+                    s.srcUndying+= (u.srcUndying|| 0);
                 }
                 s.minDR  = Math.min(s.minDR,  u.minDR  === Infinity  ? 0 : u.minDR);  s.maxDR  = Math.max(s.maxDR,  u.maxDR  === -Infinity ? 0 : u.maxDR);  s.avgDR  += u.drSamples  > 0 ? u.drTotal  / u.drSamples  : 0;
                 s.minADR = Math.min(s.minADR, u.minADR === Infinity  ? 0 : u.minADR); s.maxADR = Math.max(s.maxADR, u.maxADR === -Infinity ? 0 : u.maxADR); s.avgADR += u.adrSamples > 0 ? u.adrTotal / u.adrSamples : 0;
@@ -1834,20 +1857,21 @@ function sim(multi) {
             const fmt = v => Math.round(v/N).toLocaleString();
             const pct = (part, total) => total > 0 ? (part/total*100).toFixed(1)+'%' : '—';
             const tot = s.totalEstDmg / N;
+            const mHeroName = document.getElementById(`h${parseInt(document.querySelector('input[name="max"]:checked').value)}`)?.value || "LFA";
             dmgLine = `<div style="margin-top:12px;padding:14px 16px;background:var(--card);border:1px solid #334155;border-radius:8px;font-size:13px;line-height:1.8;">
                 <div>⚔️ <strong>Estimated Fight Damage (Max ATK Hero)</strong> —
                 Avg: <span style="color:var(--accent);font-weight:bold">${Math.round(tot).toLocaleString()}</span>
                 <small style="color:#64748b">[${Math.round(s.minEstDmg).toLocaleString()} – ${Math.round(s.maxEstDmg).toLocaleString()}]</small></div>
                 <div style="margin-top:6px;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;font-size:12px;">
                     <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;">
-                        <div style="color:#94a3b8">Hits 1-5</div>
-                        <div style="color:var(--accent)">${fmt(s.srcHits)}</div>
-                        <div style="color:#64748b">${pct(s.srcHits, s.totalEstDmg)}</div>
+                        <div style="color:#94a3b8">${mHeroName==="DGN"?"Main Hit":"Hits 1-5"}</div>
+                        <div style="color:var(--accent)">${fmt(s.srcHits + (s.srcMain||0))}</div>
+                        <div style="color:#64748b">${pct(s.srcHits + (s.srcMain||0), s.totalEstDmg)}</div>
                     </div>
                     <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;">
-                        <div style="color:#94a3b8">DKM</div>
-                        <div style="color:var(--accent)">${fmt(s.srcDKM)}</div>
-                        <div style="color:#64748b">${pct(s.srcDKM, s.totalEstDmg)}</div>
+                        <div style="color:#94a3b8">${mHeroName==="DGN"?"Undying Shadow":"DKM"}</div>
+                        <div style="color:var(--accent)">${fmt(mHeroName==="DGN"?(s.srcUndying||0):s.srcDKM)}</div>
+                        <div style="color:#64748b">${pct(mHeroName==="DGN"?(s.srcUndying||0):s.srcDKM, s.totalEstDmg)}</div>
                     </div>
                     <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;">
                         <div style="color:#94a3b8">Lethal Fightback</div>
@@ -2474,6 +2498,330 @@ function finishCritOptimizer(results, mIdx) {
         </table>
         <p style="color:#475569;font-size:11px;margin-top:8px">100 fights per crit value. Chart Y-axis normalized to damage range. Orange dashed = Balanced Strike proc probability.</p>
     </div>`;
+}
+
+// ── Update damage calc label dynamically ─────────────────────────────────────
+function updateDCLabel() {
+    const mIdx = parseInt(document.querySelector('input[name="max"]:checked')?.value || 0);
+    const heroName = document.getElementById(`h${mIdx}`)?.value || 'Max ATK Hero';
+    const lbl = document.getElementById('dcHeroLabel');
+    if (lbl) lbl.textContent = heroName;
+}
+
+// ── DGN helper: count unique Attribute Reduction types on boss ────────────────
+function getDGNAttrCount() {
+    let count = 0;
+    if ((boss.atkDebuff   || 0) > 0) count++;
+    if ((boss.armorDebuff || 0) > 0) count++;
+    if ((boss.drDebuff    || 0) > 0) count++;
+    if ((boss.ciDebuff    || 0) > 0) count++;
+    if ((boss.spdDebuff   || 0) > 0) count++;
+    if ((boss.critDebuff  || 0) > 0) count++;
+    if ((boss.healReduction||0) > 0) count++;
+    return count;
+}
+
+// ── DGN Battle Start ──────────────────────────────────────────────────────────
+function initDGN(units) {
+    const dgn = units.find(u => u.name === 'DGN');
+    if (!dgn) return;
+    // Undying Shadow on boss (boss flag)
+    boss.undyingShadow = true;
+    log(`🌑 [DGN INIT] Undying Shadow applied to boss`, '#c084fc');
+    // Bright Blessing on highest ATK ally (isM)
+    const bb = units.find(u => u.isM) || dgn;
+    bb.brightBlessing = true;
+    dgn.brightBlessingTarget = bb;
+    log(`✨ [DGN INIT] Bright Blessing → ${bb.name}`, '#c084fc');
+    // Acheron Barque: +10% CI Offset to highest ATK ally (permanent, non-stacking)
+    if (!bb.dgnAcheronApplied) {
+        bb.dgnAcheronApplied = true;
+        addBuff(bb, 'drOffset', 0.10, 999, 'DGN Acheron Barque CI Offset');
+        log(`✨ [DGN ACHERON BARQUE] ${bb.name} +10% CI Offset (permanent)`, '#c084fc');
+    }
+    // Excellent Twins: HP+8%, ATK+6% (Pure sub)
+    addBuff(dgn, 'atk', 0.06, 999, 'DGN Excellent Twins ATK');
+    // Fluorescent Shield trigger flags
+    dgn.fluorShield50Used = false;
+    dgn.fluorShield30Used = false;
+}
+
+// ── DGN Fluorescent Shield ────────────────────────────────────────────────────
+function triggerFluorShield(dgn) {
+    // +20% Holy Damage for 6 rounds (skill effect, not offsettable — use addBuff with high rounds)
+    addBuff(dgn, 'hd', 0.20, 6, 'DGN Fluorescent Shield Holy');
+    log(`✨ [DGN FLUOR SHIELD] +20% Holy Damage 6r`, '#c084fc');
+}
+
+// ── DGN Active: Dance of Shadowland ──────────────────────────────────────────
+function fireDGNActive(dgn, isBoss, r) {
+    if (!isBoss) return;
+    const dc = getDmgCalcInputs();
+    if (!dc) return;
+
+    const attrCount = getDGNAttrCount();
+    const atkBuff    = getBuffTotal(dgn, 'atk');
+    const allDmgBuff = getBuffTotal(dgn, 'allDmg');
+    const holyBuff   = dc.holy / 100 + getBuffTotal(dgn, 'hd');
+    const critBuff   = dc.crit / 100 + getBuffTotal(dgn, 'crit');
+    const precCapped = Math.min(dc.prec / 100, 1.50);
+    const cdCapped   = Math.min(dc.cd / 100 + getBuffTotal(dgn, 'cd'), 1.50);
+    const corrMult   = 1 + 0.24 * (boss.abyssalCorruption || 0);
+    const critMult   = 1.5 * cdCapped * 2 * corrMult;
+    const gkMult     = dc.gk ? 2.0 : 1.0;
+    const defMult    = (dc.defier && bossHPTier === 'above70') ? 1.3 : 1.0;
+    const templeMult = 1 + dc.temple / 100;
+    const shrinkMult = boss.shrink ? 1.4 : 1.0;
+    const allDmgMult = 1 + allDmgBuff + dc.alldmg / 100;
+    const modMult    = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+    const dgnSkill   = window.optimizerContext ? (dgn.art === 'Antlers' ? 300 : dgn.art === 'Antiwarrior' ? 50 : 0) : 0;
+
+    // Main hit: (1400% + 1000% × attrCount) skill multiplier
+    const mainMultPct = 14 + attrCount * 10; // in units of 100% (so 14 = 1400%)
+    const baseMain = dc.atk
+        * (1 + atkBuff)
+        * (mainMultPct + (dc.skill + dgnSkill) / 100)
+        * (1 + precCapped * 0.3)
+        * (1 + holyBuff * 0.7)
+        * allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+    const mainCrit = Math.random() < critBuff;
+    const mainHit  = mainCrit ? baseMain * critMult : baseMain;
+
+    let totalDmg = mainHit;
+    let srcMain = mainHit, srcUndying = 0, srcLostHP = 0, srcLethal = 0, srcBS = 0, srcAddl = 0;
+    let hitLog = [`Main hit (${(mainMultPct*100).toFixed(0)}%+${attrCount}×1000% attr): ${Math.round(mainHit).toLocaleString()}${mainCrit?' CRIT':''}`];
+
+    // 70% Undying Shadow bonus (cannot crit, skill effect so not offsettable by curse)
+    if (boss.undyingShadow) {
+        srcUndying = mainHit * 0.70 * modMult;
+        totalDmg  += srcUndying;
+        hitLog.push(`Undying Shadow (70% of main × modMult): ${Math.round(srcUndying).toLocaleString()}`);
+    }
+
+    // Deep Sub: 30% of boss lost HP, capped at 1500% ATK × modMult
+    const bossLostHP = (1 - (boss.hp || 100) / 100) * (boss.maxHP || 1e15);
+    const lostHPDmg  = Math.min(bossLostHP * 0.30, dc.atk * 15) * modMult;
+    srcLostHP = lostHPDmg;
+    totalDmg += lostHPDmg;
+    hitLog.push(`Deep Sub lost HP (30% lost HP, cap 1500% ATK): ${Math.round(lostHPDmg).toLocaleString()}`);
+
+    const preLFBase = totalDmg;
+
+    // Lethal Fightback: 18% of all prior × modMult (always fires)
+    srcLethal = preLFBase * 0.18 * modMult;
+    totalDmg += srcLethal;
+    hitLog.push(`Lethal Fightback (18%): ${Math.round(srcLethal).toLocaleString()}`);
+
+    // Balanced Strike: fires if main hit did NOT crit
+    if (!mainCrit) {
+        const bsPct = bossHPTier === 'below50' ? 1.95 : 0.45;
+        srcBS = preLFBase * bsPct * modMult;
+        totalDmg += srcBS;
+        hitLog.push(`Balanced Strike (${(bsPct*100).toFixed(0)}%, no crit): ${Math.round(srcBS).toLocaleString()}`);
+    } else {
+        hitLog.push(`Balanced Strike: skipped (main hit crit)`);
+    }
+
+    // Additional Multiplier: 80% proc if not sealed
+    if (dgn.cc.seal <= 0 && Math.random() < 0.80) {
+        srcAddl = (preLFBase + srcLethal + srcBS) * 0.10 * modMult;
+        totalDmg += srcAddl;
+        hitLog.push(`Additional Multiplier (80% proc, 10%): ${Math.round(srcAddl).toLocaleString()}`);
+    }
+
+    // Guiding Glow: +16% ATK, +20% Holy, +16% DR, +20% CD (skill effect stacks, not offsettable)
+    addBuff(dgn, 'atk', 0.16, 2, 'DGN Guiding Glow ATK');
+    addBuff(dgn, 'hd',  0.20, 2, 'DGN Guiding Glow Holy');
+    addBuff(dgn, 'dr',  0.16, 2, 'DGN Guiding Glow DR');
+    addBuff(dgn, 'cd',  0.20, 2, 'DGN Guiding Glow CD');
+    const bbTarget = units.find(u => u.brightBlessing);
+    if (bbTarget && bbTarget !== dgn) {
+        addBuff(bbTarget, 'atk', 0.16, 2, 'DGN Guiding Glow ATK (BB)');
+        addBuff(bbTarget, 'hd',  0.20, 2, 'DGN Guiding Glow Holy (BB)');
+        addBuff(bbTarget, 'dr',  0.16, 2, 'DGN Guiding Glow DR (BB)');
+        addBuff(bbTarget, 'cd',  0.20, 2, 'DGN Guiding Glow CD (BB)');
+        log(`&nbsp;&nbsp;&nbsp;✨ [DGN GUIDING GLOW] ${bbTarget.name} (BB) +16%ATK +20%Holy +16%DR +20%CD 2r`, '#c084fc');
+    }
+    log(`&nbsp;&nbsp;&nbsp;✨ [DGN GUIDING GLOW] DGN +16%ATK +20%Holy +16%DR +20%CD 2r`, '#c084fc');
+
+    // Replicate 2 random debuffs from DGN onto boss (attribute reductions on DGN herself)
+    // In a boss fight DGN likely has no debuffs on herself, so this is typically 0
+    // but if boss applies debuffs to DGN they get spread here
+
+    // Log
+    log(`&nbsp;&nbsp;&nbsp;🌑 [DGN ACTIVE] Dance of Shadowland | AttrReductions: ${attrCount} | ${hitLog.join(' | ')}`, '#c084fc');
+    log(`&nbsp;&nbsp;&nbsp;🌑 [DGN ACTIVE TOTAL] ${Math.round(totalDmg).toLocaleString()}`, '#facc15');
+
+    dgn.totalEstDmg = (dgn.totalEstDmg || 0) + totalDmg;
+    if (dgn.dmgPerRound) dgn.dmgPerRound[r-1] = (dgn.dmgPerRound[r-1] || 0) + totalDmg;
+    dgn.srcMain    = (dgn.srcMain    || 0) + srcMain;
+    dgn.srcUndying = (dgn.srcUndying || 0) + srcUndying;
+    dgn.srcLostHP  = (dgn.srcLostHP  || 0) + srcLostHP;
+    dgn.srcLethal  = (dgn.srcLethal  || 0) + srcLethal;
+    dgn.srcBS      = (dgn.srcBS      || 0) + srcBS;
+    dgn.srcAddl    = (dgn.srcAddl    || 0) + srcAddl;
+}
+
+// ── DGN Basic: Ode of Holylight ───────────────────────────────────────────────
+function fireDGNBasic(dgn, r) {
+    const dc = getDmgCalcInputs();
+    if (!dc) return;
+
+    const attrCount  = getDGNAttrCount();
+    const atkBuff    = getBuffTotal(dgn, 'atk');
+    const allDmgBuff = getBuffTotal(dgn, 'allDmg');
+    const holyBuff   = dc.holy / 100 + getBuffTotal(dgn, 'hd');
+    const critBuff   = dc.crit / 100 + getBuffTotal(dgn, 'crit');
+    const precCapped = Math.min(dc.prec / 100, 1.50);
+    const cdCapped   = Math.min(dc.cd / 100 + getBuffTotal(dgn, 'cd'), 1.50);
+    const corrMult   = 1 + 0.24 * (boss.abyssalCorruption || 0);
+    const critMult   = 1.5 * cdCapped * 2 * corrMult;
+    const gkMult     = dc.gk ? 2.0 : 1.0;
+    const defMult    = (dc.defier && bossHPTier === 'above70') ? 1.3 : 1.0;
+    const templeMult = 1 + dc.temple / 100;
+    const shrinkMult = boss.shrink ? 1.4 : 1.0;
+    const allDmgMult = 1 + allDmgBuff + dc.alldmg / 100;
+    const modMult    = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+    const dgnSkill   = window.optimizerContext ? (dgn.art === 'Antlers' ? 300 : dgn.art === 'Antiwarrior' ? 50 : 0) : 0;
+
+    const mainMultPct = 12 + attrCount * 10; // 1200% + 1000% × attrCount
+    const baseMain = dc.atk
+        * (1 + atkBuff)
+        * (mainMultPct + (dc.skill + dgnSkill) / 100)
+        * (1 + precCapped * 0.3)
+        * (1 + holyBuff * 0.7)
+        * allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+    const mainCrit = Math.random() < critBuff;
+    const mainHit  = mainCrit ? baseMain * critMult : baseMain;
+
+    let totalDmg = mainHit, preLF = mainHit;
+    let srcLethal = 0, srcBS = 0, srcAddl = 0;
+
+    // Lethal Fightback
+    srcLethal = preLF * 0.18 * modMult;
+    totalDmg += srcLethal;
+
+    // Balanced Strike if no crit
+    if (!mainCrit) {
+        const bsPct = bossHPTier === 'below50' ? 1.95 : 0.45;
+        srcBS = preLF * bsPct * modMult;
+        totalDmg += srcBS;
+    }
+
+    // Additional Multiplier
+    if (dgn.cc.seal <= 0 && Math.random() < 0.80) {
+        srcAddl = (preLF + srcLethal + srcBS) * 0.10 * modMult;
+        totalDmg += srcAddl;
+    }
+
+    // Deep sub: Armor -18% on boss
+    boss.armorDebuff = (boss.armorDebuff || 0) + 0.18; boss.armorDebuffRounds = 2;
+
+    // Replicate 2 random buffs from DGN to Bright Blessing ally (can be DGN herself)
+    const bbTarget = units.find(u => u.brightBlessing);
+    if (bbTarget) {
+        const buffTypes = ['atk','hd','cd','crit','dr','ci','spd','armor'];
+        const dgnBuffs = buffTypes.filter(t => getBuffTotal(dgn, t) > 0);
+        const shuffled = dgnBuffs.sort(() => Math.random() - 0.5).slice(0, 2);
+        shuffled.forEach(t => {
+            const val = getBuffTotal(dgn, t);
+            if (val > 0) addBuff(bbTarget, t, val, 2, `DGN Basic Replicate ${t}`);
+        });
+        if (shuffled.length > 0) log(`&nbsp;&nbsp;&nbsp;✨ [DGN BASIC] Replicated ${shuffled.join(', ')} to ${bbTarget.name}${bbTarget === dgn ? ' (self)' : ''}`, '#c084fc');
+    }
+
+    log(`&nbsp;&nbsp;&nbsp;🌑 [DGN BASIC] Ode of Holylight | AttrReductions: ${attrCount} | Main (${(mainMultPct*100).toFixed(0)}%): ${Math.round(mainHit).toLocaleString()}${mainCrit?' CRIT':''} | Total: ${Math.round(totalDmg).toLocaleString()}`, '#c084fc');
+
+    dgn.totalEstDmg = (dgn.totalEstDmg || 0) + totalDmg;
+    if (dgn.dmgPerRound) dgn.dmgPerRound[r-1] = (dgn.dmgPerRound[r-1] || 0) + totalDmg;
+}
+
+// ── DGN Double Nature counter (fires when boss uses active) ──────────────────
+function triggerDGNDoubleNature(dgn, r) {
+    const dc = getDmgCalcInputs();
+    if (!dc) return;
+    const atkBuff    = getBuffTotal(dgn, 'atk');
+    const allDmgBuff = getBuffTotal(dgn, 'allDmg');
+    const allDmgMult = 1 + allDmgBuff + dc.alldmg / 100;
+    const gkMult     = dc.gk ? 2.0 : 1.0;
+    const defMult    = (dc.defier && bossHPTier === 'above70') ? 1.3 : 1.0;
+    const templeMult = 1 + dc.temple / 100;
+    const shrinkMult = boss.shrink ? 1.4 : 1.0;
+    const modMult    = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+
+    const counter = dc.atk * (1 + atkBuff) * 10 * modMult; // 1000% ATK
+    dgn.totalEstDmg = (dgn.totalEstDmg || 0) + counter;
+    if (dgn.dmgPerRound) dgn.dmgPerRound[r-1] = (dgn.dmgPerRound[r-1] || 0) + counter;
+
+    // Apply debuffs
+    boss.critDebuff = (boss.critDebuff || 0) + 0.28; boss.critDebuffRounds = 2;
+    boss.atkDebuff  = (boss.atkDebuff  || 0) + 0.06; boss.atkDebuffRounds = 4;
+    log(`&nbsp;&nbsp;&nbsp;🌑 [DGN DOUBLE NATURE] Counter: ${Math.round(counter).toLocaleString()} | Boss Crit -28% 2r, ATK -6% 4r`, '#c084fc');
+
+    // Replicate 2 random Attribute Reductions from boss back onto boss (refreshes/stacks debuffs)
+    const attrTypes = ['atkDebuff','armorDebuff','drDebuff','ciDebuff','spdDebuff','critDebuff','healReduction'];
+    const activeAttrs = attrTypes.filter(t => (boss[t] || 0) > 0);
+    const shuffled = [...activeAttrs].sort(() => Math.random() - 0.5).slice(0, 2);
+    shuffled.forEach(t => {
+        // Refresh duration of this debuff
+        const roundsKey = t === 'healReduction' ? 'healReductionRounds' : t + 'Rounds';
+        if (boss[roundsKey] !== undefined) boss[roundsKey] = Math.max(boss[roundsKey] || 0, 2);
+    });
+    if (shuffled.length > 0) log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌑 [DOUBLE NATURE] Replicated ${shuffled.join(', ')} back to boss`, '#c084fc');
+}
+
+// ── DGN Transition (end of round) ────────────────────────────────────────────
+function fireDGNTransition(dgn, r) {
+    if (!dgn || dgn.cc.seal > 0) return;
+
+    // Comet Hop: 50% chance +1 Transition Power
+    if (Math.random() < 0.50) {
+        dgn.transPower = (dgn.transPower || 0) + 1;
+        log(`&nbsp;&nbsp;&nbsp;✨ [DGN COMET HOP] +1 Transition Power → ${dgn.transPower}`, '#c084fc');
+    }
+
+    // Sun Halo: +15% ATK to self for 2r
+    addBuff(dgn, 'atk', 0.15, 2, 'DGN Sun Halo ATK');
+
+    const tp = dgn.transPower || 0;
+
+    if (tp >= 12) {
+        // 12-stack: consume 12, apply 3 debuffs, deal 2000% ATK × total debuff count
+        dgn.transPower -= 12;
+        boss.atkDebuff  = (boss.atkDebuff  || 0) + 0.50; boss.atkDebuffRounds  = 3;
+        boss.critDebuff = (boss.critDebuff || 0) + 0.50; boss.critDebuffRounds = 3;
+        boss.ciDebuff   = (boss.ciDebuff   || 0) + 0.50; boss.ciDebuffRounds   = 3;
+        log(`&nbsp;&nbsp;&nbsp;🌑 [DGN MOON ABYSS 12] Boss ATK -50% 3r, Crit -50% 3r, CI -50% 3r`, '#c084fc');
+
+        const dc = getDmgCalcInputs();
+        if (dc) {
+            const totalDebuffs = [
+                boss.atkDebuff, boss.armorDebuff, boss.drDebuff, boss.ciDebuff,
+                boss.spdDebuff, boss.critDebuff, boss.healReduction,
+                boss.bleed?.length, boss.burn, boss.watcherMark
+            ].filter(v => v && v > 0).length;
+            const moonDmg = dc.atk * (1 + getBuffTotal(dgn, 'atk')) * 20 * totalDebuffs; // 2000% × count
+            dgn.totalEstDmg = (dgn.totalEstDmg || 0) + moonDmg;
+            if (dgn.dmgPerRound) dgn.dmgPerRound[r-1] = (dgn.dmgPerRound[r-1] || 0) + moonDmg;
+            log(`&nbsp;&nbsp;&nbsp;🌑 [DGN MOON ABYSS 12] Extra dmg: ${Math.round(moonDmg).toLocaleString()} (${totalDebuffs} debuffs × 2000% ATK)`, '#facc15');
+        }
+    } else if (tp >= 3) {
+        // 3-stack: consume 3, apply 1 random debuff
+        dgn.transPower -= 3;
+        const roll = Math.floor(Math.random() * 3);
+        if (roll === 0)      { boss.atkDebuff   = (boss.atkDebuff   || 0) + 0.30; boss.atkDebuffRounds   = 2; log(`&nbsp;&nbsp;&nbsp;🌑 [DGN TRANS] Boss ATK -30% 2r`, '#c084fc'); }
+        else if (roll === 1) { boss.spdDebuff   = (boss.spdDebuff   || 0) + 50;   boss.spdDebuffRounds   = 2; log(`&nbsp;&nbsp;&nbsp;🌑 [DGN TRANS] Boss SPD -50 2r`, '#c084fc'); }
+        else                 { boss.armorDebuff = (boss.armorDebuff || 0) + 0.80; boss.armorDebuffRounds = 2; log(`&nbsp;&nbsp;&nbsp;🌑 [DGN TRANS] Boss Armor -80% 2r`, '#c084fc'); }
+    }
+
+    // Glowed Glory: extra dmg to frontline (boss) = 20% max HP, cap 1500% ATK
+    const dc = getDmgCalcInputs();
+    if (dc) {
+        const glowDmg = Math.min((boss.maxHP || 1e15) * 0.20, dc.atk * 15);
+        dgn.totalEstDmg = (dgn.totalEstDmg || 0) + glowDmg;
+        if (dgn.dmgPerRound) dgn.dmgPerRound[r-1] = (dgn.dmgPerRound[r-1] || 0) + glowDmg;
+        log(`&nbsp;&nbsp;&nbsp;🌑 [DGN GLOWED GLORY] ${Math.round(glowDmg).toLocaleString()} (20% boss HP, cap 1500% ATK)`, '#c084fc');
+    }
 }
 
 </script>
