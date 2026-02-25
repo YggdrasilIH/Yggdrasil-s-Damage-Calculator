@@ -117,7 +117,7 @@
 
 <script>
 const HEROES = ["LFA","SQH","STV","BDSM","LBRM","ELY","HW","DGN"];
-const ARTS   = ["None","Demon Bell","Spiritual Mirror","Antlers","Scissors","Antiwarrior"];
+const ARTS   = ["None","Demon Bell","Spiritual Mirror","Antlers","Scissors","Antiwarrior","Jade Toad"];
 const defaults = [
     { h:"BDSM", a:"Demon Bell", s:2000, ci:120 },
     { h:"SQH",  a:"Spiritual Mirror", s:1900, ci:110 },
@@ -131,16 +131,16 @@ const container = document.getElementById('hero-inputs');
 defaults.forEach((d, i) => {
     container.innerHTML += `<div class="card">
         <h3>POS ${i+1}</h3>
-        <select id="h${i}" onchange="updateDCLabel()">${HEROES.map(h=>`<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
-        <select id="a${i}">${ARTS.map(a=>`<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
-        <div style="display:flex;gap:5px;">
+        <select id="h${i}" onchange="updateDCLabel();updateCardCI(${i})">${HEROES.map(h=>`<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
+        <select id="a${i}" onchange="updateCardCI(${i})">${ARTS.map(a=>`<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
+        <div style="display:flex;gap:5px;margin-top:4px;">
             <div style="flex:1">
                 <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">SPD</label>
-                <input type="number" id="s${i}"  value="${d.s}"  placeholder="SPD" style="width:100%">
+                <input type="number" id="s${i}" value="${d.s}" placeholder="SPD" style="width:100%">
             </div>
             <div style="flex:1">
-                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Pre-Battle CI %</label>
-                <input type="number" id="ci${i}" value="${d.ci}" placeholder="CI%" style="width:100%">
+                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Base CI %</label>
+                <input type="number" id="ci${i}" value="${d.ci}" placeholder="CI%" style="width:100%" oninput="updateCardCI(${i})">
             </div>
             <div style="flex:1">
                 <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Dodge %</label>
@@ -157,10 +157,23 @@ defaults.forEach((d, i) => {
                 <input type="number" id="adr${i}" value="0" min="0" placeholder="ADR%" style="width:100%">
             </div>
         </div>
-        <label><input type="checkbox" id="spec${i}"> Soul Specter</label>
-        <label><input type="checkbox" id="pupil${i}"> Pupil</label>
-        <label><input type="checkbox" id="nova${i}"> Nova</label>
-        <label><input type="radio" name="max" value="${i}" ${i===0?'checked':''}  onchange="updateDCLabel()"> Max ATK</label>
+        <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;">
+            <div style="display:flex;gap:3px;">
+                <label style="flex:1;font-size:11px;background:#1e293b;border:1px solid #334155;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="spec${i}"> Specter</label>
+                <label style="flex:1;font-size:11px;background:#1e293b;border:1px solid #334155;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="pupil${i}"> Pupil</label>
+                <label style="flex:1;font-size:11px;background:#1e293b;border:1px solid #334155;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="nova${i}"> Nova</label>
+            </div>
+            <div style="display:flex;gap:3px;">
+                <label style="flex:1;font-size:11px;background:#1e293b40;border:1px solid #ef444430;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer;color:#fca5a5"><input type="checkbox" id="fearImm${i}"> Fear</label>
+                <label style="flex:1;font-size:11px;background:#78350f30;border:1px solid #f59e0b50;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer;color:#fcd34d"><input type="checkbox" id="sealImm${i}"> Seal</label>
+                <label style="flex:1;font-size:11px;background:#1e3a5f40;border:1px solid #38bdf850;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer;color:#7dd3fc"><input type="checkbox" id="silImm${i}"> Silence</label>
+            </div>
+        </div>
+        <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
+            <label style="font-size:11px" id="stellarLbl${i}"><input type="checkbox" id="stellar${i}" onchange="updateCardCI(${i})"> Void CI (+35)</label>
+            <span style="font-size:11px;color:#38bdf8;font-weight:bold" id="effCI${i}"></span>
+        </div>
+        <label style="margin-top:4px;display:block;font-size:11px"><input type="radio" name="max" value="${i}" ${i===0?'checked':''} onchange="updateDCLabel()"> Max ATK</label>
     </div>`;
 });
 
@@ -181,7 +194,11 @@ window.addEventListener('load', () => {
         if (sel) sel.value = String(3 + i);
     });
     refreshLowHPDropdowns();
-    for (let i = 0; i < 6; i++) document.getElementById(`h${i}`).addEventListener('change', refreshLowHPDropdowns);
+    for (let i = 0; i < 6; i++) {
+        document.getElementById(`h${i}`).addEventListener('change', refreshLowHPDropdowns);
+        updateCardCI(i);
+        document.getElementById(`a${i}`)?.addEventListener('change', () => updateCardCI(i));
+    }
 });
 
 let units = [], boss = {}, silent = false, bossHDStacks = 0, bossHPTier = "above70";
@@ -279,6 +296,8 @@ function trigCal(u) {
         log(`&nbsp;&nbsp;&nbsp;💠 [CI CHECK] ${u.name} effectiveCI=${(effectiveCI*100).toFixed(0)}% (base ${(u.baseCI*100).toFixed(0)}% + buffs +${(getBuffTotal(u,"ci")*100).toFixed(0)}%) → CC chance ${(pStd*100).toFixed(0)}%${fearNote}`, "#38bdf8");
         ["silence","fear","seal"].forEach(t => {
             let p = (t === "fear") ? pFear : pStd;
+            const isImm = (t === "fear" && u.fearImm) || (t === "seal" && u.sealImm) || (t === "silence" && u.silImm);
+            if (isImm) { log(`&nbsp;&nbsp;&nbsp;🛡️ [CC IMMUNE] ${u.name} is immune to ${t.toUpperCase()}`, "#4ade80"); return; }
             if (u.imm !== t && Math.random() < p) {
                 u.cc[t] = 2;
                 log(`&nbsp;&nbsp;&nbsp;🛑 [CC APPLIED] ${u.name} is ${t.toUpperCase()}ED!`, "#ef4444");
@@ -513,8 +532,20 @@ function runOne(ov = null) {
             imm: is11 ? ["silence","fear","seal"][Math.floor(Math.random()*3)] : "none",
             art: art,
             spd: heroSpd,
-            baseCI: parseInt(document.getElementById(`ci${i}`).value) / 100,
+            baseCI: (() => {
+                const cardIdx = (ov && ov.heroes) ? ov.heroes[i].cardIdx : i;
+                const artName = (ov && ov.heroes) ? ov.heroes[i].art : document.getElementById(`a${i}`).value;
+                const heroName= (ov && ov.heroes) ? ov.heroes[i].name : document.getElementById(`h${i}`).value;
+                const base    = parseFloat(document.getElementById(`ci${cardIdx}`).value) || 0;
+                const stellar = (window.optimizerContext ? (ov.heroes[i].voidCI || false) : document.getElementById(`stellar${cardIdx}`)?.checked && STELLAR_HEROES.includes(heroName)) ? 35 : 0;
+                const artCI   = artName === 'Spiritual Mirror' ? 20 : artName === 'Scissors' ? 24 : artName === 'Jade Toad' ? 32 : 0;
+                return (base + stellar + artCI) / 100;
+            })(),
             hasS: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? document.getElementById(`spec${ov.heroes[i].cardIdx}`).checked : document.getElementById(`spec${i}`).checked,
+            fearImm: (() => { const ci = (ov&&ov.heroes) ? ov.heroes[i].cardIdx : i; return document.getElementById(`fearImm${ci}`)?.checked||false; })(),
+            sealImm: (() => { const ci = (ov&&ov.heroes) ? ov.heroes[i].cardIdx : i; return document.getElementById(`sealImm${ci}`)?.checked||false; })(),
+            silImm:  (() => { const ci = (ov&&ov.heroes) ? ov.heroes[i].cardIdx : i; return document.getElementById(`silImm${ci}`)?.checked||false; })(),
+
             hasPupil: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? document.getElementById(`pupil${ov.heroes[i].cardIdx}`).checked : document.getElementById(`pupil${i}`).checked,
             isM: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? (ov.heroes[i].cardIdx === mIdx) : (i === mIdx), isFr: heroIsFr, bDone: false,
             dodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
@@ -575,7 +606,14 @@ function runOne(ov = null) {
 
     for (let s = 0; s < 3; s++) {
         let val = document.getElementById(`lowhp${s}`).value;
-        if (val !== "" && units[parseInt(val)]) units[parseInt(val)].isLowHP = true;
+        if (val !== "") {
+            // val is a hero card index (0-5); find unit by name match
+            const heroName = document.getElementById(`h${val}`)?.value;
+            if (heroName) {
+                const u = units.find(u => u.name === heroName);
+                if (u) u.isLowHP = true;
+            }
+        }
     }
     let lowHPNames = units.filter(u => u.isLowHP).map(u => u.name).join(", ");
     let pupilWearers = units.filter(u => u.hasPupil).map(u => u.name).join(", ");
@@ -1100,6 +1138,8 @@ function runOne(ov = null) {
                     u.transPower = (u.transPower || 0) + 6;
                     log(`&nbsp;&nbsp;&nbsp;🌑 [DGN PHANTOM DAWN] +6 Transition Power → ${u.transPower}`, "#c084fc");
                 }
+                // Jade Toad: fires on active
+                if (usedActive && u.art === "Jade Toad") triggerJadeToad(u);
                 if (u.name === "ELY") {
                     boss.shrink = true;
                     boss.shrinkRounds = 2;
@@ -1403,6 +1443,8 @@ function runOne(ov = null) {
 
             // DGN basic
             if (usedBasic && u.name === "DGN") fireDGNBasic(u, r);
+            // Jade Toad: fires on basic attack
+            if (usedBasic && u.art === "Jade Toad") triggerJadeToad(u);
 
             // Foresight / Destiny imprint
             if (imp === "foresight") {
@@ -1985,6 +2027,27 @@ function runOptimizer() {
 
     const heroNames = Array.from({length:6}, (_,i) => document.getElementById(`h${i}`).value);
     const mIdx      = parseInt(document.querySelector('input[name="max"]:checked').value);
+    // Per-hero base CI (artCI added per-build in display; voidCI explored per-build in optimizer)
+    const heroCIs   = Array.from({length:6}, (_,i) => {
+        const base = parseFloat(document.getElementById(`ci${i}`)?.value) || 0;
+        return base; // voidCI and artCI added per-build
+    });
+    // Which heroes have void CI eligible (checkbox checked in UI)
+    const voidEligible = Array.from({length:6}, (_,i) =>
+        document.getElementById(`stellar${i}`)?.checked && STELLAR_HEROES.includes(heroNames[i])
+    );
+    // Build all void CI combo masks (2^n where n = eligible heroes)
+    const eligIdx = [0,1,2,3,4,5].filter(i => voidEligible[i]);
+    const voidMasks = [];
+    for (let mask = 0; mask < (1 << eligIdx.length); mask++) {
+        const v = new Array(6).fill(false);
+        eligIdx.forEach((hi, bit) => { if (mask & (1 << bit)) v[hi] = true; });
+        voidMasks.push(v);
+    }
+    // Low HP hero names from dropdowns
+    const lowhpNames = ['lowhp0','lowhp1','lowhp2']
+        .map(id => { const v = document.getElementById(id)?.value; return v !== '' ? heroNames[parseInt(v)] : null; })
+        .filter(Boolean);
     const sqhIdx    = heroNames.indexOf('SQH');
     const bdsmIdx   = heroNames.indexOf('BDSM');
     const others    = [0,1,2,3,4,5].filter(i => i!==mIdx && i!==sqhIdx && i!==bdsmIdx);
@@ -1996,19 +2059,24 @@ function runOptimizer() {
     function buildArtCombos() {
         const combos = [];
         const nonLfa = [0,1,2,3,4,5].filter(i => i !== mIdx);
-        const n = nonLfa.length;
-        const total = Math.pow(otherArts.length, n);
-        for (const la of lfaArts) {
-            for (let mask = 0; mask < total; mask++) {
-                const arts = new Array(6);
-                arts[mIdx] = la;
-                let m = mask;
-                for (let k = 0; k < n; k++) {
-                    arts[nonLfa[k]] = otherArts[m % otherArts.length];
-                    m = Math.floor(m / otherArts.length);
-                }
-                if (arts.filter(a => a === 'Scissors').length >= 2) combos.push(arts);
+        const jadeToadEligible = ['HW','ELY'];
+        function heroArts(i) {
+            return jadeToadEligible.includes(heroNames[i]) ? [...otherArts, 'Jade Toad'] : otherArts;
+        }
+        function recurse(k, arts) {
+            if (k === nonLfa.length) {
+                if (arts.filter(a => a === 'Scissors').length >= 2) combos.push([...arts]);
+                return;
             }
+            for (const a of heroArts(nonLfa[k])) {
+                arts[nonLfa[k]] = a;
+                recurse(k + 1, arts);
+            }
+        }
+        for (const la of lfaArts) {
+            const arts = new Array(6);
+            arts[mIdx] = la;
+            recurse(0, arts);
         }
         return combos;
     }
@@ -2056,12 +2124,12 @@ function runOptimizer() {
     }
 
     // ── Helper: run N fights for a given config ───────────────────────────
-    function runFights(arts, spds, slotAssign, n) {
+    function runFights(arts, spds, slotAssign, n, vCI) {
         let total = 0;
         for (let f = 0; f < n; f++) {
             const heroes = Array.from({length:6}, (_,slot) => {
                 const hi = slotAssign[slot];
-                return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi };
+                return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI||[])[hi]||false };
             });
             total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
         }
@@ -2073,13 +2141,14 @@ function runOptimizer() {
     const slotArrs  = buildSlotArrs();
     const defaultSlot = slotArrs[0];
 
-    // ── Phase 1: all art×speed, default position, 3 fights ───────────────
+    // ── Phase 1: all art×speed×voidCI, default position, 1 fight ───────────
     const phase1 = [];
     for (const arts of artCombos)
         for (const spds of speedOrds)
-            phase1.push({ arts, spds, slotAssign: defaultSlot });
+            for (const voidCI of voidMasks)
+                phase1.push({ arts, spds, slotAssign: defaultSlot, voidCI });
 
-    prog.textContent = `Phase 1/5: scanning ${phase1.length.toLocaleString()} art×speed combos (3 fights each)...`;
+    prog.textContent = `Phase 1/5: scanning ${phase1.length.toLocaleString()} art×speed combos (1 fight each)...`;
     let p1idx = 0, p1results = [];
     const CHUNK = 20;
 
@@ -2087,15 +2156,12 @@ function runOptimizer() {
         silent = true;
         for (let end = Math.min(p1idx + CHUNK, phase1.length); p1idx < end; p1idx++) {
             const { arts, spds, slotAssign } = phase1[p1idx];
-            let dmgSum = 0;
-            for (let f = 0; f < 3; f++) {
-                const heroes = Array.from({length:6}, (_,slot) => {
-                    const hi = slotAssign[slot];
-                    return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi };
-                });
-                dmgSum += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
-            }
-            p1results.push({ dmg: dmgSum/3, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign] });
+            const heroes = Array.from({length:6}, (_,slot) => {
+                const hi = slotAssign[slot];
+                return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: voidCI[hi] };
+            });
+            const dmg = runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+            p1results.push({ dmg, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign], voidCI:[...voidCI] });
         }
         silent = false;
         const pct = Math.round(p1idx/phase1.length*100);
@@ -2104,26 +2170,26 @@ function runOptimizer() {
 
         // ── Phase 2: top 150 art×speed × all slot arrangements ───────────
         p1results.sort((a,b) => b.dmg - a.dmg);
-        const top150 = p1results.slice(0, 150);
+        const top50 = p1results.slice(0, 150);
         const phase2 = [];
-        for (const r of top150)
+        for (const r of top50)
             for (const slotAssign of slotArrs)
-                phase2.push({ arts: r.arts, spds: r.spds, slotAssign });
+                phase2.push({ arts: r.arts, spds: r.spds, slotAssign, voidCI: r.voidCI });
 
-        prog.textContent = `Phase 2/5: ${phase2.length.toLocaleString()} slot combos on top 150 builds...`;
+        prog.textContent = `Phase 2/5: ${phase2.length.toLocaleString()} slot combos on top 50 builds...`;
         let p2idx = 0, p2results = [];
 
         function runPhase2Chunk() {
             silent = true;
             for (let end = Math.min(p2idx + CHUNK, phase2.length); p2idx < end; p2idx++) {
-                const { arts, spds, slotAssign } = phase2[p2idx];
+                const { arts, spds, slotAssign, voidCI: vCI2 } = phase2[p2idx];
                 const sa = slotAssign;
                 const heroes = Array.from({length:6}, (_,slot) => {
                     const hi = sa[slot];
-                    return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi };
+                    return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI2||[])[hi]||false };
                 });
                 const res = runOne({ heroes, fromOptimizer: true });
-                p2results.push({ dmg: res.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg||0, arts:[...arts], spds:[...spds], slotAssign:[...sa] });
+                p2results.push({ dmg: res.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg||0, arts:[...arts], spds:[...spds], slotAssign:[...sa], voidCI:[...(vCI2||new Array(6).fill(false))] });
             }
             silent = false;
             const pct2 = Math.round(p2idx/phase2.length*100);
@@ -2134,31 +2200,32 @@ function runOptimizer() {
             p2results.sort((a,b) => b.dmg - a.dmg);
             // Get the 5 unique best slot arrangements from phase 2
             const seenSlots = new Set();
-            const top3slots = [];
+            const top2slots = [];
             for (const r of p2results) {
                 const key = r.slotAssign.join(',');
-                if (!seenSlots.has(key)) { seenSlots.add(key); top3slots.push(r.slotAssign); }
-                if (top3slots.length >= 3) break;
+                if (!seenSlots.has(key)) { seenSlots.add(key); top2slots.push(r.slotAssign); }
+                if (top2slots.length >= 2) break;
             }
 
             const phase15 = [];
-            for (const slotAssign of top3slots)
+            for (const slotAssign of top2slots)
                 for (const arts of artCombos)
                     for (const spds of speedOrds)
-                        phase15.push({ arts, spds, slotAssign });
+                        for (const voidCI of voidMasks)
+                            phase15.push({ arts, spds, slotAssign, voidCI });
 
-            prog.textContent = `Phase 2.5/5: ${phase15.length.toLocaleString()} art×speed combos at top 3 positions (1 fight each)...`;
+            prog.textContent = `Phase 2.5/5: ${phase15.length.toLocaleString()} art×speed combos at top 2 positions (1 fight each)...`;
             let p15idx = 0, p15results = [];
 
             function runPhase15Chunk() {
                 silent = true;
                 for (let end = Math.min(p15idx + CHUNK, phase15.length); p15idx < end; p15idx++) {
-                    const { arts, spds, slotAssign } = phase15[p15idx];
+                    const { arts, spds, slotAssign, voidCI } = phase15[p15idx];
                     let dmgSum = 0;
                     for (let f = 0; f < 3; f++) {
                         const heroes = Array.from({length:6}, (_,slot) => {
                             const hi = slotAssign[slot];
-                            return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi };
+                            return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((voidCI||[])[hi]||false) };
                         });
                         dmgSum += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
                     }
@@ -2166,12 +2233,12 @@ function runOptimizer() {
                 }
                 silent = false;
                 const pct15 = Math.round(p15idx/phase15.length*100);
-                prog.textContent = `Phase 2.5/5: art×speed at top 3 positions — ${pct15}% (${p15idx.toLocaleString()}/${phase15.length.toLocaleString()})`;
+                prog.textContent = `Phase 2.5/5: art×speed at top 2 positions — ${pct15}% (${p15idx.toLocaleString()}/${phase15.length.toLocaleString()})`;
                 if (p15idx < phase15.length) { requestAnimationFrame(runPhase15Chunk); return; }
 
                 // ── Phase 3: top 50 × 300 fights ─────────────────────────
                 p15results.sort((a,b) => b.dmg - a.dmg);
-                const top50 = p15results.slice(0, 50);
+                const top50 = p15results.slice(0, 30);
                 prog.textContent = `Phase 3/5: re-testing top 50 builds (300 fights each)...`;
                 let p3idx = 0, p3results = [];
 
@@ -2194,7 +2261,7 @@ function runOptimizer() {
                                 function runPhase5Chunk() {
                                     if (p5idx >= top10.length) {
                                         p5results.sort((a,b) => b.avgDmg - a.avgDmg);
-                                        finishOptimizer(p5results, heroNames, mIdx);
+                                        finishOptimizer(p5results, heroNames, mIdx, heroCIs, lowhpNames);
                                         btn.disabled = false;
                                         btn.textContent = '⚡ Find Optimal Build';
                                         prog.style.display = 'none';
@@ -2206,7 +2273,7 @@ function runOptimizer() {
                                     for (let f = 0; f < 300; f++) {
                                         const heroes = Array.from({length:6}, (_,slot) => {
                                             const hi = r.slotAssign[slot];
-                                            return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi };
+                                            return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false) };
                                         });
                                         const d = runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
                                         total += d;
@@ -2214,7 +2281,7 @@ function runOptimizer() {
                                         if (d > maxDmg) maxDmg = d;
                                     }
                                     silent = false;
-                                    p5results.push({ ...r, avgDmg: total/300, minDmg, maxDmg });
+                                    p5results.push({ ...r, avgDmg: total/300, minDmg, maxDmg, voidCI: r.voidCI });
                                     prog.textContent = `Phase 5/5: final top 10 — ${p5idx+1}/10 done`;
                                     p5idx++;
                                     requestAnimationFrame(runPhase5Chunk);
@@ -2228,12 +2295,12 @@ function runOptimizer() {
                             for (let f = 0; f < 300; f++) {
                                 const heroes = Array.from({length:6}, (_,slot) => {
                                     const hi = r.slotAssign[slot];
-                                    return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi };
+                                    return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false) };
                                 });
                                 total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
                             }
                             silent = false;
-                            p4results.push({ ...r, avgDmg: total/300 });
+                            p4results.push({ ...r, avgDmg: total/300, voidCI: r.voidCI });
                             prog.textContent = `Phase 4/5: top 20 — ${p4idx+1}/20 done`;
                             p4idx++;
                             requestAnimationFrame(runPhase4Chunk);
@@ -2247,12 +2314,12 @@ function runOptimizer() {
                     for (let f = 0; f < 300; f++) {
                         const heroes = Array.from({length:6}, (_,slot) => {
                             const hi = r.slotAssign[slot];
-                            return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi };
+                            return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false) };
                         });
                         total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
                     }
                     silent = false;
-                    p3results.push({ ...r, avgDmg: total/300 });
+                    p3results.push({ ...r, avgDmg: total/300, voidCI: r.voidCI });
                     prog.textContent = `Phase 3/5: top 50 — ${p3idx+1}/50 done`;
                     p3idx++;
                     requestAnimationFrame(runPhase3Chunk);
@@ -2267,7 +2334,7 @@ function runOptimizer() {
 }
 
 
-function finishOptimizer(results, heroNames, mIdx) {
+function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
     // Sort by avgDmg (500-fight average) descending — this is the only correct sort
     results.sort((a,b) => b.avgDmg - a.avgDmg);
 
@@ -2286,17 +2353,25 @@ function finishOptimizer(results, heroNames, mIdx) {
         <th style="padding:8px;text-align:left">#</th>
         <th style="padding:8px;text-align:left">Avg Damage (300 fights)</th>
         <th style="padding:8px;text-align:left">Acting Order</th>
-        <th style="padding:8px;text-align:left">Slot 1→6 (1-2 Front · Artifact)</th>
+        <th style="padding:8px;text-align:left">Slot 1→6 (1-2 Front · Artifact · CI)</th>
     </tr></thead><tbody>`;
+    const lowhpBadge = lowhpNames && lowhpNames.length ? `<div style="color:#64748b;font-size:11px;margin-bottom:6px">Low HP: ${lowhpNames.join(', ')}</div>` : '';
+    html = html.replace('</h3>', '</h3>' + lowhpBadge);
 
     results.forEach((r, rank) => {
         const spdOrder = Array.from({length:6},(_,i)=>i).sort((a,b) => r.spds[b] - r.spds[a]);
         const actingOrder = spdOrder.map(i => heroNames[i]).join(' → ');
-        const slotStr = r.slotAssign.map((hi, slot) =>
-            `<span style="color:#64748b;font-size:10px">${slot+1}.</span> ` +
-            `<span style="color:${slot<2?'#f87171':'#94a3b8'}">${heroNames[hi]}</span> ` +
-            badge(r.arts[hi])
-        ).join('<span style="color:#1e293b"> | </span>');
+        const slotStr = r.slotAssign.map((hi, slot) => {
+            const ci = heroCIs ? heroCIs[hi] : null;
+            const artName = r.arts[hi];
+            const artCI = artName === 'Spiritual Mirror' ? 20 : artName === 'Scissors' ? 24 : artName === 'Jade Toad' ? 32 : 0;
+            const effCI = ci != null ? (ci + artCI) : null;
+            const voidOn = r.voidCI && r.voidCI[hi];
+            const ciTag = effCI != null ? `<span style="color:#38bdf8;font-size:10px"> ${effCI}%CI${voidOn?'✦':''}</span>` : '';
+            return `<span style="color:#64748b;font-size:10px">${slot+1}.</span> ` +
+                `<span style="color:${slot<2?'#f87171':'#94a3b8'}">${heroNames[hi]}</span> ` +
+                badge(r.arts[hi]) + ciTag;
+        }).join('<span style="color:#1e293b"> | </span>');
 
         const rowBg = rank === 0 ? '#172033' : 'transparent';
         const dmgColor = rank === 0 ? '#4ade80' : 'var(--accent)';
@@ -2822,6 +2897,57 @@ function fireDGNTransition(dgn, r) {
         if (dgn.dmgPerRound) dgn.dmgPerRound[r-1] = (dgn.dmgPerRound[r-1] || 0) + glowDmg;
         log(`&nbsp;&nbsp;&nbsp;🌑 [DGN GLOWED GLORY] ${Math.round(glowDmg).toLocaleString()} (20% boss HP, cap 1500% ATK)`, '#c084fc');
     }
+}
+
+// ── CI helpers ───────────────────────────────────────────────────────────────
+const STELLAR_HEROES = ["LFA","SQH","STV","BDSM","LBRM","DGN"];
+const ART_CI_BONUS   = { "Spiritual Mirror": 20, "Scissors": 24, "Jade Toad": 32 };
+
+function getEffectiveCI(i) {
+    const hero    = document.getElementById(`h${i}`)?.value || '';
+    const art     = document.getElementById(`a${i}`)?.value || '';
+    const base    = parseFloat(document.getElementById(`ci${i}`)?.value) || 0;
+    const stellar = document.getElementById(`stellar${i}`)?.checked && STELLAR_HEROES.includes(hero) ? 35 : 0;
+    const artCI   = ART_CI_BONUS[art] || 0;
+    return base + stellar + artCI;
+}
+
+function updateCardCI(i) {
+    const hero = document.getElementById(`h${i}`)?.value || '';
+    const lbl  = document.getElementById(`stellarLbl${i}`);
+    if (lbl) lbl.style.display = STELLAR_HEROES.includes(hero) ? '' : 'none';
+    const eff = getEffectiveCI(i);
+    const el  = document.getElementById(`effCI${i}`);
+    if (el) el.textContent = `→ ${eff}%`;
+}
+
+// ── Jade Toad artifact effect ─────────────────────────────────────────────────
+// Fires on basic or active: 5 rolls of +3% AllDmg to random ally (cap 90% per ally)
+// + each ally: 33% chance +1 SPD 2r, 33% chance +1% ATK 2r (both offsettable)
+function triggerJadeToad(caster) {
+    if (!units || units.length === 0) return;
+    // 5× grant +3% AllDmg to random ally (not offsettable, cap 90% total per ally)
+    for (let j = 0; j < 5; j++) {
+        const target = units[Math.floor(Math.random() * units.length)];
+        const current = getBuffTotal(target, 'allDmg');
+        if (current < 0.90) {
+            const grant = Math.min(0.03, 0.90 - current);
+            // AllDmg from Jade Toad is not offsettable - use addBuff directly
+            target.buffs.push({ type: 'allDmg', val: grant, rounds: 999, src: 'Jade Toad AllDmg' });
+            if (!silent) log(`&nbsp;&nbsp;&nbsp;🐸 [JADE TOAD] +${(grant*100).toFixed(0)}% AllDmg → ${target.name} (total: ${((current+grant)*100).toFixed(0)}%)`, '#4ade80');
+        }
+    }
+    // Each ally: 33% SPD +1 2r, 33% ATK +1% 2r (offsettable)
+    units.forEach(target => {
+        const roll = Math.random();
+        if (roll < 0.333) {
+            addBuff(target, 'spd', 1, 2, 'Jade Toad SPD');
+            if (!silent) log(`&nbsp;&nbsp;&nbsp;🐸 [JADE TOAD] +1 SPD 2r → ${target.name}`, '#4ade80');
+        } else if (roll < 0.666) {
+            addBuff(target, 'atk', 0.01, 2, 'Jade Toad ATK');
+            if (!silent) log(`&nbsp;&nbsp;&nbsp;🐸 [JADE TOAD] +1% ATK 2r → ${target.name}`, '#4ade80');
+        }
+    });
 }
 
 </script>
