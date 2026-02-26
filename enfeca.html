@@ -2252,7 +2252,7 @@ function runOptimizer() {
                 p15results.sort((a,b) => b.dmg - a.dmg);
                 const top50 = p15results.slice(0, 30);
                 prog.textContent = `Phase 3/5: re-testing top 50 builds (300 fights each)...`;
-                let p3idx = 0, p3results = [];
+                            let p3idx = 0, p3results = [];
 
                 function runPhase3Chunk() {
                     if (p3idx >= top50.length) {
@@ -2260,7 +2260,7 @@ function runOptimizer() {
                         p3results.sort((a,b) => b.avgDmg - a.avgDmg);
                         const top20 = p3results.slice(0, 20);
                         prog.textContent = `Phase 4/5: re-testing top 20 builds (300 fights each)...`;
-                        let p4idx = 0, p4results = [];
+                                            let p4idx = 0, p4results = [];
 
                         function runPhase4Chunk() {
                             if (p4idx >= top20.length) {
@@ -2268,7 +2268,7 @@ function runOptimizer() {
                                 p4results.sort((a,b) => b.avgDmg - a.avgDmg);
                                 const top10 = p4results.slice(0, 10);
                                 prog.textContent = `Phase 5/5: final top 10 (300 fights each)...`;
-                                let p5idx = 0, p5results = [];
+                                                            let p5idx = 0, p5results = [];
 
                                 function runPhase5Chunk() {
                                     if (p5idx >= top10.length) {
