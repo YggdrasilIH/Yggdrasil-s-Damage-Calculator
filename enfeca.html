@@ -67,27 +67,27 @@
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
             <div>
                 <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">ATK (absolute)</label>
-                <input type="number" id="dc_atk" value="100000" style="width:100%">
+                <input type="number" id="dc_atk" value="750000000" style="width:100%">
             </div>
             <div>
                 <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Skill DMG %</label>
-                <input type="number" id="dc_skill" value="0" style="width:100%">
+                <input type="number" id="dc_skill" value="1500" style="width:100%">
             </div>
             <div>
                 <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Precision %</label>
-                <input type="number" id="dc_prec" value="0" style="width:100%">
+                <input type="number" id="dc_prec" value="150" style="width:100%">
             </div>
             <div>
                 <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Holy DMG % (base)</label>
-                <input type="number" id="dc_holy" value="0" style="width:100%">
+                <input type="number" id="dc_holy" value="230" style="width:100%">
             </div>
             <div>
                 <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">All DMG Dealt %</label>
-                <input type="number" id="dc_alldmg" value="0" style="width:100%">
+                <input type="number" id="dc_alldmg" value="140" style="width:100%">
             </div>
             <div>
                 <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Crit %</label>
-                <input type="number" id="dc_crit" value="0" style="width:100%">
+                <input type="number" id="dc_crit" value="35" style="width:100%">
             </div>
             <div>
                 <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Crit DMG %</label>
@@ -95,11 +95,11 @@
             </div>
             <div>
                 <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Temple DMG %</label>
-                <input type="number" id="dc_temple" value="150" min="0" placeholder="e.g. 150" style="width:100%">
+                <input type="number" id="dc_temple" value="160" min="0" placeholder="e.g. 150" style="width:100%">
             </div>
             <div style="display:flex;align-items:center;gap:12px;padding-top:18px;">
-                <label style="font-size:12px;"><input type="checkbox" id="dc_defier"> Defier</label>
-                <label style="font-size:12px;"><input type="checkbox" id="dc_gk"> Giant Killer</label>
+                <label style="font-size:12px;"><input type="checkbox" id="dc_defier" checked> Defier</label>
+                <label style="font-size:12px;"><input type="checkbox" id="dc_gk" checked> Giant Killer</label>
             </div>
         </div>
     </div>
@@ -119,12 +119,12 @@
 const HEROES = ["LFA","SQH","STV","BDSM","LBRM","ELY","HW","DGN"];
 const ARTS   = ["None","Demon Bell","Spiritual Mirror","Antlers","Scissors","Antiwarrior","Jade Toad"];
 const defaults = [
-    { h:"BDSM", a:"Demon Bell", s:2000, ci:120 },
-    { h:"SQH",  a:"Spiritual Mirror", s:1900, ci:110 },
-    { h:"LFA",  a:"Antlers",   s:1500, ci:200 },
-    { h:"HW",   a:"Scissors",  s:1800, ci:80  },
-    { h:"ELY",  a:"Scissors",  s:1700, ci:120 },
-    { h:"STV",  a:"Scissors",  s:1600, ci:200 }
+    { h:"BDSM", a:"Demon Bell",       s:2000, ci:67  },
+    { h:"SQH",  a:"Spiritual Mirror", s:1900, ci:67  },
+    { h:"LFA",  a:"Antlers",          s:1500, ci:80  },
+    { h:"HW",   a:"Scissors",         s:1800, ci:65  },
+    { h:"ELY",  a:"Scissors",         s:1700, ci:95  },
+    { h:"STV",  a:"Scissors",         s:1600, ci:85  }
 ];
 
 const container = document.getElementById('hero-inputs');
@@ -189,11 +189,21 @@ function refreshLowHPDropdowns() {
     }
 }
 window.addEventListener('load', () => {
+    // Default checkboxes: BDSM(0)=nova, SQH(1)=pupil, LFA(2)=specter
+    document.getElementById('nova0')?.setAttribute('checked', 'checked');
+    document.getElementById('nova0').checked = true;
+    document.getElementById('pupil1')?.setAttribute('checked', 'checked');
+    document.getElementById('pupil1').checked = true;
+    document.getElementById('spec2')?.setAttribute('checked', 'checked');
+    document.getElementById('spec2').checked = true;
+
+    // Default lowhp: HW(3), ELY(4), STV(5)
+    refreshLowHPDropdowns();
     ['lowhp0','lowhp1','lowhp2'].forEach((id, i) => {
         let sel = document.getElementById(id);
         if (sel) sel.value = String(3 + i);
     });
-    refreshLowHPDropdowns();
+
     for (let i = 0; i < 6; i++) {
         document.getElementById(`h${i}`).addEventListener('change', refreshLowHPDropdowns);
         updateCardCI(i);
@@ -2157,17 +2167,17 @@ function runOptimizer() {
     function runPhase1Chunk() {
         silent = true;
         for (let end = Math.min(p1idx + CHUNK, phase1.length); p1idx < end; p1idx++) {
-            const { arts, spds, slotAssign } = phase1[p1idx];
+            const { arts, spds, slotAssign, voidCI: vCI1 } = phase1[p1idx];
             const heroes = Array.from({length:6}, (_,slot) => {
                 const hi = slotAssign[slot];
-                return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: voidCI[hi] };
+                return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI1||[])[hi]||false };
             });
             const dmg = runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
             p1results.push({ dmg, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign], voidCI:[...voidCI] });
         }
         silent = false;
         const pct = Math.round(p1idx/phase1.length*100);
-        prog.textContent = `Phase 1/5: art×speed (3 fights each) — ${pct}% (${p1idx.toLocaleString()}/${phase1.length.toLocaleString()})`;
+        prog.textContent = `Phase 1/5: art×speed — ${pct}% (${p1idx.toLocaleString()}/${phase1.length.toLocaleString()})`;
         if (p1idx < phase1.length) { requestAnimationFrame(runPhase1Chunk); return; }
 
         // ── Phase 2: top 150 art×speed × all slot arrangements ───────────
