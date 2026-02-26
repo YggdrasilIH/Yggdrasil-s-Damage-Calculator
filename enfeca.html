@@ -2160,24 +2160,27 @@ function runOptimizer() {
             for (const voidCI of voidMasks)
                 phase1.push({ arts, spds, slotAssign: defaultSlot, voidCI });
 
-    prog.textContent = `Phase 1/5: scanning ${phase1.length.toLocaleString()} art×speed combos (1 fight each)...`;
+    prog.textContent = `Phase 1/5: scanning ${phase1.length.toLocaleString()} art×speed combos (3 fights each)...`;
     let p1idx = 0, p1results = [];
-    const CHUNK = 100;
+    const CHUNK = 1000;
 
     function runPhase1Chunk() {
         silent = true;
         for (let end = Math.min(p1idx + CHUNK, phase1.length); p1idx < end; p1idx++) {
             const { arts, spds, slotAssign, voidCI: vCI1 } = phase1[p1idx];
-            const heroes = Array.from({length:6}, (_,slot) => {
-                const hi = slotAssign[slot];
-                return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI1||[])[hi]||false };
-            });
-            const dmg = runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
-            p1results.push({ dmg, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign], voidCI:[...(vCI1||[])] });
+            let dmgSum = 0;
+            for (let f = 0; f < 3; f++) {
+                const heroes = Array.from({length:6}, (_,slot) => {
+                    const hi = slotAssign[slot];
+                    return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI1||[])[hi]||false };
+                });
+                dmgSum += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+            }
+            p1results.push({ dmg: dmgSum/3, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign], voidCI:[...(vCI1||[])] });
         }
         silent = false;
         const pct = Math.round(p1idx/phase1.length*100);
-        prog.textContent = `Phase 1/5: art×speed — ${pct}% (${p1idx.toLocaleString()}/${phase1.length.toLocaleString()})`;
+        prog.textContent = `Phase 1/5: art×speed (3 fights) — ${pct}% (${p1idx.toLocaleString()}/${phase1.length.toLocaleString()})`;
         if (p1idx < phase1.length) { requestAnimationFrame(runPhase1Chunk); return; }
 
         // ── Phase 2: top 150 art×speed × all slot arrangements ───────────
@@ -2273,9 +2276,9 @@ function runOptimizer() {
                                 function runPhase5Chunk() {
                                     if (p5idx >= top10.length) {
                                         p5results.sort((a,b) => b.avgDmg - a.avgDmg);
-                                        finishOptimizer(p5results, heroNames, mIdx, heroCIs, lowhpNames);
-                                        btn.disabled = false;
-                                        btn.textContent = '⚡ Find Optimal Build';
+                                        // ── Phase 6: optimal crit sweep per top-10 build ─────────────────
+                                        prog.textContent = 'Phase 6/6: sweeping optimal crit % for each top-10 build...';
+                                        runPhase6(p5results, heroNames, mIdx, heroCIs, lowhpNames, btn, prog);
                                         prog.style.display = 'none';
                                         return;
                                     }
@@ -2346,6 +2349,74 @@ function runOptimizer() {
 }
 
 
+// ── Phase 6: per-build optimal crit sweep ────────────────────────────────────
+function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
+    const critInput  = document.getElementById('dc_crit');
+    const origCrit   = critInput.value;
+    const CRIT_STEP  = 1;   // sweep 0..100 in 1% steps
+    const SWEEP_N    = 30;  // fights per crit value during sweep
+    const FINAL_N    = 100; // fights at optimal crit for final ranking
+
+    let bIdx = 0; // which build we're processing
+
+    function buildHeroes(r, slot) {
+        const hi = r.slotAssign[slot];
+        return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi],
+                 isFr: slot < 2, cardIdx: hi, voidCI: (r.voidCI||[])[hi]||false };
+    }
+
+    function sweepBuild() {
+        if (bIdx >= builds.length) {
+            // All done — restore crit, sort by phase6Dmg, finish
+            critInput.value = origCrit;
+            builds.sort((a,b) => (b.phase6Dmg||0) - (a.phase6Dmg||0));
+            finishOptimizer(builds, heroNames, mIdx, heroCIs, lowhpNames);
+            btn.disabled = false;
+            btn.textContent = '⚡ Find Optimal Build';
+            prog.style.display = 'none';
+            return;
+        }
+
+        const r = builds[bIdx];
+        const critResults = []; // { crit, avgDmg }
+
+        // Sweep crit 0–100%
+        for (let crit = 0; crit <= 100; crit += CRIT_STEP) {
+            critInput.value = crit;
+            let total = 0;
+            silent = true;
+            for (let f = 0; f < SWEEP_N; f++) {
+                const heroes = Array.from({length:6}, (_,slot) => buildHeroes(r, slot));
+                total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+            }
+            silent = false;
+            critResults.push({ crit, avgDmg: total / SWEEP_N });
+        }
+
+        // Find best crit %
+        const best = critResults.reduce((a,b) => b.avgDmg > a.avgDmg ? b : a);
+        r.optimalCrit = best.crit;
+
+        // Run FINAL_N fights at optimal crit
+        critInput.value = best.crit;
+        let finalTotal = 0;
+        silent = true;
+        for (let f = 0; f < FINAL_N; f++) {
+            const heroes = Array.from({length:6}, (_,slot) => buildHeroes(r, slot));
+            finalTotal += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+        }
+        silent = false;
+        r.phase6Dmg = finalTotal / FINAL_N;
+
+        prog.textContent = `Phase 6/6: build ${bIdx+1}/10 — optimal crit: ${best.crit}% → avg ${Math.round(r.phase6Dmg).toLocaleString()} (was ${Math.round(r.avgDmg).toLocaleString()})`;
+
+        bIdx++;
+        requestAnimationFrame(sweepBuild);
+    }
+
+    requestAnimationFrame(sweepBuild);
+}
+
 function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
     // Sort by avgDmg (500-fight average) descending — this is the only correct sort
     results.sort((a,b) => b.avgDmg - a.avgDmg);
@@ -2359,7 +2430,7 @@ function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
     const badge = (art) => `<span style="background:${artColors[art]||'#475569'}22;color:${artColors[art]||'#94a3b8'};border:1px solid ${artColors[art]||'#475569'}44;padding:1px 6px;border-radius:4px;font-size:11px">${art}</span>`;
 
     let html = `<div style="margin-top:16px">
-    <h3 style="color:#a78bfa;margin-bottom:12px">⚡ Top 10 Optimal Builds (300-fight final average)</h3>
+    <h3 style="color:#a78bfa;margin-bottom:12px">⚡ Top 10 Optimal Builds (Phase 6: optimal crit × 100 fights)</h3>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
     <thead><tr style="background:#1e293b;color:#94a3b8">
         <th style="padding:8px;text-align:left">#</th>
@@ -2377,13 +2448,22 @@ function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
             const ci = heroCIs ? heroCIs[hi] : null;
             const artName = r.arts[hi];
             const artCI = artName === 'Spiritual Mirror' ? 20 : artName === 'Scissors' ? 24 : artName === 'Jade Toad' ? 32 : 0;
-            const effCI = ci != null ? (ci + artCI) : null;
             const voidOn = r.voidCI && r.voidCI[hi];
-            const ciTag = effCI != null ? `<span style="color:#38bdf8;font-size:10px"> ${effCI}%CI${voidOn?'✦':''}</span>` : '';
+            const effCI = ci != null ? (ci + artCI + (voidOn ? 35 : 0)) : null;
+            const ciTag = effCI != null ? `<span style="color:#38bdf8;font-size:10px"> ${effCI}%CI</span>` : '';
             return `<span style="color:#64748b;font-size:10px">${slot+1}.</span> ` +
                 `<span style="color:${slot<2?'#f87171':'#94a3b8'}">${heroNames[hi]}</span> ` +
                 badge(r.arts[hi]) + ciTag;
         }).join('<span style="color:#1e293b"> | </span>');
+        // Void CI imprint summary line
+        const voidOnHeroes = r.slotAssign
+            .map(hi => ({ name: heroNames[hi], on: r.voidCI && r.voidCI[hi] }))
+            .filter(x => STELLAR_HEROES.includes(x.name));
+        const imprintStr = voidOnHeroes.length > 0
+            ? voidOnHeroes.map(x =>
+                `<span style="color:${x.on?'#a78bfa':'#64748b'};font-size:11px">${x.name}: ${x.on?'✦ Void CI ON':'Void CI OFF'}</span>`
+              ).join(' &nbsp;')
+            : '';
 
         const rowBg = rank === 0 ? '#172033' : 'transparent';
         const dmgColor = rank === 0 ? '#4ade80' : 'var(--accent)';
@@ -2393,17 +2473,22 @@ function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
         html += `<tr style="background:${rowBg};border-bottom:1px solid #1e293b">
             <td style="padding:8px;color:#64748b;font-weight:bold">${rank+1}</td>
             <td style="padding:8px;white-space:nowrap">
-                <div style="color:${dmgColor};font-weight:bold">${fmt(r.avgDmg)}</div>
+                <div style="color:${dmgColor};font-weight:bold">${fmt(r.phase6Dmg != null ? r.phase6Dmg : r.avgDmg)}</div>
+                ${r.phase6Dmg != null ? `<div style="color:#a78bfa;font-size:11px">Optimal Crit: ${r.optimalCrit}%</div>` : ''}
+                ${r.phase6Dmg != null ? `<div style="color:#64748b;font-size:10px">Phase 5 avg: ${fmt(r.avgDmg)}</div>` : ''}
                 ${rangeStr}
             </td>
             <td style="padding:8px;color:#e2e8f0;white-space:nowrap">${actingOrder}</td>
-            <td style="padding:8px;line-height:2">${slotStr}</td>
+            <td style="padding:8px;line-height:2">
+                ${slotStr}
+                ${imprintStr ? `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">${imprintStr}</div>` : ''}
+            </td>
         </tr>`;
     });
 
     html += `</tbody></table>
     <p style="color:#64748b;font-size:11px;margin-top:8px">
-        Phase 1: art×speed combos (1 fight each) → top 50 into slot arrangement sweep (480 arrangements, LFA any backline slot) → top 20 re-tested with 500 fights each. Ranked strictly by 500-fight average damage. Red = frontline slots (1-2), grey = backline (3-6).
+        Phase 1: art×speed×voidCI (3 fights) → Phase 2: slot arrangements → Phase 2.5: re-test positions → Phases 3-5: progressive 300-fight refinement → Phase 6: crit sweep (0-100%, 30 fights each) then 100 fights at optimal crit. Final ranking by Phase 6 damage. Red = frontline, grey = backline.
     </p></div>`;
 
     document.getElementById('optOutput').innerHTML = html;
