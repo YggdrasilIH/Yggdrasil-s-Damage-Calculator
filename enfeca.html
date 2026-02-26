@@ -548,10 +548,10 @@ function runOne(ov = null) {
 
             hasPupil: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? document.getElementById(`pupil${ov.heroes[i].cardIdx}`).checked : document.getElementById(`pupil${i}`).checked,
             isM: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? (ov.heroes[i].cardIdx === mIdx) : (i === mIdx), isFr: heroIsFr, bDone: false,
-            dodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
-            baseDodge: (parseInt(document.getElementById(`dg${i}`).value) || 0) / 100,
-            baseDR:  (parseFloat(document.getElementById(`dr${i}`).value)  || 0) / 100,
-            baseADR: (parseFloat(document.getElementById(`adr${i}`).value) || 0) / 100,
+            dodge: (parseInt(document.getElementById(`dg${(ov&&ov.heroes)?ov.heroes[i].cardIdx:i}`).value) || 0) / 100,
+            baseDodge: (parseInt(document.getElementById(`dg${(ov&&ov.heroes)?ov.heroes[i].cardIdx:i}`).value) || 0) / 100,
+            baseDR:  (parseFloat(document.getElementById(`dr${(ov&&ov.heroes)?ov.heroes[i].cardIdx:i}`).value)  || 0) / 100,
+            baseADR: (parseFloat(document.getElementById(`adr${(ov&&ov.heroes)?ov.heroes[i].cardIdx:i}`).value) || 0) / 100,
             starSoulTally: 0,
             pupilActionCount: 0,
             pupilDodgeRounds: 0,
@@ -589,6 +589,7 @@ function runOne(ov = null) {
             fictionalMagicRounds: 0,
             mirrorMagicCount: 3,
             buffs: { atk:[], dr:[], ci:[], spd:[], hd:[], cd:[], crit:[], armor:[], allDmg:[], allDmgReduction:[], drOffset:[], burnBonus:[] },
+            jadeToadAllDmg: 0,
             stats: { damageDealt: 0, healingDone: 0 },
             peakCI: 0,
             ciTotal: 0,
@@ -2065,7 +2066,8 @@ function runOptimizer() {
         }
         function recurse(k, arts) {
             if (k === nonLfa.length) {
-                if (arts.filter(a => a === 'Scissors').length >= 2) combos.push([...arts]);
+                const scissorsOrToad = arts.filter(a => a === 'Scissors' || a === 'Jade Toad').length;
+                if (scissorsOrToad >= 2) combos.push([...arts]);
                 return;
             }
             for (const a of heroArts(nonLfa[k])) {
@@ -2926,33 +2928,26 @@ function updateCardCI(i) {
 // + each ally: 33% chance +1 SPD 2r, 33% chance +1% ATK 2r (both offsettable)
 function triggerJadeToad(caster) {
     if (!units || units.length === 0) return;
-    // 5× grant +3% AllDmg to random ally (not offsettable, cap 90% total per ally)
-    for (let j = 0; j < 5; j++) { 
-        const target = units[Math.floor(Math.random() * units.length)]; 
-            // Sum only Jade Toad's own AllDmg buffs 
-        const currentJT = target.buffs 
-            .filter(b => b.type === 'allDmg' && b.src === 'Jade Toad AllDmg') 
-            .reduce((sum, b) => sum + b.val, 0);             
-        if (currentJT < 0.90) { 
-            const grant = Math.min(0.03, 0.90 - currentJT);
-            // AllDmg from Jade Toad is not offsettable - use addBuff directly
+    // 5× grant +3% AllDmg to random ally — cap is 90% from Jade Toad specifically per ally
+    for (let j = 0; j < 5; j++) {
+        const target = units[Math.floor(Math.random() * units.length)];
+        if ((target.jadeToadAllDmg || 0) < 0.90) {
+            const grant = Math.min(0.03, 0.90 - (target.jadeToadAllDmg || 0));
+            target.jadeToadAllDmg = (target.jadeToadAllDmg || 0) + grant;
             target.buffs.allDmg.push({ value: grant, rounds: 999, source: 'Jade Toad AllDmg' });
-            if (!silent) log(`&nbsp;&nbsp;&nbsp;🐸 [JADE TOAD] +${(grant*100).toFixed(0)}% AllDmg → ${target.name} (total: ${((current+grant)*100).toFixed(0)}%)`, '#4ade80');
+            if (!silent) log(`&nbsp;&nbsp;&nbsp;🐸 [JADE TOAD] +${(grant*100).toFixed(0)}% AllDmg → ${target.name} (Toad total: ${((target.jadeToadAllDmg)*100).toFixed(0)}%)`, '#4ade80');
         }
     }
-    // Each ally: 33% SPD +1 2r, 33% ATK +1% 2r (offsettable)
+    // Each ally: 33% chance +1 SPD 2r, 33% chance +1% ATK 2r (both offsettable)
     units.forEach(target => {
         const roll = Math.random();
         if (roll < 0.333) {
             addBuff(target, 'spd', 1, 2, 'Jade Toad SPD');
-            if (!silent) log(`&nbsp;&nbsp;&nbsp;🐸 [JADE TOAD] +1 SPD 2r → ${target.name}`, '#4ade80');
         } else if (roll < 0.666) {
             addBuff(target, 'atk', 0.01, 2, 'Jade Toad ATK');
-            if (!silent) log(`&nbsp;&nbsp;&nbsp;🐸 [JADE TOAD] +1% ATK 2r → ${target.name}`, '#4ade80');
         }
     });
 }
-
 </script>
 </body>
 </html>
