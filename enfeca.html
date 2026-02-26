@@ -2933,7 +2933,7 @@ function triggerJadeToad(caster) {
         if (current < 0.90) {
             const grant = Math.min(0.03, 0.90 - current);
             // AllDmg from Jade Toad is not offsettable - use addBuff directly
-            target.buffs.allDmg.push({ type: 'allDmg', val: grant, rounds: 999, src: 'Jade Toad AllDmg' });
+            target.buffs.allDmg.push({ value: grant, rounds: 999, source: 'Jade Toad AllDmg' });
             if (!silent) log(`&nbsp;&nbsp;&nbsp;🐸 [JADE TOAD] +${(grant*100).toFixed(0)}% AllDmg → ${target.name} (total: ${((current+grant)*100).toFixed(0)}%)`, '#4ade80');
         }
     }
