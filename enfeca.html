@@ -2927,13 +2927,14 @@ function updateCardCI(i) {
 function triggerJadeToad(caster) {
     if (!units || units.length === 0) return;
     // 5× grant +3% AllDmg to random ally (not offsettable, cap 90% total per ally)
-    for (let j = 0; j < 5; j++) { const target = units[Math.floor(Math.random() * units.length)]; 
+    for (let j = 0; j < 5; j++) { 
+        const target = units[Math.floor(Math.random() * units.length)]; 
             // Sum only Jade Toad's own AllDmg buffs 
-            const currentJT = target.buffs 
-                .filter(b => b.type === 'allDmg' && b.src === 'Jade Toad AllDmg') 
-                .reduce((sum, b) => sum + b.val, 0); 
-            if (currentJT < 0.90) { 
-                const grant = Math.min(0.03, 0.90 - currentJT);
+        const currentJT = target.buffs 
+            .filter(b => b.type === 'allDmg' && b.src === 'Jade Toad AllDmg') 
+            .reduce((sum, b) => sum + b.val, 0);             
+        if (currentJT < 0.90) { 
+            const grant = Math.min(0.03, 0.90 - currentJT);
             // AllDmg from Jade Toad is not offsettable - use addBuff directly
             target.buffs.allDmg.push({ value: grant, rounds: 999, source: 'Jade Toad AllDmg' });
             if (!silent) log(`&nbsp;&nbsp;&nbsp;🐸 [JADE TOAD] +${(grant*100).toFixed(0)}% AllDmg → ${target.name} (total: ${((current+grant)*100).toFixed(0)}%)`, '#4ade80');
