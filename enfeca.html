@@ -2044,11 +2044,8 @@ function runOptimizer() {
         return base; // voidCI and artCI added per-build
     });
     // Which heroes have void CI eligible (checkbox checked in UI)
-    const voidEligible = Array.from({length:6}, (_,i) =>
-        document.getElementById(`stellar${i}`)?.checked && STELLAR_HEROES.includes(heroNames[i])
-    );
-    // Build all void CI combo masks (2^n where n = eligible heroes)
-    const eligIdx = [0,1,2,3,4,5].filter(i => voidEligible[i]);
+    // Void CI: always explore on/off for ALL STELLAR_HEROES in the team (ignore checkbox state)
+    const eligIdx = [0,1,2,3,4,5].filter(i => STELLAR_HEROES.includes(heroNames[i]));
     const voidMasks = [];
     for (let mask = 0; mask < (1 << eligIdx.length); mask++) {
         const v = new Array(6).fill(false);
@@ -2251,13 +2248,47 @@ function runOptimizer() {
                 prog.textContent = `Phase 2.5/5: art×speed at top 2 positions — ${pct15}% (${p15idx.toLocaleString()}/${phase15.length.toLocaleString()})`;
                 if (p15idx < phase15.length) { requestAnimationFrame(runPhase15Chunk); return; }
 
-                // ── Phase 3: top 50 × 300 fights ─────────────────────────
+                // ── Phase 2.6: crit sweep on top 50 builds ────────────────
                 p15results.sort((a,b) => b.dmg - a.dmg);
                 const top50 = p15results.slice(0, 30);
-                prog.textContent = `Phase 3/5: re-testing top 50 builds (300 fights each)...`;
-                            let p3idx = 0, p3results = [];
+                prog.textContent = `Phase 2.6: finding optimal crit % for top ${top50.length} builds...`;
+                const critInput = document.getElementById('dc_crit');
+                const origCrit  = critInput.value;
+                let csIdx = 0;
+                function runCritSweep() {
+                    if (csIdx >= top50.length) {
+                        critInput.value = origCrit;
+                        // ── Phase 3: top 50 × 300 fights ─────────────────────────
+                        prog.textContent = `Phase 3/5: re-testing top 50 builds (300 fights each)...`;
+                                    let p3idx = 0, p3results = [];
 
-                function runPhase3Chunk() {
+                        requestAnimationFrame(runPhase3Chunk);
+                        return;
+                    }
+                    // Sweep crit 0–100 for this build (10 fights per step = 1010 fights)
+                    const rb = top50[csIdx];
+                    let bestCrit = parseInt(origCrit) || 0, bestDmg = -1;
+                    for (let crit = 0; crit <= 100; crit++) {
+                        critInput.value = crit;
+                        let tot = 0;
+                        silent = true;
+                        for (let f = 0; f < 10; f++) {
+                            const heroes = Array.from({length:6}, (_,slot) => {
+                                const hi = rb.slotAssign[slot];
+                                return { name: heroNames[hi], art: rb.arts[hi], spd: rb.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (rb.voidCI||[])[hi]||false };
+                            });
+                            tot += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+                        }
+                        silent = false;
+                        if (tot > bestDmg) { bestDmg = tot; bestCrit = crit; }
+                    }
+                    rb.optimalCrit = bestCrit;
+                    prog.textContent = `Phase 2.6: crit sweep ${csIdx+1}/${top50.length} — optimal crit: ${bestCrit}% (${Math.round((csIdx+1)/top50.length*100)}%)`;
+                    csIdx++;
+                    requestAnimationFrame(runCritSweep);
+                }
+
+                        function runPhase3Chunk() {
                     if (p3idx >= top50.length) {
                         // ── Phase 4: top 20 × 300 fights ─────────────────
                         p3results.sort((a,b) => b.avgDmg - a.avgDmg);
@@ -2285,7 +2316,8 @@ function runOptimizer() {
                                     const r = top10[p5idx];
                                     silent = true;
                                     let total = 0, minDmg = Infinity, maxDmg = -Infinity;
-                                    for (let f = 0; f < 300; f++) {
+                                    critInput.value = r.optimalCrit ?? origCrit;
+                                for (let f = 0; f < 300; f++) {
                                         const heroes = Array.from({length:6}, (_,slot) => {
                                             const hi = r.slotAssign[slot];
                                             return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false) };
@@ -2296,7 +2328,8 @@ function runOptimizer() {
                                         if (d > maxDmg) maxDmg = d;
                                     }
                                     silent = false;
-                                    p5results.push({ ...r, avgDmg: total/300, minDmg, maxDmg, voidCI: r.voidCI });
+                                    critInput.value = origCrit;
+                                        p5results.push({ ...r, avgDmg: total/300, minDmg, maxDmg, voidCI: r.voidCI });
                                     prog.textContent = `Phase 5/5: final top 10 — ${p5idx+1}/10 done`;
                                     p5idx++;
                                     requestAnimationFrame(runPhase5Chunk);
@@ -2307,6 +2340,7 @@ function runOptimizer() {
                             const r = top20[p4idx];
                             silent = true;
                             let total = 0;
+                            critInput.value = r.optimalCrit ?? origCrit;
                             for (let f = 0; f < 300; f++) {
                                 const heroes = Array.from({length:6}, (_,slot) => {
                                     const hi = r.slotAssign[slot];
@@ -2315,7 +2349,8 @@ function runOptimizer() {
                                 total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
                             }
                             silent = false;
-                            p4results.push({ ...r, avgDmg: total/300, voidCI: r.voidCI });
+                            critInput.value = origCrit;
+                                p4results.push({ ...r, avgDmg: total/300, voidCI: r.voidCI });
                             prog.textContent = `Phase 4/5: top 20 — ${p4idx+1}/20 done`;
                             p4idx++;
                             requestAnimationFrame(runPhase4Chunk);
@@ -2326,6 +2361,7 @@ function runOptimizer() {
                     const r = top50[p3idx];
                     silent = true;
                     let total = 0;
+                    critInput.value = r.optimalCrit ?? origCrit;
                     for (let f = 0; f < 300; f++) {
                         const heroes = Array.from({length:6}, (_,slot) => {
                             const hi = r.slotAssign[slot];
@@ -2369,7 +2405,7 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
         if (bIdx >= builds.length) {
             // All done — restore crit, sort by phase6Dmg, finish
             critInput.value = origCrit;
-            builds.sort((a,b) => (b.phase6Dmg||0) - (a.phase6Dmg||0));
+            builds.sort((a,b) => (b.phase6Dmg ?? b.avgDmg) - (a.phase6Dmg ?? a.avgDmg));
             finishOptimizer(builds, heroNames, mIdx, heroCIs, lowhpNames);
             btn.disabled = false;
             btn.textContent = '⚡ Find Optimal Build';
@@ -2378,27 +2414,11 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
         }
 
         const r = builds[bIdx];
-        const critResults = []; // { crit, avgDmg }
-
-        // Sweep crit 0–100%
-        for (let crit = 0; crit <= 100; crit += CRIT_STEP) {
-            critInput.value = crit;
-            let total = 0;
-            silent = true;
-            for (let f = 0; f < SWEEP_N; f++) {
-                const heroes = Array.from({length:6}, (_,slot) => buildHeroes(r, slot));
-                total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
-            }
-            silent = false;
-            critResults.push({ crit, avgDmg: total / SWEEP_N });
-        }
-
-        // Find best crit %
-        const best = critResults.reduce((a,b) => b.avgDmg > a.avgDmg ? b : a);
-        r.optimalCrit = best.crit;
-
-        // Run FINAL_N fights at optimal crit
-        critInput.value = best.crit;
+        // Use optimalCrit already found in phase 2.6
+        // Run FINAL_N fights at optimal crit to confirm final ranking
+        // Use optimalCrit from phase 2.6 crit sweep
+        const useCrit = r.optimalCrit ?? (parseInt(origCrit) || 0);
+        critInput.value = useCrit;
         let finalTotal = 0;
         silent = true;
         for (let f = 0; f < FINAL_N; f++) {
@@ -2408,7 +2428,7 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
         silent = false;
         r.phase6Dmg = finalTotal / FINAL_N;
 
-        prog.textContent = `Phase 6/6: build ${bIdx+1}/10 — optimal crit: ${best.crit}% → avg ${Math.round(r.phase6Dmg).toLocaleString()} (was ${Math.round(r.avgDmg).toLocaleString()})`;
+        prog.textContent = `Phase 6/6: build ${bIdx+1}/10 — crit: ${useCrit}% → ${Math.round(r.phase6Dmg).toLocaleString()} (phase5: ${Math.round(r.avgDmg).toLocaleString()})`;
 
         bIdx++;
         requestAnimationFrame(sweepBuild);
@@ -2419,7 +2439,7 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
 
 function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
     // Sort by avgDmg (500-fight average) descending — this is the only correct sort
-    results.sort((a,b) => b.avgDmg - a.avgDmg);
+    results.sort((a,b) => (b.phase6Dmg ?? b.avgDmg) - (a.phase6Dmg ?? a.avgDmg));
 
     const fmt = v => v > 0 ? Math.round(v).toLocaleString() : '—';
     const artColors = {
