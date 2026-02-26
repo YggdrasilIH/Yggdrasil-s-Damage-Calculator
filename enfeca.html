@@ -2162,7 +2162,7 @@ function runOptimizer() {
 
     prog.textContent = `Phase 1/5: scanning ${phase1.length.toLocaleString()} art×speed combos (1 fight each)...`;
     let p1idx = 0, p1results = [];
-    const CHUNK = 20;
+    const CHUNK = 100;
 
     function runPhase1Chunk() {
         silent = true;
@@ -2173,7 +2173,7 @@ function runOptimizer() {
                 return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI1||[])[hi]||false };
             });
             const dmg = runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
-            p1results.push({ dmg, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign], voidCI:[...voidCI] });
+            p1results.push({ dmg, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign], voidCI:[...(vCI1||[])] });
         }
         silent = false;
         const pct = Math.round(p1idx/phase1.length*100);
