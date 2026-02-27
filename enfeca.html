@@ -2157,9 +2157,9 @@ function runOptimizer() {
         for (const voidCI of voidMasks)
             phase1.push({ arts, spds: userSpds, slotAssign: defaultSlot, voidCI });
 
-    prog.textContent = `Phase 1/6: scanning ${phase1.length.toLocaleString()} art×voidCI combos (3 fights each)...`;
+    prog.textContent = `Phase 1/6: scanning ${phase1.length.toLocaleString()} art×voidCI combos — ${eligIdx.length} heroes with void CI explored (${voidMasks.length} CI masks × 3 fights each)...`;
     let p1idx = 0, p1results = [];
-    const CHUNK = 1000;
+    const CHUNK = 300;
 
     function runPhase1Chunk() {
         silent = true;
@@ -2232,7 +2232,7 @@ function runOptimizer() {
                         });
                         dmgSum += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
                     }
-                    p15results.push({ dmg: dmgSum/3, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign] });
+                    p15results.push({ dmg: dmgSum/3, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign], voidCI:[...(voidCI||[])] });
                 }
                 silent = false;
                 const pct15 = Math.round(p15idx/phase15.length*100);
@@ -2319,7 +2319,7 @@ function runOptimizer() {
                                     }
                                     silent = false;
                                     critInput.value = origCrit;
-                                        p5results.push({ ...r, avgDmg: total/300, minDmg, maxDmg, voidCI: r.voidCI });
+                                        p5results.push({ ...r, avgDmg: total/300, minDmg, maxDmg, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
                                     prog.textContent = `Phase 5/5: final top 10 — ${p5idx+1}/10 done`;
                                     p5idx++;
                                     requestAnimationFrame(runPhase5Chunk);
@@ -2340,7 +2340,7 @@ function runOptimizer() {
                             }
                             silent = false;
                             critInput.value = origCrit;
-                                p4results.push({ ...r, avgDmg: total/300, voidCI: r.voidCI });
+                                p4results.push({ ...r, avgDmg: total/300, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
                             prog.textContent = `Phase 4/5: top 20 — ${p4idx+1}/20 done`;
                             p4idx++;
                             requestAnimationFrame(runPhase4Chunk);
@@ -2360,7 +2360,7 @@ function runOptimizer() {
                         total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
                     }
                     silent = false;
-                    p3results.push({ ...r, avgDmg: total/300, voidCI: r.voidCI });
+                    p3results.push({ ...r, avgDmg: total/300, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
                     prog.textContent = `Phase 3/5: top 50 — ${p3idx+1}/50 done`;
                     p3idx++;
                     requestAnimationFrame(runPhase3Chunk);
@@ -2379,11 +2379,11 @@ function runOptimizer() {
 function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
     const critInput  = document.getElementById('dc_crit');
     const origCrit   = critInput.value;
-    const CRIT_STEP  = 1;   // sweep 0..100 in 1% steps
-    const SWEEP_N    = 30;  // fights per crit value during sweep
     const FINAL_N    = 100; // fights at optimal crit for final ranking
+    const CI_N       = 50;  // fights per CI sensitivity point
+    const CI_DELTAS  = [-35, -20, -10, +10, +20, +35]; // CI adjustments to test
 
-    let bIdx = 0; // which build we're processing
+    let bIdx = 0;
 
     function buildHeroes(r, slot) {
         const hi = r.slotAssign[slot];
@@ -2391,9 +2391,24 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
                  isFr: slot < 2, cardIdx: hi, voidCI: (r.voidCI||[])[hi]||false };
     }
 
+    function runFightsN(r, n, ciOverride) {
+        // ciOverride: if set, temporarily patch the max hero's CI input
+        const ciInput = document.getElementById(`ci${mIdx}`);
+        const origCI  = ciInput.value;
+        if (ciOverride != null) ciInput.value = Math.max(0, parseFloat(origCI) + ciOverride);
+        let total = 0;
+        silent = true;
+        for (let f = 0; f < n; f++) {
+            const heroes = Array.from({length:6}, (_,slot) => buildHeroes(r, slot));
+            total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+        }
+        silent = false;
+        if (ciOverride != null) ciInput.value = origCI;
+        return total / n;
+    }
+
     function sweepBuild() {
         if (bIdx >= builds.length) {
-            // All done — restore crit, sort by phase6Dmg, finish
             critInput.value = origCrit;
             builds.sort((a,b) => (b.phase6Dmg ?? b.avgDmg) - (a.phase6Dmg ?? a.avgDmg));
             finishOptimizer(builds, heroNames, mIdx, heroCIs, lowhpNames);
@@ -2404,21 +2419,20 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
         }
 
         const r = builds[bIdx];
-        // Use optimalCrit already found in phase 2.6
-        // Run FINAL_N fights at optimal crit to confirm final ranking
-        // Use optimalCrit from phase 2.6 crit sweep
         const useCrit = r.optimalCrit ?? (parseInt(origCrit) || 0);
         critInput.value = useCrit;
-        let finalTotal = 0;
-        silent = true;
-        for (let f = 0; f < FINAL_N; f++) {
-            const heroes = Array.from({length:6}, (_,slot) => buildHeroes(r, slot));
-            finalTotal += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
-        }
-        silent = false;
-        r.phase6Dmg = finalTotal / FINAL_N;
 
-        prog.textContent = `Phase 6/6: build ${bIdx+1}/10 — crit: ${useCrit}% → ${Math.round(r.phase6Dmg).toLocaleString()} (phase5: ${Math.round(r.avgDmg).toLocaleString()})`;
+        // Baseline 100 fights
+        r.phase6Dmg = runFightsN(r, FINAL_N, null);
+
+        // CI sensitivity: 50 fights at each delta
+        r.ciSensitivity = {};
+        for (const delta of CI_DELTAS) {
+            const avg = runFightsN(r, CI_N, delta);
+            r.ciSensitivity[delta] = avg - r.phase6Dmg;
+        }
+
+        prog.textContent = `Phase 6/6: build ${bIdx+1}/10 — crit: ${useCrit}% → ${Math.round(r.phase6Dmg).toLocaleString()}`;
 
         bIdx++;
         requestAnimationFrame(sweepBuild);
@@ -2492,6 +2506,37 @@ function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
             <td style="padding:8px;line-height:2">
                 ${slotStr}
                 ${imprintStr ? `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">${imprintStr}</div>` : ''}
+                ${(() => {
+                    if (!r.ciSensitivity) return '';
+                    const s = r.ciSensitivity;
+                    const fmtD = d => {
+                        const sign = d >= 0 ? '+' : '';
+                        const col = d > 0 ? '#4ade80' : d < 0 ? '#f87171' : '#64748b';
+                        return `<span style="color:${col}">${sign}${Math.round(d).toLocaleString()}</span>`;
+                    };
+                    const baseDmg = r.phase6Dmg ?? r.avgDmg;
+                    return `<div style="margin-top:6px;font-size:10px;color:#64748b">
+                        <span style="color:#94a3b8;font-weight:bold">CI Sensitivity (${heroNames[mIdx]}):</span>
+                        <table style="margin-top:3px;border-collapse:collapse;font-size:10px">
+                            <tr style="color:#64748b">
+                                <td style="padding:1px 6px">CI delta</td>
+                                ${[-35,-20,-10,+10,+20,+35].map(d=>`<td style="padding:1px 6px;text-align:center">${d>0?'+':''}${d}</td>`).join('')}
+                            </tr>
+                            <tr>
+                                <td style="padding:1px 6px;color:#64748b">Dmg delta</td>
+                                ${[-35,-20,-10,+10,+20,+35].map(d=>`<td style="padding:1px 6px;text-align:center">${fmtD(s[d]??0)}</td>`).join('')}
+                            </tr>
+                            <tr>
+                                <td style="padding:1px 6px;color:#64748b">% change</td>
+                                ${[-35,-20,-10,+10,+20,+35].map(d=>{
+                                    const pct = baseDmg > 0 ? ((s[d]??0)/baseDmg*100) : 0;
+                                    const col = pct > 0 ? '#4ade80' : pct < 0 ? '#f87171' : '#64748b';
+                                    return `<td style="padding:1px 6px;text-align:center;color:${col}">${pct>=0?'+':''}${pct.toFixed(1)}%</td>`;
+                                }).join('')}
+                            </tr>
+                        </table>
+                    </div>`;
+                })()}
             </td>
         </tr>`;
     });
