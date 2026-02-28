@@ -121,6 +121,8 @@
 
 <button onclick="sim(false)">Simulate 15-Round Battle (Full Log)</button>
 <button onclick="sim(true)">Statistical Batch (1000 Fights Summary)</button>
+<label style="font-size:12px;color:#cbd5e1;margin-right:12px;vertical-align:middle"><input type="checkbox" id="relaxSpeeds"> Relax Speed Order (optimizer tests all speed assignments)</label>
+<label style="font-size:12px;color:#38bdf8;margin-right:12px;vertical-align:middle"><input type="checkbox" id="safeMode"> 🌊 ELY Safe Mode (guarantees shrink every action)</label>
 <button onclick="runOptimizer()" id="optBtn" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;color:#fff;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;">⚡ Find Optimal Build</button>
 <button onclick="runCritOptimizer()" id="critOptBtn" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);border:none;color:#fff;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;">🎯 Optimal Crit %</button>
 <div id="critOptProgress" style="display:none;margin-top:10px;padding:10px 14px;background:var(--card);border-radius:8px;font-size:13px;color:#94a3b8;"></div>
@@ -512,7 +514,7 @@ function toggleDmgCalc() {
 
 function getDmgCalcInputs() {
     const panel = document.getElementById('dmgCalcPanel');
-    if (panel.style.display === 'none') return null; // calculator not open = not used
+    if (panel.style.display === 'none' && !window.optimizerContext) return null; // calculator not open = not used
     return {
         atk:    parseFloat(document.getElementById('dc_atk').value)    || 0,
         skill:  parseFloat(document.getElementById('dc_skill').value)  || 0,   // raw %, e.g. 45
@@ -534,6 +536,7 @@ function runOne(ov = null) {
     const is11 = document.getElementById('isl11').checked;
     const is8  = document.getElementById('isl8').checked;
     const fearGT = document.getElementById('fearGT').checked;
+    const safeMode = document.getElementById('safeMode')?.checked || false;
     bossHPTier = document.getElementById('bossHP').value;
     const is10 = document.getElementById('isl10').checked;
     const mIdx = parseInt(document.querySelector('input[name="max"]:checked').value);
@@ -722,6 +725,7 @@ function runOne(ov = null) {
         }
     });
 
+    let shrinkMissedRound = false;
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "#ff4757");
 
@@ -1748,6 +1752,7 @@ function runOne(ov = null) {
         if (boss.veilOfMist) { boss.veilOfMistRounds--; if (boss.veilOfMistRounds <= 0) { boss.veilOfMist = false; log(`&nbsp;&nbsp;&nbsp;🌀 [VoM] Boss Veil of Mist expired`, "#64748b"); } }
         if (boss.healReductionRounds > 0) { boss.healReductionRounds--; if (boss.healReductionRounds <= 0) { boss.healReduction = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV COMET HOP] Boss heal reduction expired`, "#64748b"); } }
         if (boss.shrinkRounds > 0) { boss.shrinkRounds--; if (boss.shrinkRounds <= 0) { boss.shrink = false; log(`&nbsp;&nbsp;&nbsp;🌊 [SHRINK] Boss shrink expired`, "#38bdf8"); } }
+        if (r > 2 && !boss.shrink) shrinkMissedRound = true;
 
         // ── Boss removes 3 random debuffs ────────────────────────────────────
         {
@@ -1827,7 +1832,7 @@ function runOne(ov = null) {
         });
     }
 
-    return { units, hd: bossHDStacks, boss };
+    return { units, hd: bossHDStacks, boss, shrinkMissed: shrinkMissedRound };
 }
 
 function sim(multi) {
@@ -2086,6 +2091,7 @@ function runOptimizer() {
 
     const heroNames = Array.from({length:6}, (_,i) => document.getElementById(`h${i}`).value);
     const mIdx      = parseInt(document.querySelector('input[name="max"]:checked').value);
+    const safeMode  = document.getElementById('safeMode')?.checked || false;
     // Per-hero base CI (artCI added per-build in display; voidCI explored per-build in optimizer)
     const heroCIs   = Array.from({length:6}, (_,i) => {
         const base = parseFloat(document.getElementById(`ci${i}`)?.value) || 0;
@@ -2169,7 +2175,7 @@ function runOptimizer() {
                 const hi = slotAssign[slot];
                 return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
             });
-            total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+            { const _fr = runOne({ heroes, fromOptimizer: true }); total += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
         }
         return total / n;
     }
@@ -2200,7 +2206,7 @@ function runOptimizer() {
                     const hi = slotAssign[slot];
                     return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI1||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
                 });
-                dmgSum += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+                { const _fr = runOne({ heroes, fromOptimizer: true }); dmgSum += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
             }
             p1results.push({ dmg: dmgSum/3, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign], voidCI:[...(vCI1||[])] });
         }
@@ -2259,7 +2265,7 @@ function runOptimizer() {
                             const hi = slotAssign[slot];
                             return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
                         });
-                        dmgSum += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+                        { const _fr = runOne({ heroes, fromOptimizer: true }); dmgSum += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
                     }
                     p15results.push({ dmg: dmgSum/3, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign], voidCI:[...(voidCI||[])] });
                 }
@@ -2270,7 +2276,52 @@ function runOptimizer() {
 
                 // ── Phase 2.6: crit sweep on top 50 builds ────────────────
                 p15results.sort((a,b) => b.dmg - a.dmg);
-                const top50 = p15results.slice(0, 30);
+
+                // ── Phase 2.7 (optional): speed permutation ────────────────
+                const relaxSpeeds = document.getElementById('relaxSpeeds')?.checked;
+                function permuteArr(arr) {
+                    if (arr.length <= 1) return [arr];
+                    return arr.flatMap((v,i) => permuteArr([...arr.slice(0,i),...arr.slice(i+1)]).map(p=>[v,...p]));
+                }
+                const speedPerms = relaxSpeeds ? permuteArr([...userSpds]) : [[...userSpds]];
+
+                const top50base = p15results.slice(0, 30);
+                let p27results = [];
+
+                if (!relaxSpeeds || speedPerms.length <= 1) {
+                    // No speed relaxation — skip phase 2.7
+                    p27results = top50base.map(r => ({...r}));
+                    startCritSweep();
+                } else {
+                    const phase27 = [];
+                    for (const r of top50base)
+                        for (const sperm of speedPerms)
+                            phase27.push({ ...r, spds: sperm });
+                    prog.textContent = `Phase 2.7: speed permutations — ${phase27.length.toLocaleString()} combos (1 fight each)...`;
+                    let p27idx = 0;
+                    function runPhase27Chunk() {
+                        silent = true;
+                        for (let end = Math.min(p27idx + CHUNK, phase27.length); p27idx < end; p27idx++) {
+                            const rb = phase27[p27idx];
+                            const heroes = Array.from({length:6}, (_,slot) => {
+                                const hi = rb.slotAssign[slot];
+                                return { name: heroNames[hi], art: rb.arts[hi], spd: rb.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((rb.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
+                            });
+                            const dmg = runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+                            p27results.push({ ...rb, dmg });
+                        }
+                        silent = false;
+                        prog.textContent = `Phase 2.7: speed perms — ${Math.round(p27idx/phase27.length*100)}% (${p27idx.toLocaleString()}/${phase27.length.toLocaleString()})`;
+                        if (p27idx < phase27.length) { requestAnimationFrame(runPhase27Chunk); return; }
+                        p27results.sort((a,b) => b.dmg - a.dmg);
+                        p27results = p27results.slice(0, 30);
+                        startCritSweep();
+                    }
+                    requestAnimationFrame(runPhase27Chunk);
+                }
+
+                function startCritSweep() {
+                const top50 = p27results.slice(0, 30);
                 prog.textContent = `Phase 2.6: finding optimal crit % for top ${top50.length} builds...`;
                 const critInput = document.getElementById('dc_crit');
                 const origCrit  = critInput.value;
@@ -2296,7 +2347,7 @@ function runOptimizer() {
                                 const hi = rb.slotAssign[slot];
                                 return { name: heroNames[hi], art: rb.arts[hi], spd: rb.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (rb.voidCI||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
                             });
-                            tot += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+                            { const _fr = runOne({ heroes, fromOptimizer: true }); tot += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
                         }
                         silent = false;
                         if (tot > bestDmg) { bestDmg = tot; bestCrit = crit; }
@@ -2329,7 +2380,6 @@ function runOptimizer() {
                                         // ── Phase 6: optimal crit sweep per top-10 build ─────────────────
                                         prog.textContent = 'Phase 6/6: sweeping optimal crit % for each top-10 build...';
                                         runPhase6(p5results, heroNames, mIdx, heroCIs, lowhpNames, btn, prog);
-                                        prog.style.display = 'none';
                                         return;
                                     }
                                     const r = top10[p5idx];
@@ -2365,7 +2415,7 @@ function runOptimizer() {
                                     const hi = r.slotAssign[slot];
                                     return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
                                 });
-                                total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+                                { const _fr = runOne({ heroes, fromOptimizer: true }); total += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
                             }
                             silent = false;
                             critInput.value = origCrit;
@@ -2386,7 +2436,7 @@ function runOptimizer() {
                             const hi = r.slotAssign[slot];
                             return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
                         });
-                        total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+                        { const _fr = runOne({ heroes, fromOptimizer: true }); total += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
                     }
                     silent = false;
                     p3results.push({ ...r, avgDmg: total/300, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
@@ -2395,6 +2445,7 @@ function runOptimizer() {
                     requestAnimationFrame(runPhase3Chunk);
                 }
                 requestAnimationFrame(runPhase3Chunk);
+                } // end startCritSweep
             }
             requestAnimationFrame(runPhase15Chunk);
         }
@@ -2407,6 +2458,7 @@ function runOptimizer() {
 // ── Phase 6: per-build optimal crit sweep ────────────────────────────────────
 function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
     const critInput  = document.getElementById('dc_crit');
+    const safeMode   = document.getElementById('safeMode')?.checked || false;
     const origCrit   = critInput.value;
     const FINAL_N    = 100; // fights at optimal crit for final ranking
     const CI_N       = 50;  // fights per CI sensitivity point
@@ -2429,7 +2481,7 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
         silent = true;
         for (let f = 0; f < n; f++) {
             const heroes = Array.from({length:6}, (_,slot) => buildHeroes(r, slot));
-            total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+            { const _fr = runOne({ heroes, fromOptimizer: true }); total += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
         }
         silent = false;
         if (ciOverride != null) ciInput.value = origCI;
@@ -2451,8 +2503,28 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
         const useCrit = r.optimalCrit ?? (parseInt(origCrit) || 0);
         critInput.value = useCrit;
 
-        // Baseline 100 fights
-        r.phase6Dmg = runFightsN(r, FINAL_N, null);
+        // Baseline 100 fights — also track distribution
+        const distDmgs = [];
+        {
+            const ciInput = document.getElementById(`ci${mIdx}`);
+            silent = true;
+            let total = 0;
+            for (let f = 0; f < FINAL_N; f++) {
+                const heroes = Array.from({length:6}, (_,slot) => buildHeroes(r, slot));
+                const d = runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+                total += d;
+                distDmgs.push(d);
+            }
+            silent = false;
+            r.phase6Dmg = total / FINAL_N;
+        }
+        // Build order-of-magnitude distribution
+        r.dmgDistribution = {};
+        for (const d of distDmgs) {
+            if (d <= 0) continue;
+            const mag = Math.floor(Math.log10(d)); // e.g. 1e22 → 22
+            r.dmgDistribution[mag] = (r.dmgDistribution[mag] || 0) + 1;
+        }
 
         // CI sensitivity: 50 fights at each delta
         r.ciSensitivity = {};
@@ -2530,6 +2602,21 @@ function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
                 ${r.phase6Dmg != null ? `<div style="color:#a78bfa;font-size:11px">Optimal Crit: ${r.optimalCrit}%</div>` : ''}
                 ${r.phase6Dmg != null ? `<div style="color:#64748b;font-size:10px">Phase 5 avg: ${fmt(r.avgDmg)}</div>` : ''}
                 ${rangeStr}
+                ${(() => {
+                    if (!r.dmgDistribution || Object.keys(r.dmgDistribution).length === 0) return '';
+                    const total = Object.values(r.dmgDistribution).reduce((a,b)=>a+b,0);
+                    const mags = Object.keys(r.dmgDistribution).map(Number).sort((a,b)=>b-a);
+                    return '<div style="margin-top:4px">' +
+                        mags.map(mag => {
+                            const count = r.dmgDistribution[mag];
+                            const pct = (count/total*100).toFixed(0);
+                            const bar = Math.round(count/total*30);
+                            const barStr = '█'.repeat(bar) + '░'.repeat(30-bar);
+                            const col = mag >= 23 ? '#4ade80' : mag >= 22 ? '#a78bfa' : mag >= 21 ? '#38bdf8' : '#94a3b8';
+                            return '<div style="font-size:10px;color:'+col+';font-family:monospace">e'+mag+': '+pct+'% ('+count+'/'+total+')</div>';
+                        }).join('') +
+                    '</div>';
+                })()}
             </td>
             <td style="padding:8px;color:#e2e8f0;white-space:nowrap">${actingOrder}</td>
             <td style="padding:8px;line-height:2">
