@@ -2222,7 +2222,7 @@ function runOptimizer() {
         for (const r of top80)
             phase2.push({ arts: r.arts, spds: r.spds, slotAssign: defaultSlot, voidCI: r.voidCI });
 
-        prog.textContent = `Phase 2/6: ${phase2.length.toLocaleString()} speed orderings on top 80 art×voidCI builds...`;
+        prog.textContent = `Phase 2/6: re-testing top 80 art×voidCI builds (1 fight each)...`;
         let p2idx = 0, p2results = [];
 
         function runPhase2Chunk() {
@@ -2239,7 +2239,7 @@ function runOptimizer() {
             }
             silent = false;
             const pct2 = Math.round(p2idx/phase2.length*100);
-            prog.textContent = `Phase 2/6: speed orderings — ${pct2}% (${p2idx.toLocaleString()}/${phase2.length.toLocaleString()})`;
+            prog.textContent = `Phase 2/6: re-testing — ${pct2}% (${p2idx.toLocaleString()}/${phase2.length.toLocaleString()})`;
             if (p2idx < phase2.length) { requestAnimationFrame(runPhase2Chunk); return; }
 
             // ── Phase 2.5: top 5 slot arrangements × all art×speed × 3 fights
@@ -2252,7 +2252,7 @@ function runOptimizer() {
                 for (const slotAssign of slotArrs)
                     phase15.push({ arts: r.arts, spds: r.spds, slotAssign, voidCI: r.voidCI });
 
-            prog.textContent = `Phase 2.5/6: ${phase15.length.toLocaleString()} slot arrangements on top 30 art×speed builds (1 fight each)...`;
+            prog.textContent = `Phase 2.5/6: ${phase15.length.toLocaleString()} slot arrangements on top 30 builds (3 fights each)...`;
             let p15idx = 0, p15results = [];
 
             function runPhase15Chunk() {
@@ -2331,14 +2331,14 @@ function runOptimizer() {
                     if (csIdx >= top50.length) {
                         critInput.value = origCrit;
                         // ── Phase 3: top 50 × 300 fights ─────────────────────────
-                        prog.textContent = `Phase 3/5: re-testing top 50 builds (300 fights each)...`;
+                        prog.textContent = `Phase 3/6: re-testing top 30 builds (300 fights each)...`;
                         requestAnimationFrame(runPhase3Chunk);
                         return;
                     }
                     // Sweep crit 0–100 for this build (10 fights per step = 1010 fights)
                     const rb = top50[csIdx];
                     let bestCrit = parseInt(origCrit) || 0, bestDmg = -1;
-                    for (let crit = 0; crit <= 100; crit++) {
+                    for (let crit = 0; crit <= 100; crit += 5) {
                         critInput.value = crit;
                         let tot = 0;
                         silent = true;
@@ -2363,7 +2363,7 @@ function runOptimizer() {
                         // ── Phase 4: top 20 × 300 fights ─────────────────
                         p3results.sort((a,b) => b.avgDmg - a.avgDmg);
                         const top20 = p3results.slice(0, 20);
-                        prog.textContent = `Phase 4/5: re-testing top 20 builds (300 fights each)...`;
+                        prog.textContent = `Phase 4/6: re-testing top 20 builds (300 fights each)...`;
                                             let p4idx = 0, p4results = [];
 
                         function runPhase4Chunk() {
@@ -2371,7 +2371,7 @@ function runOptimizer() {
                                 // ── Phase 5: top 10 × 300 fights ─────────
                                 p4results.sort((a,b) => b.avgDmg - a.avgDmg);
                                 const top10 = p4results.slice(0, 10);
-                                prog.textContent = `Phase 5/5: final top 10 (300 fights each)...`;
+                                prog.textContent = `Phase 5/6: top 10 (300 fights each)...`;
                                                             let p5idx = 0, p5results = [];
 
                                 function runPhase5Chunk() {
@@ -2399,7 +2399,7 @@ function runOptimizer() {
                                     silent = false;
                                     critInput.value = origCrit;
                                         p5results.push({ ...r, avgDmg: total/300, minDmg, maxDmg, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
-                                    prog.textContent = `Phase 5/5: final top 10 — ${p5idx+1}/10 done`;
+                                    prog.textContent = `Phase 5/6: top 10 — ${p5idx+1}/10 done`;
                                     p5idx++;
                                     requestAnimationFrame(runPhase5Chunk);
                                 }
@@ -2420,7 +2420,7 @@ function runOptimizer() {
                             silent = false;
                             critInput.value = origCrit;
                                 p4results.push({ ...r, avgDmg: total/300, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
-                            prog.textContent = `Phase 4/5: top 20 — ${p4idx+1}/20 done`;
+                            prog.textContent = `Phase 4/6: top 20 — ${p4idx+1}/20 done`;
                             p4idx++;
                             requestAnimationFrame(runPhase4Chunk);
                         }
@@ -2440,7 +2440,7 @@ function runOptimizer() {
                     }
                     silent = false;
                     p3results.push({ ...r, avgDmg: total/300, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
-                    prog.textContent = `Phase 3/5: top 50 — ${p3idx+1}/50 done`;
+                    prog.textContent = `Phase 3/6: top 30 — ${p3idx+1}/30 done`;
                     p3idx++;
                     requestAnimationFrame(runPhase3Chunk);
                 }
@@ -2503,10 +2503,13 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
         const useCrit = r.optimalCrit ?? (parseInt(origCrit) || 0);
         critInput.value = useCrit;
 
-        // Baseline 100 fights — also track distribution
-        const distDmgs = [];
-        {
-            const ciInput = document.getElementById(`ci${mIdx}`);
+        // Show progress BEFORE running fights so UI updates immediately
+        prog.textContent = `Phase 6/6: build ${bIdx+1}/${builds.length} — running ${FINAL_N} baseline + CI sensitivity fights...`;
+
+        // Yield to browser to render progress, then do the work
+        requestAnimationFrame(() => {
+            // Baseline 100 fights — also track distribution
+            const distDmgs = [];
             silent = true;
             let total = 0;
             for (let f = 0; f < FINAL_N; f++) {
@@ -2517,26 +2520,26 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
             }
             silent = false;
             r.phase6Dmg = total / FINAL_N;
-        }
-        // Build order-of-magnitude distribution
-        r.dmgDistribution = {};
-        for (const d of distDmgs) {
-            if (d <= 0) continue;
-            const mag = Math.floor(Math.log10(d)); // e.g. 1e22 → 22
-            r.dmgDistribution[mag] = (r.dmgDistribution[mag] || 0) + 1;
-        }
 
-        // CI sensitivity: 50 fights at each delta
-        r.ciSensitivity = {};
-        for (const delta of CI_DELTAS) {
-            const avg = runFightsN(r, CI_N, delta);
-            r.ciSensitivity[delta] = avg - r.phase6Dmg;
-        }
+            // Build order-of-magnitude distribution
+            r.dmgDistribution = {};
+            for (const d of distDmgs) {
+                if (d <= 0) continue;
+                const mag = Math.floor(Math.log10(d));
+                r.dmgDistribution[mag] = (r.dmgDistribution[mag] || 0) + 1;
+            }
 
-        prog.textContent = `Phase 6/6: build ${bIdx+1}/10 — crit: ${useCrit}% → ${Math.round(r.phase6Dmg).toLocaleString()}`;
+            // CI sensitivity: 50 fights at each delta
+            r.ciSensitivity = {};
+            for (const delta of CI_DELTAS) {
+                const avg = runFightsN(r, CI_N, delta);
+                r.ciSensitivity[delta] = avg - r.phase6Dmg;
+            }
 
-        bIdx++;
-        requestAnimationFrame(sweepBuild);
+            prog.textContent = `Phase 6/6: build ${bIdx+1}/${builds.length} — crit: ${useCrit}% → ${Math.round(r.phase6Dmg).toLocaleString()}`;
+            bIdx++;
+            requestAnimationFrame(sweepBuild);
+        });
     }
 
     requestAnimationFrame(sweepBuild);
