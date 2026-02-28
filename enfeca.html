@@ -2234,8 +2234,9 @@ function runOptimizer() {
                     const hi = sa[slot];
                     return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI2||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
                 });
-                const res = runOne({ heroes, fromOptimizer: true });
-                p2results.push({ dmg: res.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg||0, arts:[...arts], spds:[...spds], slotAssign:[...sa], voidCI:[...(vCI2||new Array(6).fill(false))] });
+                const _res2 = runOne({ heroes, fromOptimizer: true });
+                const _d2 = (safeMode && _res2.shrinkMissed) ? 0 : (_res2.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg||0);
+                p2results.push({ dmg: _d2, arts:[...arts], spds:[...spds], slotAssign:[...sa], voidCI:[...(vCI2||new Array(6).fill(false))] });
             }
             silent = false;
             const pct2 = Math.round(p2idx/phase2.length*100);
@@ -2307,7 +2308,8 @@ function runOptimizer() {
                                 const hi = rb.slotAssign[slot];
                                 return { name: heroNames[hi], art: rb.arts[hi], spd: rb.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((rb.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
                             });
-                            const dmg = runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+                            const _res27 = runOne({ heroes, fromOptimizer: true });
+                            const dmg = (safeMode && _res27.shrinkMissed) ? 0 : (_res27.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0);
                             p27results.push({ ...rb, dmg });
                         }
                         silent = false;
@@ -2379,7 +2381,7 @@ function runOptimizer() {
                                         p5results.sort((a,b) => b.avgDmg - a.avgDmg);
                                         // ── Phase 6: optimal crit sweep per top-10 build ─────────────────
                                         prog.textContent = 'Phase 6/6: sweeping optimal crit % for each top-10 build...';
-                                        runPhase6(p5results, heroNames, mIdx, heroCIs, lowhpNames, btn, prog);
+                                        runPhase6(p5results, heroNames, mIdx, heroCIs, lowhpNames, btn, prog, heroUpgPurify);
                                         return;
                                     }
                                     const r = top10[p5idx];
@@ -2457,7 +2459,7 @@ function runOptimizer() {
 
 
 // ── Phase 6: per-build optimal crit sweep ────────────────────────────────────
-function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
+function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog, heroUpgPurify) {
     const critInput  = document.getElementById('dc_crit');
     const safeMode   = document.getElementById('safeMode')?.checked || false;
     const origCrit   = critInput.value;
