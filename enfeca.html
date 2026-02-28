@@ -22,6 +22,20 @@
 </head>
 <body>
 
+<div style="background:#1a1f2e;border:1px solid #334155;border-radius:8px;padding:10px 16px;margin-bottom:10px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+  <span style="color:#94a3b8;font-size:12px;font-weight:bold">Global CI Bonuses:</span>
+  <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:6px;">
+    SE Train CI:
+    <input type="number" id="seTrainCI" value="17" min="0" max="200" style="width:60px;background:#0b0e14;border:1px solid #334155;border-radius:4px;color:#38bdf8;padding:2px 6px;font-size:12px;" oninput="updateAllCardCI()">
+    <span style="color:#64748b;font-size:11px">% added to all heroes</span>
+  </label>
+  <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:6px;">
+    Pet CI:
+    <input type="number" id="petCI" value="10" min="0" max="200" style="width:60px;background:#0b0e14;border:1px solid #334155;border-radius:4px;color:#a78bfa;padding:2px 6px;font-size:12px;" oninput="updateAllCardCI()">
+    <span style="color:#64748b;font-size:11px">% added to all heroes</span>
+  </label>
+  <span id="globalCITotal" style="color:#4ade80;font-size:11px"></span>
+</div>
 <div class="grid" id="hero-inputs"></div>
 
 <div class="card" style="margin-bottom:12px;">
@@ -174,6 +188,7 @@ defaults.forEach((d, i) => {
             <span style="font-size:11px;color:#38bdf8;font-weight:bold" id="effCI${i}"></span>
         </div>
         <label style="margin-top:4px;display:block;font-size:11px"><input type="radio" name="max" value="${i}" ${i===0?'checked':''} onchange="updateDCLabel()"> Max ATK</label>
+        <label style="margin-top:4px;display:block;font-size:11px;color:#a78bfa"><input type="checkbox" id="upgPurify${i}"> ✦ Upgraded Control Purify</label>
     </div>`;
 });
 
@@ -540,6 +555,7 @@ function runOne(ov = null) {
             curse: 0, calamity: 0, trans: 0, acts: 0, turnsLost: 0,
             cc: { silence:0, fear:0, seal:0 },
             imm: is11 ? ["silence","fear","seal"][Math.floor(Math.random()*3)] : "none",
+            upgradedPurify: (ov && ov.heroes) ? (ov.heroes[i].upgradedPurify || false) : (document.getElementById(`upgPurify${i}`)?.checked || false),
             art: art,
             spd: heroSpd,
             baseCI: (() => {
@@ -549,7 +565,9 @@ function runOne(ov = null) {
                 const base    = parseFloat(document.getElementById(`ci${cardIdx}`).value) || 0;
                 const stellar = (window.optimizerContext ? (ov.heroes[i].voidCI || false) : document.getElementById(`stellar${cardIdx}`)?.checked && STELLAR_HEROES.includes(heroName)) ? 35 : 0;
                 const artCI   = artName === 'Spiritual Mirror' ? 20 : artName === 'Scissors' ? 24 : artName === 'Jade Toad' ? 32 : 0;
-                return (base + stellar + artCI) / 100;
+                const globalCI = (parseFloat(document.getElementById('seTrainCI')?.value) || 0)
+                               + (parseFloat(document.getElementById('petCI')?.value) || 0);
+                return (base + stellar + artCI + globalCI) / 100;
             })(),
             hasS: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? document.getElementById(`spec${ov.heroes[i].cardIdx}`).checked : document.getElementById(`spec${i}`).checked,
             fearImm: (() => { const ci = (ov&&ov.heroes) ? ov.heroes[i].cardIdx : i; return document.getElementById(`fearImm${ci}`)?.checked||false; })(),
@@ -673,9 +691,9 @@ function runOne(ov = null) {
     log(`⚔️ ═══ BATTLE START CI BONUSES ═══`, "#facc15");
     units.forEach(u => {
         // 1. Team CI bonus: flat +15% to all heroes
-        u.buffs.ci.push({ value: 0.15, rounds: 999, source: "Team CI Bonus" });
+        u.buffs.ci.push({ value: 0.12, rounds: 999, source: "Team CI Bonus" });
         let teamTotal = u.baseCI + getBuffTotal(u, "ci");
-        log(`&nbsp;&nbsp;&nbsp;💠 [TEAM CI BONUS] ${u.name} +15% CI (permanent) | Eff. CI now: ${(teamTotal*100).toFixed(1)}%`, "#facc15");
+        log(`&nbsp;&nbsp;&nbsp;💠 [TEAM CI BONUS] ${u.name} +12% CI (permanent) | Eff. CI now: ${(teamTotal*100).toFixed(1)}%`, "#facc15");
 
         // 2. Sub-100% pre-battle CI bonus: 20% of remainder below 100%
         if (u.baseCI < 1.0) {
@@ -1575,9 +1593,19 @@ function runOne(ov = null) {
         units.forEach(u => {
             let activeCC = ccTypes.filter(t => u.cc[t] > 0);
             if (activeCC.length > 0) {
+                // First cleanse (always)
                 let pick = activeCC[Math.floor(Math.random() * activeCC.length)];
                 u.cc[pick] = 0;
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ ${u.name} removes ${pick.toUpperCase()}`, "#a78bfa");
+                // Upgraded Control Purify: 50% chance to cleanse one more
+                if (u.upgradedPurify) {
+                    activeCC = ccTypes.filter(t => u.cc[t] > 0);
+                    if (activeCC.length > 0 && Math.random() < 0.5) {
+                        let pick2 = activeCC[Math.floor(Math.random() * activeCC.length)];
+                        u.cc[pick2] = 0;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✦ ${u.name} UPGRADED PURIFY removes ${pick2.toUpperCase()}`, "#a78bfa");
+                    }
+                }
             } else {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ ${u.name} has no CC to remove`, "#a78bfa");
             }
@@ -2063,6 +2091,7 @@ function runOptimizer() {
         const base = parseFloat(document.getElementById(`ci${i}`)?.value) || 0;
         return base; // voidCI and artCI added per-build
     });
+    const heroUpgPurify = Array.from({length:6}, (_,i) => document.getElementById(`upgPurify${i}`)?.checked || false);
     // Which heroes have void CI eligible (checkbox checked in UI)
     // Void CI: always explore on/off for ALL STELLAR_HEROES in the team (ignore checkbox state)
     const eligIdx = [0,1,2,3,4,5].filter(i => STELLAR_HEROES.includes(heroNames[i]));
@@ -2138,7 +2167,7 @@ function runOptimizer() {
         for (let f = 0; f < n; f++) {
             const heroes = Array.from({length:6}, (_,slot) => {
                 const hi = slotAssign[slot];
-                return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI||[])[hi]||false };
+                return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
             });
             total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
         }
@@ -2169,7 +2198,7 @@ function runOptimizer() {
             for (let f = 0; f < 3; f++) {
                 const heroes = Array.from({length:6}, (_,slot) => {
                     const hi = slotAssign[slot];
-                    return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI1||[])[hi]||false };
+                    return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI1||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
                 });
                 dmgSum += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
             }
@@ -2197,7 +2226,7 @@ function runOptimizer() {
                 const sa = slotAssign;
                 const heroes = Array.from({length:6}, (_,slot) => {
                     const hi = sa[slot];
-                    return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI2||[])[hi]||false };
+                    return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI2||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
                 });
                 const res = runOne({ heroes, fromOptimizer: true });
                 p2results.push({ dmg: res.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg||0, arts:[...arts], spds:[...spds], slotAssign:[...sa], voidCI:[...(vCI2||new Array(6).fill(false))] });
@@ -2228,7 +2257,7 @@ function runOptimizer() {
                     for (let f = 0; f < 3; f++) {
                         const heroes = Array.from({length:6}, (_,slot) => {
                             const hi = slotAssign[slot];
-                            return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((voidCI||[])[hi]||false) };
+                            return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
                         });
                         dmgSum += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
                     }
@@ -2265,7 +2294,7 @@ function runOptimizer() {
                         for (let f = 0; f < 10; f++) {
                             const heroes = Array.from({length:6}, (_,slot) => {
                                 const hi = rb.slotAssign[slot];
-                                return { name: heroNames[hi], art: rb.arts[hi], spd: rb.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (rb.voidCI||[])[hi]||false };
+                                return { name: heroNames[hi], art: rb.arts[hi], spd: rb.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (rb.voidCI||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
                             });
                             tot += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
                         }
@@ -2310,7 +2339,7 @@ function runOptimizer() {
                                 for (let f = 0; f < 300; f++) {
                                         const heroes = Array.from({length:6}, (_,slot) => {
                                             const hi = r.slotAssign[slot];
-                                            return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false) };
+                                            return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
                                         });
                                         const d = runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
                                         total += d;
@@ -2334,7 +2363,7 @@ function runOptimizer() {
                             for (let f = 0; f < 300; f++) {
                                 const heroes = Array.from({length:6}, (_,slot) => {
                                     const hi = r.slotAssign[slot];
-                                    return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false) };
+                                    return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
                                 });
                                 total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
                             }
@@ -2355,7 +2384,7 @@ function runOptimizer() {
                     for (let f = 0; f < 300; f++) {
                         const heroes = Array.from({length:6}, (_,slot) => {
                             const hi = r.slotAssign[slot];
-                            return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false) };
+                            return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
                         });
                         total += runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
                     }
@@ -2388,7 +2417,7 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog) {
     function buildHeroes(r, slot) {
         const hi = r.slotAssign[slot];
         return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi],
-                 isFr: slot < 2, cardIdx: hi, voidCI: (r.voidCI||[])[hi]||false };
+                 isFr: slot < 2, cardIdx: hi, voidCI: (r.voidCI||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
     }
 
     function runFightsN(r, n, ciOverride) {
@@ -3055,13 +3084,23 @@ function fireDGNTransition(dgn, r) {
 const STELLAR_HEROES = ["LFA","SQH","STV","BDSM","LBRM","DGN"];
 const ART_CI_BONUS   = { "Spiritual Mirror": 20, "Scissors": 24, "Jade Toad": 32 };
 
+function getGlobalCI() {
+    return (parseFloat(document.getElementById('seTrainCI')?.value) || 0)
+         + (parseFloat(document.getElementById('petCI')?.value) || 0);
+}
 function getEffectiveCI(i) {
     const hero    = document.getElementById(`h${i}`)?.value || '';
     const art     = document.getElementById(`a${i}`)?.value || '';
     const base    = parseFloat(document.getElementById(`ci${i}`)?.value) || 0;
     const stellar = document.getElementById(`stellar${i}`)?.checked && STELLAR_HEROES.includes(hero) ? 35 : 0;
     const artCI   = ART_CI_BONUS[art] || 0;
-    return base + stellar + artCI;
+    return base + stellar + artCI + getGlobalCI();
+}
+function updateAllCardCI() {
+    const tot = getGlobalCI();
+    const el = document.getElementById('globalCITotal');
+    if (el) el.textContent = tot > 0 ? `Total global bonus: +${tot}% CI to all heroes` : '';
+    for (let i = 0; i < 6; i++) updateCardCI(i);
 }
 
 function updateCardCI(i) {
