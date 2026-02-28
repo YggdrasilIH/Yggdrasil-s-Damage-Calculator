@@ -2331,7 +2331,7 @@ function runOptimizer() {
                     if (csIdx >= top50.length) {
                         critInput.value = origCrit;
                         // ── Phase 3: top 50 × 300 fights ─────────────────────────
-                        prog.textContent = `Phase 3/6: re-testing top 30 builds (300 fights each)...`;
+                        prog.textContent = `Phase 3/6: re-testing top 30 builds (100 fights each)...`;
                         requestAnimationFrame(runPhase3Chunk);
                         return;
                     }
@@ -2363,7 +2363,7 @@ function runOptimizer() {
                         // ── Phase 4: top 20 × 300 fights ─────────────────
                         p3results.sort((a,b) => b.avgDmg - a.avgDmg);
                         const top20 = p3results.slice(0, 20);
-                        prog.textContent = `Phase 4/6: re-testing top 20 builds (300 fights each)...`;
+                        prog.textContent = `Phase 4/6: re-testing top 20 builds (100 fights each)...`;
                                             let p4idx = 0, p4results = [];
 
                         function runPhase4Chunk() {
@@ -2371,7 +2371,7 @@ function runOptimizer() {
                                 // ── Phase 5: top 10 × 300 fights ─────────
                                 p4results.sort((a,b) => b.avgDmg - a.avgDmg);
                                 const top10 = p4results.slice(0, 10);
-                                prog.textContent = `Phase 5/6: top 10 (300 fights each)...`;
+                                prog.textContent = `Phase 5/6: top 10 (100 fights each)...`;
                                                             let p5idx = 0, p5results = [];
 
                                 function runPhase5Chunk() {
@@ -2386,19 +2386,20 @@ function runOptimizer() {
                                     silent = true;
                                     let total = 0, minDmg = Infinity, maxDmg = -Infinity;
                                     critInput.value = r.optimalCrit ?? origCrit;
-                                for (let f = 0; f < 300; f++) {
+                                    for (let f = 0; f < 100; f++) {
                                         const heroes = Array.from({length:6}, (_,slot) => {
                                             const hi = r.slotAssign[slot];
                                             return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
                                         });
-                                        const d = runOne({ heroes, fromOptimizer: true }).units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0;
+                                        const _fr = runOne({ heroes, fromOptimizer: true });
+                                        const d = (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0);
                                         total += d;
                                         if (d < minDmg) minDmg = d;
                                         if (d > maxDmg) maxDmg = d;
                                     }
                                     silent = false;
                                     critInput.value = origCrit;
-                                        p5results.push({ ...r, avgDmg: total/300, minDmg, maxDmg, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
+                                        p5results.push({ ...r, avgDmg: total/100, minDmg, maxDmg, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
                                     prog.textContent = `Phase 5/6: top 10 — ${p5idx+1}/10 done`;
                                     p5idx++;
                                     requestAnimationFrame(runPhase5Chunk);
@@ -2410,7 +2411,7 @@ function runOptimizer() {
                             silent = true;
                             let total = 0;
                             critInput.value = r.optimalCrit ?? origCrit;
-                            for (let f = 0; f < 300; f++) {
+                            for (let f = 0; f < 100; f++) {
                                 const heroes = Array.from({length:6}, (_,slot) => {
                                     const hi = r.slotAssign[slot];
                                     return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
@@ -2419,7 +2420,7 @@ function runOptimizer() {
                             }
                             silent = false;
                             critInput.value = origCrit;
-                                p4results.push({ ...r, avgDmg: total/300, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
+                                p4results.push({ ...r, avgDmg: total/100, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
                             prog.textContent = `Phase 4/6: top 20 — ${p4idx+1}/20 done`;
                             p4idx++;
                             requestAnimationFrame(runPhase4Chunk);
@@ -2431,7 +2432,7 @@ function runOptimizer() {
                     silent = true;
                     let total = 0;
                     critInput.value = r.optimalCrit ?? origCrit;
-                    for (let f = 0; f < 300; f++) {
+                    for (let f = 0; f < 100; f++) {
                         const heroes = Array.from({length:6}, (_,slot) => {
                             const hi = r.slotAssign[slot];
                             return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
@@ -2439,7 +2440,7 @@ function runOptimizer() {
                         { const _fr = runOne({ heroes, fromOptimizer: true }); total += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
                     }
                     silent = false;
-                    p3results.push({ ...r, avgDmg: total/300, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
+                    p3results.push({ ...r, avgDmg: total/100, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
                     prog.textContent = `Phase 3/6: top 30 — ${p3idx+1}/30 done`;
                     p3idx++;
                     requestAnimationFrame(runPhase3Chunk);
