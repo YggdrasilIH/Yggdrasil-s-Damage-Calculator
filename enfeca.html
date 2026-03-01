@@ -102,7 +102,7 @@
 <div class="grid" id="hero-inputs"></div>
 
 <!-- ═══ PUPIL (collapsible) ═══ -->
-<div style="margin-bottom:10px;border:1px solid #334155;border-radius:8px;background:var(--card);overflow:hidden;">
+<div style="margin-bottom:10px;border:1px solid #334155;border-radius:8px;background:var(--card);overflow:hidden;max-width:860px;">
     <div onclick="toggleSection('pupilBody','pupilArrow')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;user-select:none;">
         <span style="color:var(--accent);font-weight:bold;font-size:13px">👁️ Pupil — 3 Lowest HP Heroes</span>
         <span id="pupilArrow" style="color:#64748b;font-size:11px;transition:transform 0.2s;display:inline-block;transform:rotate(-90deg)">▼</span>
@@ -118,7 +118,7 @@
 </div>
 
 <!-- ═══ ENVIRONMENT CONTROLS (collapsible, includes Global CI) ═══ -->
-<div style="margin-bottom:10px;border:1px solid #334155;border-radius:8px;background:var(--card);overflow:hidden;">
+<div style="margin-bottom:10px;border:1px solid #334155;border-radius:8px;background:var(--card);overflow:hidden;max-width:860px;">
     <div onclick="toggleSection('envBody','envArrow')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;user-select:none;">
         <span style="color:var(--accent);font-weight:bold;font-size:13px">⚙️ Environment Controls</span>
         <span id="envArrow" style="color:#64748b;font-size:11px;transition:transform 0.2s;display:inline-block">▼</span>
@@ -164,12 +164,12 @@
 </div>
 
 <!-- ═══ ACTION BUTTONS ═══ -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;max-width:860px;">
     <button onclick="sim(false)" style="padding:12px;font-size:13px;">📋 Simulate (Full Log)</button>
     <button onclick="sim(true)" style="padding:12px;font-size:13px;">📊 Statistical Batch (1000)</button>
 </div>
 
-<div style="border:1px solid #4f46e5;border-radius:8px;background:#0f0f1a;overflow:hidden;margin-bottom:10px;">
+<div style="border:1px solid #4f46e5;border-radius:8px;background:#0f0f1a;overflow:hidden;margin-bottom:10px;max-width:860px;">
     <div style="padding:12px 14px;border-bottom:1px solid #4f46e540;">
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
             <button onclick="runOptimizer()" id="optBtn" style="flex:1;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;color:#fff;padding:12px 16px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:14px;">⚡ Find Optimal Build</button>
@@ -207,6 +207,8 @@ const defaults = [
 const container = document.getElementById('hero-inputs');
 
 function toggleCard(i) {
+    // Suppress toggle if this click is the tail-end of a drag operation
+    if (dragDidMove) { dragDidMove = false; return; }
     const wrapper = document.getElementById(`wrapper${i}`);
     const hdr     = document.getElementById(`card-hdr${i}`);
     const isNowCollapsed = wrapper.classList.toggle('is-collapsed');
@@ -341,15 +343,18 @@ defaults.forEach((d, i) => {
 
 // ── Drag-and-drop logic ───────────────────────────────────────────────────
 let dragSrcIndex = null;
+let dragDidMove = false;
 
 function onDragStart(e, idx) {
     dragSrcIndex = idx;
+    dragDidMove = false;
     e.dataTransfer.effectAllowed = 'move';
     setTimeout(() => document.getElementById(`wrapper${idx}`).classList.add('dragging'), 0);
 }
 
 function onDragOver(e, idx) {
     e.preventDefault();
+    dragDidMove = true;
     e.dataTransfer.dropEffect = 'move';
     if (idx !== dragSrcIndex) {
         document.getElementById(`wrapper${idx}`).classList.add('drag-over');
@@ -364,7 +369,7 @@ function onDrop(e, targetIdx) {
     e.preventDefault();
     document.getElementById(`wrapper${targetIdx}`).classList.remove('drag-over');
     document.getElementById(`wrapper${dragSrcIndex}`).classList.remove('dragging');
-    if (dragSrcIndex === null || dragSrcIndex === targetIdx) return;
+    if (dragSrcIndex === null || dragSrcIndex === targetIdx) { dragSrcIndex = null; return; }
     swapCards(dragSrcIndex, targetIdx);
     dragSrcIndex = null;
 }
@@ -465,7 +470,7 @@ function swapCards(a, b) {
 
 // Touch drag support (for mobile)
 let touchDragSrc = null;
-let touchClone = null;
+let touchDragMoved = false;
 
 document.addEventListener('touchstart', e => {
     const handle = e.target.closest('.drag-handle');
@@ -473,15 +478,16 @@ document.addEventListener('touchstart', e => {
     const wrapper = handle.closest('.hero-card-wrapper');
     if (!wrapper) return;
     touchDragSrc = parseInt(wrapper.id.replace('wrapper', ''));
+    touchDragMoved = false;
     wrapper.classList.add('dragging');
     e.preventDefault();
 }, { passive: false });
 
 document.addEventListener('touchmove', e => {
     if (touchDragSrc === null) return;
+    touchDragMoved = true;
     e.preventDefault();
     const touch = e.touches[0];
-    // Highlight target
     const el = document.elementFromPoint(touch.clientX, touch.clientY);
     const targetWrapper = el?.closest('.hero-card-wrapper');
     document.querySelectorAll('.hero-card-wrapper').forEach(w => w.classList.remove('drag-over'));
@@ -499,13 +505,16 @@ document.addEventListener('touchend', e => {
         w.classList.remove('drag-over');
         w.classList.remove('dragging');
     });
-    if (targetWrapper) {
+    if (touchDragMoved && targetWrapper) {
         const targetIdx = parseInt(targetWrapper.id.replace('wrapper', ''));
         if (!isNaN(targetIdx) && targetIdx !== touchDragSrc) {
             swapCards(touchDragSrc, targetIdx);
         }
+        // Suppress the click that would otherwise fire on the card header
+        e.preventDefault();
     }
     touchDragSrc = null;
+    touchDragMoved = false;
 });
 
 // ── Setup defaults after DOM is built ────────────────────────────────────
@@ -825,8 +834,10 @@ function updateDmgCalcVisibility() {
 }
 
 function getDmgCalcInputs() {
+    const atk = parseFloat(document.getElementById('dc_atk')?.value) || 0;
+    if (!atk) return null;
     return {
-        atk:    parseFloat(document.getElementById('dc_atk')?.value)    || 0,
+        atk,
         skill:  parseFloat(document.getElementById('dc_skill')?.value)  || 0,
         prec:   parseFloat(document.getElementById('dc_prec')?.value)   || 0,
         holy:   parseFloat(document.getElementById('dc_holy')?.value)   || 0,
@@ -886,6 +897,7 @@ function runOne(ov = null) {
             fearImm: (() => { const ci = (ov&&ov.heroes) ? ov.heroes[i].cardIdx : i; return document.getElementById(`fearImm${ci}`)?.checked||false; })(),
             sealImm: (() => { const ci = (ov&&ov.heroes) ? ov.heroes[i].cardIdx : i; return document.getElementById(`sealImm${ci}`)?.checked||false; })(),
             silImm:  (() => { const ci = (ov&&ov.heroes) ? ov.heroes[i].cardIdx : i; return document.getElementById(`silImm${ci}`)?.checked||false; })(),
+
             hasPupil: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? document.getElementById(`pupil${ov.heroes[i].cardIdx}`).checked : document.getElementById(`pupil${i}`).checked,
             isM: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? (ov.heroes[i].cardIdx === mIdx) : (i === mIdx), isFr: heroIsFr, bDone: false,
             dodge: (parseInt(document.getElementById(`dg${(ov&&ov.heroes)?ov.heroes[i].cardIdx:i}`).value) || 0) / 100,
@@ -948,6 +960,7 @@ function runOne(ov = null) {
     for (let s = 0; s < 3; s++) {
         let val = document.getElementById(`lowhp${s}`).value;
         if (val !== "") {
+            // val is a hero card index (0-5); find unit by name match
             const heroName = document.getElementById(`h${val}`)?.value;
             if (heroName) {
                 const u = units.find(u => u.name === heroName);
@@ -972,6 +985,7 @@ function runOne(ov = null) {
         log(`[LBRM INIT] Dreamlike Illusion: 3 Mirror Magic (+8%CI +8%SPD +10%allDmg +18%DR)`, "#f0abfc");
     });
 
+    // DGN battle start
     if (units.find(u => u.name === "DGN")) initDGN(units);
 
     units.forEach(u => {
@@ -994,17 +1008,23 @@ function runOne(ov = null) {
         }
     });
 
+    // ═══════════════════════════════════════════════════════
+    // BATTLE START CI BONUSES (permanent, non-offsettable)
+    // ═══════════════════════════════════════════════════════
     log(``, "#fff");
     log(`⚔️ ═══ BATTLE START CI BONUSES ═══`, "#facc15");
     units.forEach(u => {
+        // 1. Team CI bonus: flat +15% to all heroes
         u.buffs.ci.push({ value: 0.12, rounds: 999, source: "Team CI Bonus" });
         let teamTotal = u.baseCI + getBuffTotal(u, "ci");
         log(`&nbsp;&nbsp;&nbsp;💠 [TEAM CI BONUS] ${u.name} +12% CI (permanent) | Eff. CI now: ${(teamTotal*100).toFixed(1)}%`, "#facc15");
 
+        // 2. Sub-100% pre-battle CI bonus: 20% of remainder below 100%
         if (u.baseCI < 1.0) {
             let remainder = 1.0 - u.baseCI;
             let bonus = remainder * 0.20;
             u.buffs.ci.push({ value: bonus, rounds: 999, source: "Sub-100 CI Bonus" });
+            // If Fear Guild Train is OFF, this bonus doesn't apply to fear resistance
             u.fearCIPenalty = fearGT ? 0 : bonus;
             let newTotal = u.baseCI + getBuffTotal(u, "ci");
             let fearNote = fearGT ? "" : ` | ⚠️ Fear CI: ${((newTotal - bonus)*100).toFixed(1)}% (GT off)`;
@@ -1014,6 +1034,7 @@ function runOne(ov = null) {
     log(`⚔️ ═══════════════════════════════`, "#facc15");
     log(``, "#fff");
 
+    // Apply pre-battle DR and ADR as permanent buffs
     units.forEach(u => {
         if (u.baseDR > 0) {
             u.buffs.dr.push({ value: u.baseDR, rounds: 999, source: "Pre-Battle DR" });
@@ -1029,9 +1050,11 @@ function runOne(ov = null) {
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "#ff4757");
 
+        // ── Pet activation ────────────────────────────────────────────────────
         if (pet.energy >= 100) {
             pet.energy = 0;
             log(`&nbsp;&nbsp;&nbsp;🐾 [PET ACTIVATE] Energy ≥100 — burst! Gives +80% burn bonus dmg to 4 heroes (3r)`, "#a78bfa");
+            // Pick 4 random heroes
             const shuffled = [...units].sort(() => Math.random() - 0.5);
             shuffled.slice(0, 4).forEach(h => {
                 addBuff(h, "burnBonus", 0.80, 3, "Pet Burn Bonus");
@@ -1073,6 +1096,7 @@ function runOne(ov = null) {
         let stv = units.find(u => u.name === "STV");
         if (stv) grantSM(units);
 
+        // DGN transition at end of round
         { const dgn = units.find(u => u.name === "DGN");
           if (dgn) fireDGNTransition(dgn, r); }
 
@@ -1236,12 +1260,13 @@ function runOne(ov = null) {
                     log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM CORE LIBERATION] 5 allies all thresholds met`, "#ec4899");
                     for (let tick = 0; tick < 5; tick++) { units.forEach(a => { trackStat(a, "healingDone", 500); }); }
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [CORE LIB ≥30%] 5 ticks: all allies +2500% ATK healing total`, "#ec4899");
+                    // 5 CI ticks — refresh (clear old CL CI stacks first, then apply fresh 5)
                     units.forEach(a => {
                         a.buffs.ci = a.buffs.ci.filter(b => !b.source.startsWith("Core Liberation CI"));
                     });
                     for (let tick = 0; tick < 5; tick++) {
                         units.forEach(a => {
-                            if (a.curse > 0) { a.curse--; }
+                            if (a.curse > 0) { a.curse--; } // curse offsets each tick individually
                             else { addBuffSilent(a, "ci", 0.045, 2, `Core Liberation CI tick ${tick+1}`); }
                         });
                     }
@@ -1250,6 +1275,7 @@ function runOne(ov = null) {
                         let total = getBuffTotal(a, "ci");
                         if (applied > 0) log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [CORE LIB ≥40%] ${a.name} +${(applied*4.5).toFixed(1)}% CI (${applied} ticks refreshed, 2r) | Eff. CI: ${((a.baseCI+total)*100).toFixed(0)}%`, "#ec4899");
                     });
+                    // 5 allDmg ticks — apply silently then log summary per hero
                     for (let tick = 0; tick < 5; tick++) {
                         units.forEach(a => { addBuffSilent(a, "allDmg", 0.045, 2, `Core Liberation allDmg tick ${tick+1}`); });
                     }
@@ -1315,9 +1341,11 @@ function runOne(ov = null) {
                     log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream consumed → reset to 0`, "#f0abfc");
                 }
                 if (u.name === "LFA") {
+                    // Hit 1-2: always (2×1200%)
                     let hits12 = 2400;
                     trackStat(u, "damageDealt", hits12);
                     log(`&nbsp;&nbsp;&nbsp;👿 [LFA SOUL SHIVER] Hits 1-2: ${hits12}% ATK (2×1200%, always)`, "#c084fc");
+                    // Hit 3-4: only if boss HP < 60%
                     let hits34 = 0;
                     if (bossHPTier === "below50" || bossHPTier === "50-59") {
                         hits34 = 2400;
@@ -1327,9 +1355,11 @@ function runOne(ov = null) {
                     } else {
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA SOUL SHIVER] Hits 3-4: skipped (boss HP≥60%)`, "#c084fc");
                     }
+                    // DKM: 120% of hits 1-4 (boss always fear-immune)
                     let dkmBonus = Math.round((hits12 + hits34) * 1.20);
                     trackStat(u, "damageDealt", dkmBonus);
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [DKM] Boss fear-immune: 120% of hits 1-4 (${hits12+hits34}%) = ${dkmBonus}% ATK`, "#c084fc");
+                    // Hit 5: always (1×1200%), after DKM
                     let hit5 = 1200;
                     trackStat(u, "damageDealt", hit5);
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA SOUL SHIVER] Hit 5: ${hit5}% ATK (always)`, "#c084fc");
@@ -1338,32 +1368,43 @@ function runOne(ov = null) {
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [DKM ATK STEAL] -${(boss.atkSteal*100).toFixed(0)}% boss ATK (cumulative, curse-offsettable)`, "#c084fc");
                     }
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA TOTAL] ${hits12 + hits34 + dkmBonus + hit5}% ATK total this active`, "#c084fc");
+                    // ── Damage Calculator ─────────────────────────────────────
                     const dc = getDmgCalcInputs();
                     if (dc) {
                         const atkBuff     = getBuffTotal(u, "atk");
                         const allDmgBuff  = getBuffTotal(u, "allDmg");
-                        const holyBuff    = dc.holy / 100 + getBuffTotal(u, "hd");
-                        const critBuff    = dc.crit / 100 + getBuffTotal(u, "crit");
+                        const holyBuff    = dc.holy / 100 + getBuffTotal(u, "hd");   // user base + in-fight gains
+                        const critBuff    = dc.crit / 100 + getBuffTotal(u, "crit"); // user base + in-fight gains
                         const precCapped  = Math.min(dc.prec / 100, 1.50);
-                        const cdCapped    = Math.min(dc.cd / 100 + getBuffTotal(u, "cd"), 1.50);
+                        const cdCapped    = Math.min(dc.cd / 100 + getBuffTotal(u, "cd"), 1.50); // capped 150%
                         const corrMult    = 1 + 0.24 * (boss.abyssalCorruption || 0);
                         const critMult    = 1.5 * cdCapped * 2 * corrMult;
                         const gkMult      = dc.gk ? 2.0 : 1.0;
                         const defMult     = (dc.defier && bossHPTier === "above70") ? 1.3 : 1.0;
-                        const templeMult  = 1 + dc.temple / 100;
+                        const templeMult  = 1 + dc.temple / 100; // e.g. 150% → dc.temple=150 → templeMult=2.5
                         const shrinkMult  = boss.shrink ? 1.4 : 1.0;
-                        const allDmgMult  = 1 + allDmgBuff + dc.alldmg / 100;
-                        const antiwarriorMult = (u.art === "Antiwarrior") ? 1.90 : 1.0;
-                        const antlersSkill    = (ov && ov.fromOptimizer) ? (u.art === "Antlers" ? 300 : u.art === "Antiwarrior" ? 50 : 0) : 0;
-                        const watcherMarkMult  = 1 + (boss.watcherMark || 0);
-                        const burnBonusMult    = (boss.burn > 0) ? 1 + getBuffTotal(u, "burnBonus") : 1.0;
+                        const allDmgMult  = 1 + allDmgBuff + dc.alldmg / 100; // dc.alldmg raw %, allDmgBuff already decimal
 
-                        const modMult = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
-                        let hitLog = []; let totalDmg = 0;
-                        let srcHits = 0, srcDKM = 0, srcLethal = 0, srcBS = 0, srcAddl = 0;
+                        // Per-hit base formula (one hit of X% multiplier)
+                        function calcHit(multPct) {
+                            const base = dc.atk
+                                * (1 + atkBuff)
+                                * ((multPct + (dc.skill + antlersSkill) / 100))
+                                * (1 + precCapped * 0.3)
+                                * (1 + (dc.holy / 100) * 0.7)
+                                * allDmgMult
+                                * gkMult * defMult * templeMult * shrinkMult;
+                            const isCrit = Math.random() < (dc.crit / 100);
+                            return isCrit ? base * critMult : base;
+                        }
+
+                              // ── Damage calculation ──────────────────────────────────────────────────
                         let anyCritMiss = false;
-                        let hits14Sum = 0;
-
+                        let hits14Sum = 0; // sum of fully calculated hits 1-4 (for DKM)
+                        const antiwarriorMult = (u.art === "Antiwarrior") ? 1.90 : 1.0;
+                        const antlersSkill    = (ov && ov.fromOptimizer) ? (u.art === "Antlers" ? 300 : u.art === "Antiwarrior" ? 50 : 0) : 0; // optimizer only
+                        const watcherMarkMult  = 1 + (boss.watcherMark || 0); // e.g. 300% → ×4
+                        const burnBonusMult    = (boss.burn > 0) ? 1 + getBuffTotal(u, "burnBonus") : 1.0; // only vs burn targets
                         function calcHitTracked(multPct) {
                             const base = dc.atk
                                 * (1 + atkBuff)
@@ -1372,38 +1413,47 @@ function runOne(ov = null) {
                                 * (1 + holyBuff * 0.7)
                                 * allDmgMult * gkMult * defMult * templeMult * shrinkMult
                                 * antiwarriorMult * watcherMarkMult * burnBonusMult;
-                            const isCrit = Math.random() < (critBuff + 0.10);
+                            const isCrit = Math.random() < (critBuff + 0.10); // LFA active +10% crit
                             if (!isCrit) anyCritMiss = true;
                             return isCrit ? base * critMult : base;
                         }
+                        const modMult = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+                        let hitLog = []; let totalDmg = 0;
+                        let srcHits = 0, srcDKM = 0, srcLethal = 0, srcBS = 0, srcAddl = 0;
 
+                        // Hits 1-2 (always)
                         for (let h = 1; h <= 2; h++) {
                             const d = calcHitTracked(12); totalDmg += d; hits14Sum += d;
                             hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`);
                         }
+                        // Hits 3-4 (boss below 60%)
                         if (bossHPTier === 'below50' || bossHPTier === '50-59') {
                             for (let h = 3; h <= 4; h++) {
                                 const d = calcHitTracked(12); totalDmg += d; hits14Sum += d;
                                 hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`);
                             }
                         }
-                        srcHits += totalDmg;
+                        srcHits += totalDmg; // hits 1-4 damage before DKM and hit 5
 
+                        // DKM: 120% of fully calculated hits 1-4 × modMult
                         const dkmDmgCalc = hits14Sum * 1.20 * modMult;
                         srcDKM = dkmDmgCalc;
                         totalDmg += dkmDmgCalc;
                         hitLog.push(`DKM (120% of hits 1-4 × modMult): ${Math.round(dkmDmgCalc).toLocaleString()}`);
 
+                        // Hit 5 (always)
                         const d5 = calcHitTracked(12); totalDmg += d5; srcHits += d5;
                         hitLog.push(`Hit 5: ${Math.round(d5).toLocaleString()}`);
 
                         const initialPlusDKM = totalDmg;
 
+                        // ── Lethal Fightback: 18% of (hits 1-5 + DKM) × modMult ─────────────────
                         const lethalFB = initialPlusDKM * 0.18 * modMult;
                         srcLethal = lethalFB;
                         totalDmg += lethalFB;
                         hitLog.push(`Lethal Fightback (18%): ${Math.round(lethalFB).toLocaleString()}`);
 
+                        // ── Balanced Strike: fires if any hit did NOT crit ────────────────────────
                         if (anyCritMiss) {
                             const bsPct = bossHPTier === 'below50' ? 1.95 : 0.45;
                             srcBS = initialPlusDKM * bsPct * modMult;
@@ -1413,6 +1463,7 @@ function runOne(ov = null) {
                             hitLog.push(`Balanced Strike: skipped (all hits crit)`);
                         }
 
+                        // ── Additional Multiplier: 80% proc, not sealed, 10% of all prior ────────
                         if (u.cc.seal <= 0 && Math.random() < 0.80) {
                             srcAddl = (initialPlusDKM + lethalFB + srcBS) * 0.10 * modMult;
                             totalDmg += srcAddl;
@@ -1421,17 +1472,19 @@ function runOne(ov = null) {
                             hitLog.push(`Additional Multiplier: ${u.cc.seal > 0 ? 'blocked (sealed)' : 'did not proc (20%)'}`);
                         }
 
+                        // Accumulate per-source damage on unit
                         u.srcHits   = (u.srcHits   || 0) + srcHits;
                         u.srcDKM    = (u.srcDKM    || 0) + srcDKM;
                         u.srcLethal = (u.srcLethal || 0) + srcLethal;
                         u.srcBS     = (u.srcBS     || 0) + srcBS;
                         u.srcAddl   = (u.srcAddl   || 0) + srcAddl;
 
-                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK:${dc.atk.toLocaleString()} | ATKbuff:+${(atkBuff*100).toFixed(0)}% | Skill:+${(dc.skill + antlersSkill).toFixed(0)}% | AllDmg:+${(allDmgMult*100-100).toFixed(0)}% | Crit:${(critBuff*100).toFixed(1)}%@${(cdCapped*100).toFixed(0)}%CD | Shrink:${boss.shrink?'✓':'✗'}`, '#facc15');
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK:${dc.atk.toLocaleString()} | ATKbuff:+${(atkBuff*100).toFixed(0)}% | Skill:+${(dc.skill + antlersSkill).toFixed(0)}%${antlersSkill===300?" (incl +300 Antlers)":antlersSkill===50?" (incl +50 Antiwarrior)":""} | Prec:${dc.prec.toFixed(0)}% | Holy:${(holyBuff*100).toFixed(0)}% (base ${dc.holy.toFixed(0)}%+fight ${(getBuffTotal(u,'hd')*100).toFixed(0)}%) | AllDmg:+${(allDmgMult*100-100).toFixed(0)}% | Crit:${(critBuff*100).toFixed(1)}%@${(cdCapped*100).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Def:${defMult>1?'✓':'✗'} Temple:×${templeMult.toFixed(2)} Shrink:${boss.shrink?'✓':'✗'} AbyssalCorruption:${boss.abyssalCorruption||0}${antiwarriorMult>1?' | Antiwarrior:×1.90':''} | WatcherMark:×${watcherMarkMult.toFixed(2)} | BurnBonus:×${burnBonusMult.toFixed(2)}`, '#facc15');
+                        log('&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA] ATK × (1+ATKbuff) × (hitMult%+Skill%) × (1+min(Prec,150%)×0.3) × (1+Holy×0.7) × (1+AllDmg) × GK × Defier × Temple × Shrink' + (antiwarriorMult>1?' × Antiwarrior(1.9)':'') + ` × WatcherMark(${watcherMarkMult.toFixed(2)})` + ' → ×CritMult if crit', '#94a3b8');
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA VALUES] ATK:${dc.atk.toLocaleString()} × (1+${(atkBuff*100).toFixed(0)}%) × (12+${dc.skill.toFixed(0)}%) × (1+${(precCapped*100).toFixed(0)}%×0.3=${(1+precCapped*0.3).toFixed(3)}) × (1+${(holyBuff*100).toFixed(0)}%×0.7=${(1+holyBuff*0.7).toFixed(3)}) × ${allDmgMult.toFixed(3)} × ${gkMult} × ${defMult} × ${templeMult.toFixed(3)} × ${shrinkMult}${antiwarriorMult>1?' × 1.9':''} × ${watcherMarkMult.toFixed(2)}(WM) → CritMult: 1.5×${(cdCapped*100).toFixed(0)}%×2×${corrMult.toFixed(2)}=${critMult.toFixed(3)}`, '#94a3b8');
                         hitLog.forEach(h => log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚔️ ${h}`, '#facc15'));
-                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC TOTAL] ${Math.round(totalDmg).toLocaleString()} damage this active`, '#facc15');
-                        u.totalEstDmg += totalDmg;
-                        if (u.dmgPerRound) u.dmgPerRound[r-1] = (u.dmgPerRound[r-1]||0) + totalDmg;
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC TOTAL] ${Math.round(totalDmg).toLocaleString()} damage this active`, '#facc15');                       u.totalEstDmg += totalDmg;
+                    if (u.dmgPerRound) u.dmgPerRound[r-1] = (u.dmgPerRound[r-1]||0) + totalDmg;
                     }
                 }
                 if (u.name === "DGN") {
@@ -1538,11 +1591,14 @@ function runOne(ov = null) {
                 if (u.name === "LBRM" && !silenced) {
                     if (u.powerOfDream >= 2) {
                         log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream ≥2 → Dreamland Dominion fires as basic! (+6 trans)`, "#f0abfc");
+                        // Apply imprint basic effects as if this were a basic action
                         if (imp === "foresight") {
                             if (u.cc.seal <= 0 && checkC(u, "Foresight Energy +50")) { u.energy += 50; }
                             addBuff(u, "allDmg", 0.30, 15, "Foresight allDmg (basic)");
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM PoD] Foresight basic: +50 energy, +30% allDmg`, "#f0abfc");
                         }
                         if (imp === "destiny") {
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM PoD] Destiny basic: triggering for all allies`, "#f0abfc");
                             units.forEach(a => {
                                 if (Math.random() < 0.75) { if (checkC(a, "Destiny +20", "+20")) a.energy += 20; }
                                 if (Math.random() < 0.50) { if (checkC(a, "Destiny +20 bonus", "+20")) a.energy += 20; }
@@ -1566,8 +1622,10 @@ function runOne(ov = null) {
                             if(type==="Wings"&&!tgt.mirrorMagicWings){tgt.dreamMagicWings=true;refreshBuff(tgt,"ci",0.10,dmDur2,"Dream Magic Wings CI");refreshBuff(tgt,"spd",0.10,dmDur2,"Dream Magic Wings SPD");}
                             if(type==="Magnification"&&!tgt.mirrorMagicMagnification){tgt.dreamMagicMagnification=true;addBuff(tgt,"allDmg",0.12,dmDur2,"Dream Magic Magnification");}
                             if(type==="Protection"&&!tgt.mirrorMagicProtection){tgt.dreamMagicProtection=true;}
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD(BB)] Dream Magic ${type} → ${tgt.name}`, "#f0abfc");
                         });
                         u.powerOfDream = 0;
+                        log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream consumed → 0`, "#f0abfc");
                         usedBasic = true;
                     } else {
                         trackStat(u, "damageDealt", 1200);
@@ -1575,8 +1633,11 @@ function runOne(ov = null) {
                         units.forEach(a => tryBuff(a, "spd", 0.20, 2, "Shadow of Blossom Realm SPD"));
                         let hspd = units.reduce((a,b)=>(a.spd>b.spd?a:b));
                         addBuff(hspd, "drOffset", 0.20, 2, "Shadow CI Offset");
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [SHADOW] All +20%SPD (2r); ${hspd.name} +20% CI Offset (2r)`, "#f0abfc");
+                        if (Math.random() < 0.5) log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [SHADOW DEEP] Boss SPD -10 for 2 rounds (tracked)`, "#f0abfc");
                         if (Math.random() < 0.5) {
                             if (checkC(hspd, "LBRM Shadow Noble", "+50")) hspd.energy += 50;
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [SHADOW NOBLE] ${hspd.name} +50 energy (50% proc)`, "#f0abfc");
                         }
                     }
                 }
@@ -1586,22 +1647,29 @@ function runOne(ov = null) {
                     if (!sealed) {
                         boss.ciDebuff = (boss.ciDebuff || 0) + 0.18;
                         boss.ciDebuffRounds = 3;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA BASIC] Boss CI -18% for 3 rounds (total: -${(boss.ciDebuff*100).toFixed(0)}%)`, "#c084fc");
                         tryBuff(u, "crit", 0.24, 4, "LFA Deadly Grasp");
                         boss.drDebuff = (boss.drDebuff || 0) + 0.05;
                         boss.drDebuffRounds = 2;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA NOBLE SUB] Boss DR -5% for 2 rounds (total: -${(boss.drDebuff*100).toFixed(0)}%)`, "#c084fc");
                     }
                 }
                 if (u.name === "BDSM" && !silenced) {
                     trackStat(u, "damageDealt", 2000);
+                    log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM RAVENOUS HUNGER] 2000% ATK damage dealt`, "#ec4899");
                     boss.drDebuff = (boss.drDebuff || 0) + 0.10;
                     boss.drDebuffRounds = 2;
+                    log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM BASIC] Boss DR -10% for 2 rounds (total: -${(boss.drDebuff*100).toFixed(0)}%)`, "#ec4899");
                     let lostHp = 100 - u.hp;
                     u.hp = Math.min(100, u.hp + lostHp * 0.20);
+                    log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM BASIC] Self +${(lostHp*0.20).toFixed(1)}% HP restored (now ${u.hp.toFixed(1)}%)`, "#ec4899");
                     triggerBoundlessSepal(u);
                     if (Math.random() < 0.5) {
                         if (checkC(u, "BDSM Noble Sub", "+20")) u.energy += 20;
+                        log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM NOBLE SUB] +20 Energy (offsettable)`, "#ec4899");
                     }
                 }
+
                 if (u.name === "ELY" && u.cc.seal <= 0) {
                     boss.shrink = true;
                     boss.shrinkRounds = 2;
@@ -1618,69 +1686,89 @@ function runOne(ov = null) {
                 if (u.name === "BDSM" && !u.infuseUsed) {
                     u.infuseUsed = true;
                     if (u.hp >= 70) {
+                        log(`&nbsp;&nbsp;&nbsp;🌸 [INFUSE WITH FLAVOR] HP ≥70% (${u.hp.toFixed(1)}%): -60% HP, granting Shield+CI to self & backline`, "#ec4899");
                         u.hp = Math.max(0, u.hp - 60);
                         units.filter(a => !a.isFr || a === u).forEach(a => {
                             a.shield = Math.min(100, (a.shield || 0) + 40);
                             refreshBuff(a, "ci", 0.15, 2, "BDSM Infuse with Flavor");
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [INFUSE] ${a.name} Shield +40% MaxHP, CI +15% (2r)`, "#ec4899");
                         });
                         triggerBoundlessSepal(u);
                     } else {
+                        log(`&nbsp;&nbsp;&nbsp;🌸 [INFUSE WITH FLAVOR] HP <70% (${u.hp.toFixed(1)}%): restoring 15% HP + Shield`, "#ec4899");
                         u.hp = Math.min(100, u.hp + 15);
                         u.shield = Math.min(100, (u.shield || 0) + 15);
                         triggerBoundlessSepal(u);
                     }
                 }
+
             } else {
                 u.turnsLost++;
                 log(`🚫 ACTION: SKIPPED (${u.cc.fear > 0 ? "Fear" : u.cc.silence > 0 ? "Silence+NoEnergy" : "Unknown"})`, "#ef4444");
             }
 
+            // 12-stack transitions
             if (u.trans >= 12) {
                 u.trans -= 12;
                 log(`&nbsp;&nbsp;&nbsp;💎 12-Stack Transition`);
                 units.forEach(a => {
                     if (u.name === "SQH") {
+                        // Moon Abyss + Comet Hop: all heroes including self
                         tryBuff(a, "atk",    0.10, 2, "SQH Transition (Moon Abyss)");
                         addBuff(a, "allDmg", 0.10, 2, "SQH Transition (Moon Abyss)");
                         addBuff(a, "allDmgReduction", 0.20, 2, "SQH Transition (Moon Abyss)");
                         trackStat(a, "healingDone", 50);
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👑 [SQH MOON ABYSS] ${a.name} +50% Max HP healed`, "#f59e0b");
                         tryBuff(a, "dr", 0.20, 2, "SQH Comet Hop");
+                    }
+                    if (u.name === "SQH") {
+                        // Glowed Glory: +20 energy to ALL allies including self
                         if (checkC(a, "SQH Glowed Glory", "+20")) a.energy += 20;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👑 [SQH GLOWED GLORY] ${a.name} +20 Energy (offsettable)`, "#f59e0b");
+                        // Sun Halo + Acheron Barque: self only
                         if (a === u) {
                             addBuff(u, "allDmg", 0.15, 2, "SQH Sun Halo");
                             boss.spdDebuff = (boss.spdDebuff || 0) + 20;
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👑 [SQH ACHERON BARQUE] Boss SPD -20 (total: -${boss.spdDebuff})`, "#f59e0b");
                         }
                     }
                     if (u.name === "BDSM") {
                         if (a.franticGluttony) {
                             addBuff(a, "atk", 0.25, 3, "BDSM Moon Abyss");
                             tryBuff(a, "cd",  0.25, 3, "BDSM Moon Abyss");
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BDSM MOON ABYSS] ${a.name} (FG) +25% ATK, +25% CD (3r, direct)`, "#ec4899");
                         }
                         if (checkC(a, "BDSM Glowed Glory", "+20")) a.energy += 20;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BDSM GLOWED GLORY] ${a.name} +20 Energy (offsettable)`, "#ec4899");
                         if (a.isM) { addBuff(a, "allDmg", 0.15, 2, "BDSM Acheron Barque"); }
                         if (a === units[0]) {
                             boss.allDmgDealtDebuff = (boss.allDmgDealtDebuff || 0) + 0.10;
                             boss.allDmgDealtDebuffRounds = 2;
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BDSM COMET HOP] Boss All-Damage Dealt -10% for 2 rounds`, "#ec4899");
                         }
                         if (!a.isFr) { addBuff(a, "allDmg", 0.10, 2, "BDSM Sun Halo"); }
                     }
                     if (u.name === "LBRM") {
                         trackStat(u, "damageDealt", 3000);
+                        log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANSITION] 30% Max HP dmg to frontline (capped 3000%)`, "#f0abfc");
                         let transEffect = Math.floor(Math.random() * 3);
                         if (transEffect === 0) {
                             units.filter(a => a.dreamMagicWings || a.mirrorMagicWings).forEach(a => {
                                 tryBuff(a, "atk", 0.20, 2, "LBRM Trans Wings ATK");
+                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 1] ${a.name} (Wings) +20% ATK 2r`, "#f0abfc");
                             });
                         } else if (transEffect === 1) {
                             units.filter(a => a.dreamMagicMagnification || a.mirrorMagicMagnification).forEach(a => {
                                 addBuff(a, "allDmgReduction", 0.10, 2, "LBRM Trans Magnification DR");
                                 a.hp = Math.min(100, a.hp + 33);
                                 trackStat(a, "healingDone", 33);
+                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 2] ${a.name} (Magnification) +10% allDmgReduction 2r, +33% HP`, "#f0abfc");
                             });
                         } else {
                             units.filter(a => a.dreamMagicProtection || a.mirrorMagicProtection).forEach(a => {
                                 a.beeSugarCoat = true;
                                 refreshBuff(a, "ci", 0.50, 999, "Bee Sugar-coat CI");
+                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 3] ${a.name} (Protection) Bee Sugar-coat +50% CI 4r`, "#f0abfc");
                             });
                         }
                         units.forEach(a => tryBuff(a, "armor", 0.35, 2, "LBRM Glowed Glory"));
@@ -1688,19 +1776,26 @@ function runOne(ov = null) {
                         tryBuff(lbrmMaxAtk, "allDmg", 0.15, 2, "LBRM Acheron Barque");
                         units.filter(a => !a.isFr).forEach(a => { addBuff(a, "allDmg", 0.10, 3, "LBRM Sun Halo"); });
                         boss.atkDebuff = (boss.atkDebuff || 0) + 0.10; boss.atkDebuffRounds = 2;
+                        log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM PIVOTS] Glowed Glory armor+35% | Acheron Barque ${lbrmMaxAtk.name} +15%allDmg 2r | Comet Hop boss ATK-10% | Sun Halo backline +10%allDmg 3r`, "#f0abfc");
                     }
                     if (u.name === "LFA") {
                         trackStat(u, "damageDealt", 3000);
+                        log(`&nbsp;&nbsp;&nbsp;👿 [LFA MOON ABYSS] 1500% ATK × 2 = 3000% ATK damage`, "#c084fc");
                         boss.atkDebuff = (boss.atkDebuff || 0) + 0.50; boss.atkDebuffRounds = 3;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA MOON ABYSS] Boss ATK -50% for 3 rounds`, "#c084fc");
                         trackStat(u, "damageDealt", 1000);
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA GLOWED GLORY] +1000% ATK damage`, "#c084fc");
                         boss.atkDebuff = (boss.atkDebuff || 0) + 0.15; boss.atkDebuffRounds = Math.max(boss.atkDebuffRounds || 0, 2);
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA ACHERON BARQUE] Boss ATK -15% (2r)`, "#c084fc");
                         refreshBuff(u, "ci", 0.20, 2, "LFA Comet Hop");
                         addBuff(u, "allDmg", 0.15, 2, "LFA Sun Halo");
                     }
                 });
             }
 
+            // DGN basic
             if (usedBasic && u.name === "DGN") fireDGNBasic(u, r);
+            // Foresight / Destiny imprint
             if (imp === "foresight") {
                 if (usedBasic) {
                     if (u.cc.seal <= 0 && checkC(u, "Foresight Energy +50")) { u.energy += 50; }
@@ -1712,38 +1807,57 @@ function runOne(ov = null) {
                 }
             }
             if (usedBasic && imp === "destiny") {
+                log(`&nbsp;&nbsp;&nbsp;⚡ [DESTINY] Triggering for all allies`, "#38bdf8");
                 units.forEach(a => {
                     if (Math.random() < 0.75) { if (checkC(a,"Destiny +20","+20")) a.energy += 20; }
                     if (Math.random() < 0.50) { if (checkC(a,"Destiny +20 bonus","+20")) a.energy += 20; }
                 });
             }
 
-            pet.energy += 10;
-            if (didHitBoss) {
+            // BOSS COUNTERATTACK
+            // Pet gains 10 energy per boss hit (cannot be sealed/blocked)
+                pet.energy += 10;
+                log(`&nbsp;&nbsp;&nbsp;🐾 [PET] ${u.name} hit boss → Pet +10 energy (now ${pet.energy})`, "#a78bfa");
+                if (didHitBoss) {
+                log(`&nbsp;&nbsp;&nbsp;☠️ [BOSS COUNTER] Corrupting Touch triggered!`, "#ef4444");
                 units.forEach(h => {
                     h.calamity++;
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Calamity (now ${h.calamity})`, "#ef4444");
                     trigCal(h);
-                    if (Math.random() < 0.5) { h.curse++; }
+                    if (Math.random() < 0.5) { h.curse++; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ → ${h.name} +1 Curse (50%) (now ${h.curse})`, "#ef4444"); }
                 });
             }
+        }); // end ord.forEach
+
+        log(`&nbsp;&nbsp;&nbsp;🔥 END-OF-TURN CALAMITY CHECK`, "#ef4444");
+        units.forEach(u => {
+            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${u.name} Calamity: ${u.calamity}`, "#ef4444");
+            trigCal(u);
         });
 
-        units.forEach(u => { trigCal(u); });
-
         let pupilUnits = units.filter(u => u.hasPupil);
+
+        log(`&nbsp;&nbsp;&nbsp;☄️ BOSS ACTIVE: CATASTROPHIC ROAR (3000% ATK × 3, +2 Cal & Curse, dodge applies)`, "#ef4444");
         boss.atkSteal = (boss.atkSteal || 0) + 0.08;
-        { const dgn = units.find(u => u.name === "DGN" && u.cc.seal <= 0); if (dgn) triggerDGNDoubleNature(dgn, r); }
+        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [CATASTROPHIC ROAR] Boss steals 8% ATK (3r), enemy Armor -100%`, "#ef4444");
+         // DGN Double Nature counter triggers on boss active
+         { const dgn = units.find(u => u.name === "DGN" && u.cc.seal <= 0); if (dgn) triggerDGNDoubleNature(dgn, r); }
         units.forEach(u => {
             let effectiveDodge = (u.pupilDodgeRounds > 0) ? 1.0 : u.dodge;
+            if (u.pupilDodgeRounds > 0) {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👁️ ${u.name} has Pupil 100% dodge active (${u.pupilDodgeRounds} rounds left)`, "#e879f9");
+            }
             let dodged = Math.random() < effectiveDodge;
             if (dodged) {
-                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;💨 ${u.name} DODGED the boss active!`, "#a3e635");
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;💨 ${u.name} DODGED the boss active! (no Calamity/Curse)`, "#a3e635");
                 pupilUnits.forEach(pw => {
                     if (checkC(pw, "Pupil Dodge Energy", "+10")) pw.energy += 10;
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👁️ [PUPIL] ${pw.name} +10 Energy (ally ${u.name} dodged)`, "#e879f9");
                 });
             } else {
                 u.calamity += 2;
                 u.curse += 2;
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${u.name} +2 Calamity (now ${u.calamity}) & +2 Curse (now ${u.curse})`, "#ef4444");
                 trigCal(u);
 
                 let lbrm2 = units.find(x => x.name === "LBRM" && x.cc.seal <= 0);
@@ -1751,12 +1865,15 @@ function runOne(ov = null) {
                     lbrm2.energy -= 30;
                     lbrm2.powerOfDream = Math.min(3, lbrm2.powerOfDream + 1);
                     let ccKeys2 = ["silence","fear","seal"].filter(k => u.cc[k] > 0);
-                    if (ccKeys2.length > 0) { let rem2 = ccKeys2[Math.floor(Math.random()*ccKeys2.length)]; u.cc[rem2]=0; }
+                    if (ccKeys2.length > 0) { let rem2 = ccKeys2[Math.floor(Math.random()*ccKeys2.length)]; u.cc[rem2]=0; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BRILLIANT BOON] ${u.name} ${rem2} removed, LBRM PoD=${lbrm2.powerOfDream}`, "#f0abfc"); }
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BRILLIANT BOON DEEP] ${u.name} Shield 3500% ATK granted`, "#f0abfc");
                 }
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚡ ${u.name} hit by boss active: +10 Energy`, "#38bdf8");
                 if (checkC(u, "Boss Active Hit Energy", "+10")) u.energy += 10;
 
                 let specterWearer = units.find(s => s.hasS);
                 if (specterWearer && specterWearer.cc.seal <= 0) {
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🔮 ${u.name} Specter bonus: +10 Energy (boss hit)`, "#f472b6");
                     if (checkC(u, "Boss Active Hit Specter Bonus", "+10")) u.energy += 10;
                 }
 
@@ -1767,20 +1884,27 @@ function runOne(ov = null) {
                         let rk = ccK[Math.floor(Math.random()*ccK.length)];
                         u.cc[rk] = 0;
                         if (checkC(u, "LBRM Mirror Wings", "+30")) u.energy += 30;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [MIRROR WINGS] ${u.name} CC removed (${rk}), +30 energy`, "#f0abfc");
                     }
                 }
                 if (u.name === "STV") {
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [FATAL ALLURE] STV hit by boss active`, "#a78bfa");
                     if (Math.random() < 0.80) {
                         boss.veilOfMist = true; boss.veilOfMistRounds = 2;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [FATAL ALLURE] Boss: Veil of Mist applied (2r)`, "#a78bfa");
                         if (Math.random() < 0.70) {
                             applyLI("Fatal Allure (boss had VoM)");
-                            if (Math.random() < 0.60) { trackStat(u, "damageDealt", 800); }
+                            if (Math.random() < 0.60) {
+                                trackStat(u, "damageDealt", 800);
+                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [FATAL ALLURE DEEP SUB] 800% ATK damage + boss -50 energy`, "#a78bfa");
+                            }
                             let noSM = units.filter(a => !a.stygianMark);
                             if (noSM.length > 0) {
                                 let pick = noSM[Math.floor(Math.random() * noSM.length)];
                                 pick.stygianMark = true;
                                 pick.stygianMarkStack = Math.min(2, (pick.stygianMarkStack || 0) + 1);
                                 addBuff(pick, "allDmg", pick.stygianMarkStack * 0.10, 2, "Stygian Mark (Fatal Allure Noble)");
+                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [FATAL ALLURE NOBLE SUB] ${pick.name} gains Stygian Mark (2r)`, "#a78bfa");
                             }
                         }
                     }
@@ -1789,38 +1913,51 @@ function runOne(ov = null) {
             for (let k in u.cc) if (u.cc[k] > 0) u.cc[k]--;
         });
 
+        log(`&nbsp;&nbsp;&nbsp;🛡️ END-OF-ROUND CC CLEANSE`, "#a78bfa");
         const ccTypes = ["silence","fear","seal"];
         units.forEach(u => {
             let activeCC = ccTypes.filter(t => u.cc[t] > 0);
             if (activeCC.length > 0) {
+                // First cleanse (always)
                 let pick = activeCC[Math.floor(Math.random() * activeCC.length)];
                 u.cc[pick] = 0;
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ ${u.name} removes ${pick.toUpperCase()}`, "#a78bfa");
+                // Upgraded Control Purify: 50% chance to cleanse one more
                 if (u.upgradedPurify) {
                     activeCC = ccTypes.filter(t => u.cc[t] > 0);
                     if (activeCC.length > 0 && Math.random() < 0.5) {
                         let pick2 = activeCC[Math.floor(Math.random() * activeCC.length)];
                         u.cc[pick2] = 0;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✦ ${u.name} UPGRADED PURIFY removes ${pick2.toUpperCase()}`, "#a78bfa");
                     }
                 }
+            } else {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ ${u.name} has no CC to remove`, "#a78bfa");
             }
         });
+
+        log(`&nbsp;&nbsp;&nbsp;🪞 ARTIFACT END-OF-ROUND PHASE`, "#38bdf8");
 
         boss.spiritMirrorRound++;
         let smWearers = units.filter(u => u.art === "Spiritual Mirror" && u.cc.seal <= 0);
         if (smWearers.length > 0 && (boss.spiritMirrorRound === 1 || boss.spiritMirrorRound % 3 === 0)) {
+            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SPIRITUAL MIRROR] Every-3-round pulse (round ${boss.spiritMirrorRound})`, "#38bdf8");
             units.forEach(a => {
                 let hasSM = a.art === "Spiritual Mirror";
                 let mult = hasSM ? 2 : 1;
                 addBuff(a, "allDmg", 0.045 * mult, 3, `Spiritual Mirror allDmg (×${mult})`);
                 addBuff(a, "dr", 0.03 * mult, 3, `Spiritual Mirror DR (×${mult})`);
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SM] ${a.name}: +${(4.5*mult).toFixed(1)}% allDmg, +${(3*mult).toFixed(0)}% DR (3r decay)`, "#38bdf8");
             });
             boss.ciDebuff = (boss.ciDebuff || 0) + 0.03;
             boss.ciDebuffRounds = 3;
+            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SM] Boss CI -3% (3r decay)`, "#38bdf8");
         }
 
         units.forEach(u => {
             if (u.cc.seal > 0) return;
             if (u.art === "Spiritual Mirror") {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SPIRITUAL MIRROR] EoR: +15 energy & +6% HP to all allies`, "#38bdf8");
                 units.forEach(a => {
                     if (checkC(a, "Spiritual Mirror Energy", "+15")) a.energy += 15;
                     a.hp = Math.min(100, a.hp + 6);
@@ -1828,20 +1965,25 @@ function runOne(ov = null) {
                 });
             }
 
+            // ── SCISSORS: replicate boss ATK & HD to self + same-line allies only ──
             if (u.art === "Scissors") {
                 let totalBossATK = (boss.atkBuff || 0) + (boss.atkSteal || 0);
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ [SCISSORS] Boss total ATK: +${(totalBossATK*100).toFixed(0)}% (atkBuff ${((boss.atkBuff||0)*100).toFixed(0)}% + atkSteal ${((boss.atkSteal||0)*100).toFixed(0)}%) → 30% replicated to self + same-line allies`, "#38bdf8");
+                // Only buff self + allies on the same line (frontline or backline)
                 let scissorsTargets = units.filter(a => a.isFr === u.isFr);
                 scissorsTargets.forEach(a => {
                     if (totalBossATK > 0) {
                         let replicatedATK = totalBossATK * 0.30;
                         if (checkC(a, "Scissors ATK repl.")) {
                             addBuff(a, "atk", replicatedATK, 15, "Scissors (boss ATK repl.)");
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ ${a.name}: +${(replicatedATK*100).toFixed(1)}% ATK (30% of +${(totalBossATK*100).toFixed(0)}%)`, "#38bdf8");
                         }
                     }
                     if (bossHDStacks > 0) {
                         let replicatedHD = bossHDStacks * 0.125 * 0.30;
                         if (checkC(a, "Scissors HD repl.")) {
                             addBuff(a, "hd", replicatedHD, 15, "Scissors (boss HD repl.)");
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ ${a.name}: +${(replicatedHD*100).toFixed(1)}% HD (30% of boss ${(bossHDStacks*12.5).toFixed(1)}% HD)`, "#38bdf8");
                         }
                     }
                 });
@@ -1850,25 +1992,34 @@ function runOne(ov = null) {
             if (u.art === "Jade Toad") triggerJadeToad(u);
 
             if (u.art === "Antlers") {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🦌 [ANTLERS] ${u.name}: +9% allDmg (permanent), +1% DR (2r, offsettable)`, "#38bdf8");
                 addBuff(u, "allDmg", 0.09, 999, "Antlers Power of Wildness allDmg");
                 tryBuff(u, "dr", 0.01, 10, "Antlers Power of Wildness DR");
             }
+            // ── Specter EoR Pulse (rounds 1-5): fires during the specter holder's artifact turn ──
             if (r <= 5 && u.hasS && u.cc.seal <= 0) {
+                log(`&nbsp;&nbsp;&nbsp;🔮 [SPECTER EoR PULSE R${r}/5] ${u.name}`, "#f472b6");
                 if (checkC(u, "Specter EoR Self", "+50")) u.energy += 50;
                 let specAllies = units.filter(a => a !== u);
                 let randSA = specAllies[Math.floor(Math.random() * specAllies.length)];
                 if (checkC(randSA, "Specter EoR Ally", "+50")) randSA.energy += 50;
             }
+            // ── Global Surge: each hero gets +50 energy after their own EoR actions ──
             if (checkC(u, "Global Surge", "+50")) u.energy += 50;
         });
 
+        log(`&nbsp;&nbsp;&nbsp;☠️ ABYSSAL INVASION (boss end-of-round)`, "#ef4444");
         let invasionTarget = units.find(u => u.isM);
         if (invasionTarget) {
             invasionTarget.energy = Math.max(0, invasionTarget.energy - 100);
+            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [INVASION] ${invasionTarget.name} -100 Energy (now ${invasionTarget.energy})`, "#ef4444");
             invasionTarget.curse += 3;
+            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [INVASION] ${invasionTarget.name} +3 Curse of Decay (now ${invasionTarget.curse})`, "#ef4444");
             invasionTarget.buffs.atk.push({ value: -0.40, rounds: 2, source: "Abyssal Invasion ATK debuff" });
+            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [INVASION] ${invasionTarget.name} ATK -40% for 2 rounds`, "#ef4444");
         }
         boss.atkBuff = (boss.atkBuff || 0) + 0.06;
+        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [INVASION] Boss self +6% ATK (total: +${((boss.atkBuff||0)*100).toFixed(0)}%)`, "#ef4444");
         units.forEach(u => {
             if (u.calamity > 0) {
                 if (Math.random() < 0.25) {
@@ -1876,22 +2027,31 @@ function runOne(ov = null) {
                     if (buffTypes.length > 0) {
                         let pick = buffTypes[Math.floor(Math.random() * buffTypes.length)];
                         let idx = u.buffs[pick].findIndex(b => b.value > 0);
-                        if (idx >= 0) u.buffs[pick].splice(idx, 1);
+                        let removed = u.buffs[pick].splice(idx, 1)[0];
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [INVASION] ${u.name} (25% proc): ${pick.toUpperCase()} +${(removed.value*100).toFixed(1)}% buff removed`, "#ef4444");
                     }
                 }
             } else {
                 u.calamity++;
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [INVASION] ${u.name} (no Calamity): +1 Calamity`, "#ef4444");
                 trigCal(u);
             }
         });
 
+        // Specter EoR pulse is now inline in the artifact loop below
+
+        log(`&nbsp;&nbsp;&nbsp;❄️ CALAMITY PURGE (-1 per hero)`, "#a5b4fc");
         units.forEach(u => {
-            if (u.calamity > 0) { u.calamity--; }
+            if (u.calamity > 0) { u.calamity--; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;❄️ ${u.name}: -1 Cal (now ${u.calamity})`, "#a5b4fc"); }
         });
 
+        // Pet end-of-round +20 energy
         pet.energy += 20;
+        log(`&nbsp;&nbsp;&nbsp;🐾 [PET EoR] +20 energy → ${pet.energy} total`, "#a78bfa");
 
+        log(`&nbsp;&nbsp;&nbsp;⏱️ BUFF TICK (end of round)`, "#34d399");
         units.forEach(u => {
+            // Sample DR and ADR rounds 6-15 only (avoids Island 9 decay skew)
             if (r >= 6) {
                 let snapDR  = getBuffTotal(u, "dr");
                 let snapADR = getBuffTotal(u, "allDmgReduction");
@@ -1901,20 +2061,21 @@ function runOne(ov = null) {
                 u.adrTotal += snapADR; u.adrSamples++;
             }
             tickBuffs(u);
-            if (u.stygianMark) { u.stygianMark = false; }
-            if (u.veilOfMist) { u.veilOfMistRounds--; if (u.veilOfMistRounds <= 0) u.veilOfMist = false; }
-            if (u.fearAbyssalGaze) { u.fearAbyssalGazeRounds--; if (u.fearAbyssalGazeRounds <= 0) u.fearAbyssalGaze = false; }
-            if (u.lethalIncense) { u.lethalIncenseRounds--; if (u.lethalIncenseRounds <= 0) { u.lethalIncense = false; let stvH = units.find(s => s.name === "STV"); if (stvH) trackStat(stvH, "damageDealt", 1500); } }
+            if (u.stygianMark) { u.stygianMark = false; log(`&nbsp;&nbsp;&nbsp;🌀 [SM] ${u.name} Stygian Mark expired`, "#64748b"); }
+            if (u.veilOfMist) { u.veilOfMistRounds--; if (u.veilOfMistRounds <= 0) { u.veilOfMist = false; log(`&nbsp;&nbsp;&nbsp;🌀 [VoM] ${u.name} Veil of Mist expired`, "#64748b"); } }
+            if (u.fearAbyssalGaze) { u.fearAbyssalGazeRounds--; if (u.fearAbyssalGazeRounds <= 0) { u.fearAbyssalGaze = false; log(`&nbsp;&nbsp;&nbsp;👹 [FAG] ${u.name} Fear-Abyssal Gaze expired`, "#64748b"); } }
+            if (u.lethalIncense) { u.lethalIncenseRounds--; if (u.lethalIncenseRounds <= 0) { u.lethalIncense = false; log(`&nbsp;&nbsp;&nbsp;🌀 [LI] ${u.name} Lethal Incense expired — ally takes 30% Max HP damage`, "#a78bfa"); let stvH = units.find(s => s.name === "STV"); if (stvH) trackStat(stvH, "damageDealt", 1500); } }
         });
         if (boss.lethalIncense) {
             boss.lethalIncenseRounds--;
             if (boss.lethalIncenseRounds <= 0) { let stvH = units.find(s => s.name === "STV"); expireLI(stvH); }
         }
-        if (boss.veilOfMist) { boss.veilOfMistRounds--; if (boss.veilOfMistRounds <= 0) boss.veilOfMist = false; }
-        if (boss.healReductionRounds > 0) { boss.healReductionRounds--; if (boss.healReductionRounds <= 0) boss.healReduction = 0; }
-        if (boss.shrinkRounds > 0) { boss.shrinkRounds--; if (boss.shrinkRounds <= 0) { boss.shrink = false; } }
+        if (boss.veilOfMist) { boss.veilOfMistRounds--; if (boss.veilOfMistRounds <= 0) { boss.veilOfMist = false; log(`&nbsp;&nbsp;&nbsp;🌀 [VoM] Boss Veil of Mist expired`, "#64748b"); } }
+        if (boss.healReductionRounds > 0) { boss.healReductionRounds--; if (boss.healReductionRounds <= 0) { boss.healReduction = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV COMET HOP] Boss heal reduction expired`, "#64748b"); } }
+        if (boss.shrinkRounds > 0) { boss.shrinkRounds--; if (boss.shrinkRounds <= 0) { boss.shrink = false; log(`&nbsp;&nbsp;&nbsp;🌊 [SHRINK] Boss shrink expired`, "#38bdf8"); } }
         if (r > 2 && !boss.shrink) shrinkMissedRound = true;
 
+        // ── Boss removes 3 random debuffs ────────────────────────────────────
         {
             const activeDebuffs = [];
             if ((boss.atkDebuff || 0) > 0 || (boss.atkSteal || 0) > 0) activeDebuffs.push("atk");
@@ -1927,50 +2088,69 @@ function runOne(ov = null) {
             if (boss.bleed && boss.bleed.length > 0) activeDebuffs.push("bleed");
             if ((boss.burn || 0) > 0) activeDebuffs.push("burn");
             if ((boss.watcherMark || 0) > 0) activeDebuffs.push("watcherMark");
+
+            // Shuffle and pick up to 3
             for (let i = activeDebuffs.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [activeDebuffs[i], activeDebuffs[j]] = [activeDebuffs[j], activeDebuffs[i]];
             }
             const toRemove = activeDebuffs.slice(0, 3);
-            toRemove.forEach(d => {
-                if (d === "atk")        { boss.atkDebuff = 0; boss.atkSteal = 0; boss.atkDebuffRounds = 0; }
-                if (d === "armor")      { boss.armorDebuff = 0; boss.armorDebuffRounds = 0; }
-                if (d === "dr")         { boss.drDebuff = 0; boss.drDebuffRounds = 0; }
-                if (d === "ci")         { boss.ciDebuff = 0; boss.ciDebuffRounds = 0; }
-                if (d === "spd")        { boss.spdDebuff = 0; boss.spdDebuffRounds = 0; }
-                if (d === "crit")       { boss.critDebuff = 0; boss.critDebuffRounds = 0; }
-                if (d === "heal")       { boss.healReduction = 0; boss.healReductionRounds = 0; }
-                if (d === "bleed")      { boss.bleed = []; }
-                if (d === "burn")       { boss.burn = 0; }
-                if (d === "watcherMark"){ boss.watcherMark = 0; }
-            });
+            if (toRemove.length > 0) {
+                log(`&nbsp;&nbsp;&nbsp;💀 [BOSS CLEANSE] Removes ${toRemove.length} debuff(s): ${toRemove.join(", ")}`, "#ef4444");
+                toRemove.forEach(d => {
+                    if (d === "atk")        { boss.atkDebuff = 0; boss.atkSteal = 0; boss.atkDebuffRounds = 0; }
+                    if (d === "armor")      { boss.armorDebuff = 0; boss.armorDebuffRounds = 0; }
+                    if (d === "dr")         { boss.drDebuff = 0; boss.drDebuffRounds = 0; }
+                    if (d === "ci")         { boss.ciDebuff = 0; boss.ciDebuffRounds = 0; }
+                    if (d === "spd")        { boss.spdDebuff = 0; boss.spdDebuffRounds = 0; }
+                    if (d === "crit")       { boss.critDebuff = 0; boss.critDebuffRounds = 0; }
+                    if (d === "heal")       { boss.healReduction = 0; boss.healReductionRounds = 0; }
+                    if (d === "bleed")      { boss.bleed = []; }
+                    if (d === "burn")       { boss.burn = 0; }
+                    if (d === "watcherMark"){ boss.watcherMark = 0; }
+                });
+            }
         }
 
         if (boss.bleed && boss.bleed.length > 0) {
+            log(`&nbsp;&nbsp;&nbsp;🩸 BLEED PHASE`, "#f59e0b");
             let totalBleedDmg = 0;
-            boss.bleed = boss.bleed.map(b => { totalBleedDmg += b.dmg; return { ...b, rounds: b.rounds - 1 }; }).filter(b => b.rounds > 0);
+            boss.bleed = boss.bleed.map(b => {
+                totalBleedDmg += b.dmg;
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🩸 Bleed tick: ${b.dmg}% ATK (${b.rounds - 1} rounds remaining)`, "#f59e0b");
+                return { ...b, rounds: b.rounds - 1 };
+            }).filter(b => b.rounds > 0);
             let sqh = units.find(u => u.name === "SQH");
             if (sqh) trackStat(sqh, "damageDealt", totalBleedDmg);
+            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🩸 Total Bleed damage this round: ${totalBleedDmg}% ATK`, "#f59e0b");
         }
 
-        if (boss.critDebuffRounds > 0) { boss.critDebuffRounds--; if (boss.critDebuffRounds <= 0) boss.critDebuff = 0; }
-        if (boss.drDebuffRounds > 0) { boss.drDebuffRounds--; if (boss.drDebuffRounds <= 0) boss.drDebuff = 0; }
-        if (boss.ciDebuffRounds > 0) { boss.ciDebuffRounds--; if (boss.ciDebuffRounds <= 0) boss.ciDebuff = 0; }
-        if (boss.allDmgReductionDebuffRounds > 0) { boss.allDmgReductionDebuffRounds--; if (boss.allDmgReductionDebuffRounds <= 0) boss.allDmgReductionDebuff = 0; }
-        if (boss.allDmgDealtDebuffRounds > 0) { boss.allDmgDealtDebuffRounds--; if (boss.allDmgDealtDebuffRounds <= 0) boss.allDmgDealtDebuff = 0; }
-        if (boss.atkDebuffRounds > 0) { boss.atkDebuffRounds--; if (boss.atkDebuffRounds <= 0) boss.atkDebuff = 0; }
-        if (boss.armorDebuffRounds > 0) { boss.armorDebuffRounds--; if (boss.armorDebuffRounds <= 0) boss.armorDebuff = 0; }
-        if (boss.spdDebuffRounds > 0) { boss.spdDebuffRounds--; if (boss.spdDebuffRounds <= 0) boss.spdDebuff = 0; }
+        if (boss.critDebuffRounds > 0) { boss.critDebuffRounds--; if (boss.critDebuffRounds <= 0) { boss.critDebuff = 0; log(`&nbsp;&nbsp;&nbsp;👑 [SQH] Boss Crit debuff expired`, "#64748b"); } }
+        if (boss.drDebuffRounds > 0) { boss.drDebuffRounds--; if (boss.drDebuffRounds <= 0) { boss.drDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM] Boss DR debuff expired`, "#64748b"); } }
+        if (boss.ciDebuffRounds > 0) { boss.ciDebuffRounds--; if (boss.ciDebuffRounds <= 0) { boss.ciDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM] Boss CI debuff expired`, "#64748b"); } }
+        if (boss.allDmgReductionDebuffRounds > 0) { boss.allDmgReductionDebuffRounds--; if (boss.allDmgReductionDebuffRounds <= 0) { boss.allDmgReductionDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM] Boss AllDmgReduction debuff expired`, "#64748b"); } }
+        if (boss.allDmgDealtDebuffRounds > 0) { boss.allDmgDealtDebuffRounds--; if (boss.allDmgDealtDebuffRounds <= 0) { boss.allDmgDealtDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM] Boss AllDmgDealt debuff expired`, "#64748b"); } }
+        if (boss.atkSteal > 0) { log(`&nbsp;&nbsp;&nbsp;👿 [LFA DKM] Boss ATK stolen this fight: -${(boss.atkSteal*100).toFixed(0)}% ATK (permanent)`, "#c084fc"); }
+        if (boss.atkDebuffRounds > 0) { boss.atkDebuffRounds--; if (boss.atkDebuffRounds <= 0) { boss.atkDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV] Boss ATK debuff expired`, "#64748b"); } }
+        if (boss.armorDebuffRounds > 0) { boss.armorDebuffRounds--; if (boss.armorDebuffRounds <= 0) { boss.armorDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV] Boss Armor debuff expired`, "#64748b"); } }
+        if (boss.spdDebuffRounds > 0) { boss.spdDebuffRounds--; if (boss.spdDebuffRounds <= 0) { boss.spdDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV] Boss SPD debuff expired`, "#64748b"); } }
 
         units.forEach(u => {
             if (u.name === "SQH") {
                 let aliveAllies = units.length;
                 let healing = aliveAllies * 8;
                 trackStat(u, "healingDone", healing);
+                log(`&nbsp;&nbsp;&nbsp;👑 [SQH ULTIMATE QUEENSHIP] ${aliveAllies} allies → +${healing}% Max HP restored`, "#f59e0b");
             }
         });
 
-        units.forEach(u => { u.dodge = u.baseDodge; });
+        log(`&nbsp;&nbsp;&nbsp;👁️ PUPIL DODGE RESET (Max ATK hero dodge resets to base)`, "#e879f9");
+        units.forEach(u => {
+            if (u.dodge !== u.baseDodge) {
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👁️ ${u.name} Dodge reset: ${Math.round(u.dodge*100)}% → ${Math.round(u.baseDodge*100)}%`, "#e879f9");
+                u.dodge = u.baseDodge;
+            }
+        });
     }
 
     return { units, hd: bossHDStacks, boss, shrinkMissed: shrinkMissedRound };
@@ -1988,8 +2168,9 @@ function sim(multi) {
         for (let i = 0; i < N; i++) {
             let res = runOne();
             totalHD += res.hd;
-            minHD = Math.min(minHD, res.hd); maxHD = Math.max(maxHD, res.hd);
-            const wm = (res.boss.watcherMark || 0) * 100;
+            minHD = Math.min(minHD, res.hd);
+            maxHD = Math.max(maxHD, res.hd);
+            const wm = (res.boss.watcherMark || 0) * 100; // as %
             totalWM += wm; minWM = Math.min(minWM, wm); maxWM = Math.max(maxWM, wm);
             const as_ = res.boss.abyssalCorruption || 0;
             totalAS += as_; minAS = Math.min(minAS, as_); maxAS = Math.max(maxAS, as_);
@@ -1999,13 +2180,14 @@ function sim(multi) {
                     finalATK:0, minATK:Infinity, maxATK:-Infinity,
                     finalAllDmg:0, minAllDmg:Infinity, maxAllDmg:-Infinity,
                     finalHD:0, minHD:Infinity, maxHD:-Infinity,
-                    peakCI:0, minPeakCI:Infinity, maxPeakCI:-Infinity, avgCI:0,
+                    peakCI:0, minPeakCI:Infinity, maxPeakCI:-Infinity,
+                    avgCI:0,
                     minDR:Infinity, maxDR:-Infinity, avgDR:0,
                     minADR:Infinity, maxADR:-Infinity, avgADR:0,
                     totalEstDmg:0, minEstDmg:Infinity, maxEstDmg:-Infinity,
                     dmgPerRound: new Array(15).fill(0),
                     srcHits:0, srcDKM:0, srcLethal:0, srcBS:0, srcAddl:0, srcMain:0, srcUndying:0,
-                    baseCI: u.baseCI
+                    baseCI: u.baseCI, _dmgSamples: []
                 };
                 let s = stats[u.name];
                 let atkExtra = (u.name === "LFA" && res.boss) ? (res.boss.atkSteal || 0) : 0;
@@ -2018,97 +2200,229 @@ function sim(multi) {
                 s.finalHD += hd; s.minHD = Math.min(s.minHD, hd); s.maxHD = Math.max(s.maxHD, hd);
                 s.peakCI += u.peakCI; s.minPeakCI = Math.min(s.minPeakCI, u.peakCI); s.maxPeakCI = Math.max(s.maxPeakCI, u.peakCI);
                 s.avgCI += u.ciSamples > 0 ? (u.ciTotal / u.ciSamples) : u.baseCI;
-                s.minDR  = Math.min(s.minDR,  u.minDR  === Infinity  ? 0 : u.minDR);  s.maxDR  = Math.max(s.maxDR,  u.maxDR  === -Infinity ? 0 : u.maxDR);  s.avgDR  += u.drSamples  > 0 ? u.drTotal  / u.drSamples  : 0;
-                s.minADR = Math.min(s.minADR, u.minADR === Infinity  ? 0 : u.minADR); s.maxADR = Math.max(s.maxADR, u.maxADR === -Infinity ? 0 : u.maxADR); s.avgADR += u.adrSamples > 0 ? u.adrTotal / u.adrSamples : 0;
+                let snapDR  = u.drSamples  > 0 ? u.drTotal  / u.drSamples  : 0;
+                let snapADR = u.adrSamples > 0 ? u.adrTotal / u.adrSamples : 0;
                 if (u.totalEstDmg > 0) {
                     s.totalEstDmg += u.totalEstDmg;
                     s.minEstDmg = Math.min(s.minEstDmg, u.totalEstDmg);
                     s.maxEstDmg = Math.max(s.maxEstDmg, u.totalEstDmg);
+                    s._dmgSamples.push(u.totalEstDmg);
                     if (u.dmgPerRound) u.dmgPerRound.forEach((d,i) => { s.dmgPerRound[i] = (s.dmgPerRound[i]||0) + d; });
-                    s.srcHits += (u.srcHits||0); s.srcDKM += (u.srcDKM||0); s.srcLethal += (u.srcLethal||0);
-                    s.srcBS += (u.srcBS||0); s.srcAddl += (u.srcAddl||0); s.srcMain += (u.srcMain||0); s.srcUndying += (u.srcUndying||0);
+                    s.srcHits   += (u.srcHits   || 0);
+                    s.srcDKM    += (u.srcDKM    || 0);
+                    s.srcLethal += (u.srcLethal || 0);
+                    s.srcBS     += (u.srcBS     || 0);
+                    s.srcAddl   += (u.srcAddl   || 0);
+                    s.srcMain   += (u.srcMain   || 0);
+                    s.srcUndying+= (u.srcUndying|| 0);
                 }
+                s.minDR  = Math.min(s.minDR,  u.minDR  === Infinity  ? 0 : u.minDR);  s.maxDR  = Math.max(s.maxDR,  u.maxDR  === -Infinity ? 0 : u.maxDR);  s.avgDR  += u.drSamples  > 0 ? u.drTotal  / u.drSamples  : 0;
+                s.minADR = Math.min(s.minADR, u.minADR === Infinity  ? 0 : u.minADR); s.maxADR = Math.max(s.maxADR, u.maxADR === -Infinity ? 0 : u.maxADR); s.avgADR += u.adrSamples > 0 ? u.adrTotal / u.adrSamples : 0;
             });
         }
         function pct(v) { return `${(v*100).toFixed(1)}%`; }
+        function dmgRange(avg, mn, mx) {
+            const fmt = v => Math.round(v).toLocaleString();
+            return `<span style="color:var(--accent)">${fmt(avg)}</span> <small style="color:#64748b">[${fmt(mn)} – ${fmt(mx)}]</small>`;
+        }
         function range(avg, mn, mx) {
             return `<span style="color:var(--accent)">${pct(avg)}</span> <small style="color:#64748b">[${pct(mn)} – ${pct(mx)}]</small>`;
         }
         const fmtR = (avg, mn, mx, dec=1) => `<span style="color:var(--accent);font-weight:bold">${avg.toFixed(dec)}</span> <small style="color:#64748b">[${mn.toFixed(dec)}&ndash;${mx.toFixed(dec)}]</small>`;
         let html = `<div style="margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid #334155;border-radius:8px;font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <div>👁️ <strong>Watcher Mark</strong><br>Avg: ${fmtR(totalWM/N, minWM, maxWM)}%</div>
-            <div>👑 <strong>Abyssal Corruption</strong><br>Avg: ${fmtR(totalAS/N, minAS, maxAS)}</div>
+            <div>👁️ <strong>Watcher Mark (end of fight)</strong><br>Avg: ${fmtR(totalWM/N, minWM, maxWM)}%</div>
+            <div>👑 <strong>Abyssal Corruption stacks (end of fight)</strong><br>Avg: ${fmtR(totalAS/N, minAS, maxAS)}</div>
         </div>`;
         html += `<h3>AVERAGES + RANGES (${N} FIGHTS)</h3>`;
-        html += `<p><b>Boss Holy Damage Stacks:</b> avg <span style="color:var(--accent)">${(totalHD/N).toFixed(2)}</span> | range <small style="color:#64748b">[${minHD} – ${maxHD}]</small></p>`;
-        html += `<div style="overflow-x:auto"><table><tr><th>Hero</th><th>Base CI</th><th>Avg Actives</th><th>Avg CC Lost</th><th>Final ATK</th><th>Final allDmg</th><th>Peak CI</th><th>Avg CI</th><th>DR R6-15</th><th>ADR R6-15</th><th>Final HD</th></tr>`;
+        html += `<p><b>Boss Holy Damage Stacks:</b> avg <span style="color:var(--accent)">${(totalHD/N).toFixed(2)}</span> stacks (+${(totalHD/N*12.5).toFixed(1)}% HD) &nbsp;|&nbsp; range <small style="color:#64748b">[${minHD} – ${maxHD} stacks / +${(minHD*12.5).toFixed(1)}% – +${(maxHD*12.5).toFixed(1)}% HD]</small></p>`;
+        html += `<table><tr><th>Hero</th><th>Base CI</th><th>Avg Actives</th><th>Avg CC Lost</th><th>Final ATK (avg [min–max])</th><th>Final allDmg (avg [min–max])</th><th>Peak CI during fight (avg [min–max])</th><th>Avg mid-fight CI</th><th>DR R6-15 (avg [min–max])</th><th>ADR R6-15 (avg [min–max])</th><th>Final HD (avg [min–max])</th></tr>`;
         for (let n in stats) {
             let s = stats[n];
-            html += `<tr><td>${n}</td><td>${(s.baseCI*100).toFixed(0)}%</td><td>${(s.acts/N).toFixed(2)}</td><td>${(s.lost/N).toFixed(2)}</td>
+            html += `<tr>
+                <td>${n}</td>
+                <td>${(s.baseCI*100).toFixed(0)}%</td>
+                <td>${(s.acts/N).toFixed(2)}</td>
+                <td>${(s.lost/N).toFixed(2)}</td>
                 <td>${range(s.finalATK/N, s.minATK, s.maxATK)}</td>
                 <td>${range(s.finalAllDmg/N, s.minAllDmg, s.maxAllDmg)}</td>
                 <td>${range(s.peakCI/N, s.minPeakCI, s.maxPeakCI)}</td>
                 <td><span style="color:var(--accent)">${(s.avgCI/N*100).toFixed(1)}%</span></td>
-                <td>${range(s.avgDR/N, s.minDR===Infinity?0:s.minDR, s.maxDR===-Infinity?0:s.maxDR)}</td>
-                <td>${range(s.avgADR/N, s.minADR===Infinity?0:s.minADR, s.maxADR===-Infinity?0:s.maxADR)}</td>
-                <td>${range(s.finalHD/N, s.minHD, s.maxHD)}</td></tr>`;
-        }
-        html += `</table></div>`;
 
+                <td>${range(s.avgDR/N, s.minDR === Infinity ? 0 : s.minDR, s.maxDR === -Infinity ? 0 : s.maxDR)}</td>
+                <td>${range(s.avgADR/N, s.minADR === Infinity ? 0 : s.minADR, s.maxADR === -Infinity ? 0 : s.maxADR)}</td>
+
+                <td>${range(s.finalHD/N, s.minHD, s.maxHD)}</td>
+            </tr>`;
+        }
+        // ── Estimated fight damage block (built first, placed at TOP of output) ──
+        let dmgLine = '';
         const dmgEntry = Object.values(stats).find(s => s.totalEstDmg > 0);
         if (dmgEntry) {
             const s = dmgEntry;
             const fmt = v => Math.round(v/N).toLocaleString();
-            const pctFn = (part, total) => total > 0 ? (part/total*100).toFixed(1)+'%' : '—';
+            const pctS = (part, total) => total > 0 ? (part/total*100).toFixed(1)+'%' : '—';
             const tot = s.totalEstDmg / N;
             const mHeroName = document.getElementById(`h${parseInt(document.querySelector('input[name="max"]:checked').value)}`)?.value || "LFA";
-            html += `<div style="margin-top:12px;padding:14px 16px;background:var(--card);border:1px solid #334155;border-radius:8px;font-size:13px;line-height:1.8;">
-                <div>⚔️ <strong>Est. Fight Damage (Max ATK Hero)</strong> — Avg: <span style="color:var(--accent);font-weight:bold">${Math.round(tot).toLocaleString()}</span></div>
-                <div style="margin-top:6px;display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;font-size:12px;">
-                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;"><div style="color:#94a3b8">Hits 1-5</div><div style="color:var(--accent)">${fmt(s.srcHits+(s.srcMain||0))}</div><div style="color:#64748b">${pctFn(s.srcHits+(s.srcMain||0),s.totalEstDmg)}</div></div>
-                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;"><div style="color:#94a3b8">DKM</div><div style="color:var(--accent)">${fmt(s.srcDKM)}</div><div style="color:#64748b">${pctFn(s.srcDKM,s.totalEstDmg)}</div></div>
-                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;"><div style="color:#94a3b8">Lethal FB</div><div style="color:var(--accent)">${fmt(s.srcLethal)}</div><div style="color:#64748b">${pctFn(s.srcLethal,s.totalEstDmg)}</div></div>
-                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;"><div style="color:#94a3b8">Bal. Strike</div><div style="color:var(--accent)">${fmt(s.srcBS)}</div><div style="color:#64748b">${pctFn(s.srcBS,s.totalEstDmg)}</div></div>
-                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;"><div style="color:#94a3b8">Addl. Mult</div><div style="color:var(--accent)">${fmt(s.srcAddl)}</div><div style="color:#64748b">${pctFn(s.srcAddl,s.totalEstDmg)}</div></div>
-                </div></div>`;
 
-            // Damage ramp chart
-            const perRound = s.dmgPerRound.map(d => d / N);
-            const cumul = []; let running = 0;
-            perRound.forEach(d => { running += d; cumul.push(running); });
-            const maxCumul = cumul[14] || 1;
-            const W = 560, H = 200, PAD = { t:20, r:20, b:36, l:65 };
-            const cW = W-PAD.l-PAD.r, cH = H-PAD.t-PAD.b;
-            const toX = r => PAD.l + (r/14)*cW, toY = v => PAD.t + cH - (v/maxCumul)*cH;
-            const cumulPts = cumul.map((v,i)=>`${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
-            const maxRound = Math.max(...perRound)||1;
-            const bars = perRound.map((d,i)=>{const bH=(d/maxRound)*(cH*0.35);const bX=toX(i)-8;const bY=PAD.t+cH-bH;return `<rect x="${bX.toFixed(1)}" y="${bY.toFixed(1)}" width="16" height="${bH.toFixed(1)}" fill="#7c3aed" opacity="0.35"/>`;}).join('');
-            const xLabels = Array.from({length:15},(_,i)=>i).map(i=>`<text x="${toX(i).toFixed(1)}" y="${PAD.t+cH+14}" text-anchor="middle" fill="#64748b" font-size="10">R${i+1}</text>`).join('');
-            const yLabels = [0,0.25,0.5,0.75,1].map(t=>{const v=t*maxCumul;const y=toY(v);const label=v>=1e12?(v/1e12).toFixed(1)+'T':v>=1e9?(v/1e9).toFixed(1)+'B':v>=1e6?(v/1e6).toFixed(1)+'M':Math.round(v).toLocaleString();return `<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${PAD.l+cW}" y2="${y.toFixed(1)}" stroke="#1e293b" stroke-width="1"/><text x="${PAD.l-5}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="#64748b" font-size="10">${label}</text>`;}).join('');
-            const dots = cumul.map((v,i)=>`<circle cx="${toX(i).toFixed(1)}" cy="${toY(v).toFixed(1)}" r="3" fill="#38bdf8"/>`).join('');
-            html += `<div style="margin-top:16px;padding:16px;background:var(--card);border:1px solid #334155;border-radius:8px;overflow-x:auto"><h4 style="color:#38bdf8;margin:0 0 10px">📈 Damage Ramp</h4><svg width="${W}" height="${H}" style="display:block;overflow:visible">${yLabels}${bars}<polyline points="${cumulPts}" fill="none" stroke="#38bdf8" stroke-width="2.5"/>${dots}<line x1="${PAD.l}" y1="${PAD.t}" x2="${PAD.l}" y2="${PAD.t+cH}" stroke="#334155"/><line x1="${PAD.l}" y1="${PAD.t+cH}" x2="${PAD.l+cW}" y2="${PAD.t+cH}" stroke="#334155"/>${xLabels}</svg></div>`;
+            // Damage magnitude distribution (like optimizer) — bucket by floor(log10(dmg))
+            const allDmgs = s._dmgSamples || [];
+            let magHtml = '';
+            if (allDmgs.length > 0) {
+                const magCounts = {};
+                allDmgs.forEach(d => {
+                    if (d > 0) { const m = Math.floor(Math.log10(d)); magCounts[m] = (magCounts[m]||0) + 1; }
+                });
+                const mags = Object.keys(magCounts).map(Number).sort((a,b) => b-a);
+                const total = allDmgs.length;
+                const barColors = ['#4ade80','#a78bfa','#38bdf8','#f59e0b','#f87171'];
+                magHtml = `<div style="margin-top:8px;font-size:11px;color:#64748b">
+                    <span style="color:#94a3b8;font-weight:bold">Damage Distribution:</span>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">` +
+                    mags.map((mag, idx) => {
+                        const count = magCounts[mag];
+                        const p = (count/total*100).toFixed(1);
+                        const barW = Math.round(count/total*80);
+                        const col = barColors[idx % barColors.length];
+                        return `<div style="background:#1e293b;padding:5px 8px;border-radius:4px;min-width:80px;">
+                            <div style="color:${col};font-weight:bold">e${mag}</div>
+                            <div style="background:#0b0e14;border-radius:2px;height:4px;margin:3px 0;width:80px">
+                                <div style="background:${col};height:4px;border-radius:2px;width:${barW}px"></div>
+                            </div>
+                            <div style="color:#94a3b8">${p}% <span style="color:#64748b">(${count})</span></div>
+                        </div>`;
+                    }).join('') +
+                    `</div></div>`;
+            }
+
+            dmgLine = `<div style="margin-bottom:14px;padding:14px 16px;background:var(--card);border:1px solid #334155;border-radius:8px;font-size:13px;line-height:1.8;">
+                <div>⚔️ <strong>Estimated Fight Damage (${mHeroName})</strong> —
+                Avg: <span style="color:var(--accent);font-weight:bold">${Math.round(tot).toLocaleString()}</span>
+                <small style="color:#64748b">[${Math.round(s.minEstDmg).toLocaleString()} – ${Math.round(s.maxEstDmg).toLocaleString()}]</small></div>
+                <div style="margin-top:6px;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;font-size:12px;">
+                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;">
+                        <div style="color:#94a3b8">${mHeroName==="DGN"?"Main Hit":"Hits 1-5"}</div>
+                        <div style="color:var(--accent)">${fmt(s.srcHits + (s.srcMain||0))}</div>
+                        <div style="color:#64748b">${pctS(s.srcHits + (s.srcMain||0), s.totalEstDmg)}</div>
+                    </div>
+                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;">
+                        <div style="color:#94a3b8">${mHeroName==="DGN"?"Undying Shadow":"DKM"}</div>
+                        <div style="color:var(--accent)">${fmt(mHeroName==="DGN"?(s.srcUndying||0):s.srcDKM)}</div>
+                        <div style="color:#64748b">${pctS(mHeroName==="DGN"?(s.srcUndying||0):s.srcDKM, s.totalEstDmg)}</div>
+                    </div>
+                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;">
+                        <div style="color:#94a3b8">Lethal Fightback</div>
+                        <div style="color:var(--accent)">${fmt(s.srcLethal)}</div>
+                        <div style="color:#64748b">${pctS(s.srcLethal, s.totalEstDmg)}</div>
+                    </div>
+                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;">
+                        <div style="color:#94a3b8">Balanced Strike</div>
+                        <div style="color:var(--accent)">${fmt(s.srcBS)}</div>
+                        <div style="color:#64748b">${pctS(s.srcBS, s.totalEstDmg)}</div>
+                    </div>
+                    <div style="background:#1e293b;padding:8px;border-radius:6px;text-align:center;">
+                        <div style="color:#94a3b8">Addl. Multiplier</div>
+                        <div style="color:var(--accent)">${fmt(s.srcAddl)}</div>
+                        <div style="color:#64748b">${pctS(s.srcAddl, s.totalEstDmg)}</div>
+                    </div>
+                </div>
+                ${magHtml}
+            </div>`;
         }
-        out.innerHTML = html;
+        // ── Per-round damage ramp chart ──────────────────────────────────
+        let roundChartHtml = '';
+        const dmgEntry2 = Object.values(stats).find(s => s.dmgPerRound && s.dmgPerRound.some(d=>d>0));
+        if (dmgEntry2) {
+            const perRound = dmgEntry2.dmgPerRound.map(d => d / N);
+            const cumul = [];
+            let running = 0;
+            perRound.forEach(d => { running += d; cumul.push(running); });
+
+            const maxCumul = cumul[14] || 1;
+            // Right pad so R15 dot sits fully inside the chart area
+            const W = 580, H = 200, PAD = { t:20, r:28, b:36, l:65 };
+            const cW = W - PAD.l - PAD.r;
+            const cH = H - PAD.t - PAD.b;
+            const toX = i  => PAD.l + (i / 14) * cW;
+            const toY = v  => PAD.t + cH - (v / maxCumul) * cH;
+
+            const cumulPts = cumul.map((v,i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`).join(' ');
+            const maxRound = Math.max(...perRound) || 1;
+            // Clip bars to chart area
+            const bars = perRound.map((d,i) => {
+                const bH = (d / maxRound) * (cH * 0.35);
+                const bX = Math.max(PAD.l, toX(i) - 8);
+                const bY = PAD.t + cH - bH;
+                const bW = Math.min(16, PAD.l + cW - bX);
+                return bW > 0 ? `<rect x="${bX.toFixed(1)}" y="${bY.toFixed(1)}" width="${bW.toFixed(1)}" height="${bH.toFixed(1)}" fill="#7c3aed" opacity="0.35"/>` : '';
+            }).join('');
+
+            const xLabels = Array.from({length:15},(_,i)=>i).map(i =>
+                `<text x="${toX(i).toFixed(1)}" y="${PAD.t+cH+14}" text-anchor="middle" fill="#64748b" font-size="10">R${i+1}</text>`
+            ).join('');
+
+            const yLabels = [0,0.25,0.5,0.75,1].map(t => {
+                const v = t * maxCumul;
+                const y = toY(v);
+                const label = v >= 1e18 ? (v/1e18).toFixed(1)+'Qi'
+                            : v >= 1e15 ? (v/1e15).toFixed(1)+'Qa'
+                            : v >= 1e12 ? (v/1e12).toFixed(1)+'T'
+                            : v >= 1e9  ? (v/1e9).toFixed(1)+'B'
+                            : v >= 1e6  ? (v/1e6).toFixed(1)+'M' : Math.round(v).toLocaleString();
+                return `<line x1="${PAD.l}" y1="${y.toFixed(1)}" x2="${PAD.l+cW}" y2="${y.toFixed(1)}" stroke="#1e293b" stroke-width="1"/>
+                        <text x="${PAD.l-5}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="#64748b" font-size="10">${label}</text>`;
+            }).join('');
+
+            const dots = cumul.map((v,i) =>
+                `<circle cx="${toX(i).toFixed(1)}" cy="${toY(v).toFixed(1)}" r="3" fill="#38bdf8"/>`
+            ).join('');
+
+            roundChartHtml = `<div style="margin-top:16px;padding:16px;background:var(--card);border:1px solid #334155;border-radius:8px;">
+                <h4 style="color:#38bdf8;margin:0 0 10px">📈 Damage Ramp by Round (avg across ${N} fights)</h4>
+                <svg width="${W}" height="${H}" style="display:block;overflow:hidden">
+                    <defs><clipPath id="chartClip"><rect x="${PAD.l}" y="${PAD.t}" width="${cW}" height="${cH}"/></clipPath></defs>
+                    ${yLabels}
+                    <g clip-path="url(#chartClip)">${bars}
+                    <polyline points="${cumulPts}" fill="none" stroke="#38bdf8" stroke-width="2.5"/></g>
+                    ${dots}
+                    <line x1="${PAD.l}" y1="${PAD.t}" x2="${PAD.l}" y2="${PAD.t+cH}" stroke="#334155"/>
+                    <line x1="${PAD.l}" y1="${PAD.t+cH}" x2="${PAD.l+cW}" y2="${PAD.t+cH}" stroke="#334155"/>
+                    ${xLabels}
+                    <text x="${PAD.l+cW/2}" y="${H-2}" text-anchor="middle" fill="#64748b" font-size="11">Round</text>
+                    <text x="12" y="${PAD.t+cH/2}" text-anchor="middle" fill="#64748b" font-size="11" transform="rotate(-90,12,${PAD.t+cH/2})">Cumulative Dmg</text>
+                    <line x1="${PAD.l+cW-130}" y1="${PAD.t+8}" x2="${PAD.l+cW-110}" y2="${PAD.t+8}" stroke="#38bdf8" stroke-width="2"/>
+                    <text x="${PAD.l+cW-106}" y="${PAD.t+12}" fill="#38bdf8" font-size="10">Cumulative</text>
+                    <rect x="${PAD.l+cW-130}" y="${PAD.t+18}" width="20" height="8" fill="#7c3aed" opacity="0.5"/>
+                    <text x="${PAD.l+cW-106}" y="${PAD.t+26}" fill="#a78bfa" font-size="10">Per-round</text>
+                </svg>
+            </div>`;
+        }
+        // dmgLine at top, then table, then chart
+        out.innerHTML = dmgLine + html + `</table>` + roundChartHtml;
     }
 }
-
 // ═══════════════════════════════════════════════════════════════════════════
 // OPTIMIZER
 // ═══════════════════════════════════════════════════════════════════════════
 function triggerJadeToad(caster) {
     if (!units || units.length === 0) return;
+    // 5× grant +3% AllDmg to random ally — cap is 90% from Jade Toad specifically per ally
     for (let j = 0; j < 5; j++) {
         const target = units[Math.floor(Math.random() * units.length)];
         if ((target.jadeToadAllDmg || 0) < 0.90) {
             const grant = Math.min(0.03, 0.90 - (target.jadeToadAllDmg || 0));
             target.jadeToadAllDmg = (target.jadeToadAllDmg || 0) + grant;
             target.buffs.allDmg.push({ value: grant, rounds: 999, source: 'Jade Toad AllDmg' });
+            if (!silent) log(`&nbsp;&nbsp;&nbsp;🐸 [JADE TOAD] +${(grant*100).toFixed(0)}% AllDmg → ${target.name} (Toad total: ${((target.jadeToadAllDmg)*100).toFixed(0)}%)`, '#4ade80');
         }
     }
+    // Each ally: 33% chance +1 SPD 2r, 33% chance +1% ATK 2r (offsettable)
     units.forEach(target => {
         const roll = Math.random();
-        if (roll < 0.333) addBuff(target, 'spd', 1, 2, 'Jade Toad SPD');
-        else if (roll < 0.666) addBuff(target, 'atk', 0.01, 2, 'Jade Toad ATK');
+        if (roll < 0.333) {
+            addBuff(target, 'spd', 1, 2, 'Jade Toad SPD');
+        } else if (roll < 0.666) {
+            addBuff(target, 'atk', 0.01, 2, 'Jade Toad ATK');
+        }
     });
 }
 
@@ -2116,6 +2430,12 @@ function runOptimizer() {
     const btn  = document.getElementById('optBtn');
     const prog = document.getElementById('optProgress');
     const out  = document.getElementById('optOutput');
+
+    const dcPanel = document.getElementById('dmgCalcPanel');
+    if (!dcPanel || dcPanel.style.display === 'none') {
+        alert('Please open the Damage Calculator panel and fill in LFA\'s stats before running the optimizer.');
+        return;
+    }
 
     btn.disabled = true;
     btn.textContent = '⏳ Optimizing...';
@@ -2125,12 +2445,14 @@ function runOptimizer() {
     const heroNames = Array.from({length:6}, (_,i) => document.getElementById(`h${i}`).value);
     const mIdx      = parseInt(document.querySelector('input[name="max"]:checked').value);
     const safeMode  = document.getElementById('safeMode')?.checked || false;
-    const heroCIs   = Array.from({length:6}, (_,i) => parseFloat(document.getElementById(`ci${i}`)?.value) || 0);
+    // Per-hero base CI (artCI added per-build in display; voidCI explored per-build in optimizer)
+    const heroCIs   = Array.from({length:6}, (_,i) => {
+        const base = parseFloat(document.getElementById(`ci${i}`)?.value) || 0;
+        return base; // voidCI and artCI added per-build
+    });
     const heroUpgPurify = Array.from({length:6}, (_,i) => document.getElementById(`upgPurify${i}`)?.checked || false);
-
-    // ── HW filter: find which card index is HW ────────────────────────────
-    const hwCardIdx = heroNames.indexOf('HW'); // -1 if not in team
-
+    // Which heroes have void CI eligible (checkbox checked in UI)
+    // Void CI: always explore on/off for ALL STELLAR_HEROES in the team (ignore checkbox state)
     const eligIdx = [0,1,2,3,4,5].filter(i => STELLAR_HEROES.includes(heroNames[i]));
     const voidMasks = [];
     for (let mask = 0; mask < (1 << eligIdx.length); mask++) {
@@ -2138,16 +2460,18 @@ function runOptimizer() {
         eligIdx.forEach((hi, bit) => { if (mask & (1 << bit)) v[hi] = true; });
         voidMasks.push(v);
     }
-
+    // Low HP hero names from dropdowns
     const lowhpNames = ['lowhp0','lowhp1','lowhp2']
         .map(id => { const v = document.getElementById(id)?.value; return v !== '' ? heroNames[parseInt(v)] : null; })
         .filter(Boolean);
     const sqhIdx    = heroNames.indexOf('SQH');
     const bdsmIdx   = heroNames.indexOf('BDSM');
+    const others    = [0,1,2,3,4,5].filter(i => i!==mIdx && i!==sqhIdx && i!==bdsmIdx);
 
     const lfaArts   = ['Antiwarrior','Antlers','Scissors'];
     const otherArts = ['Demon Bell','Spiritual Mirror','Scissors'];
 
+    // ── Artifact combos ───────────────────────────────────────────────────
     function buildArtCombos() {
         const combos = [];
         const nonLfa = [0,1,2,3,4,5].filter(i => i !== mIdx);
@@ -2156,7 +2480,10 @@ function runOptimizer() {
                 if (arts.filter(a => a === 'Scissors').length >= 2) combos.push([...arts]);
                 return;
             }
-            for (const a of otherArts) { arts[nonLfa[k]] = a; recurse(k + 1, arts); }
+            for (const a of otherArts) {
+                arts[nonLfa[k]] = a;
+                recurse(k + 1, arts);
+            }
         }
         for (const la of lfaArts) {
             const arts = new Array(6);
@@ -2166,9 +2493,13 @@ function runOptimizer() {
         return combos;
     }
 
-    const userSpds = Array.from({length:6}, (_,i) => parseInt(document.getElementById(`s${i}`).value) || (2000 - i*100));
+    // ── Speed orderings ───────────────────────────────────────────────────
 
-    // ── Build slot arrangements, filtering out HW in top-2 speed spots ───
+
+    // ── HW filter: find which card index is HW ────────────────────────────
+    const hwCardIdx = heroNames.indexOf('HW'); // -1 if not in team
+
+    // ── Slot arrangements ─────────────────────────────────────────────────
     function buildSlotArrs() {
         const nonLfa = [0,1,2,3,4,5].filter(i => i !== mIdx);
         const arrs = [];
@@ -2185,25 +2516,11 @@ function runOptimizer() {
                     for (const perm of permute(remaining3)) {
                         const back4 = [...perm.slice(0, lfaBackSlot), mIdx, ...perm.slice(lfaBackSlot)];
                         const fullSlot = [...front2, ...back4];
-
-                        // ── HW SPEED FILTER ────────────────────────────────
-                        // Determine speed order for this slot arrangement
+                        // HW speed filter: skip if HW would be 1st or 2nd fastest
                         if (hwCardIdx !== -1) {
-                            // Find which position HW is in within fullSlot
-                            const hwSlotPos = fullSlot.indexOf(hwCardIdx);
-                            if (hwSlotPos !== -1) {
-                                // Check if HW would be 1st or 2nd fastest
-                                // Speed order: sort all 6 heroes by their speed descending
-                                const spdsSorted = fullSlot.map(ci => userSpds[ci]).sort((a,b) => b - a);
-                                const hwSpd = userSpds[hwCardIdx];
-                                // HW is 1st fastest if its speed >= spdsSorted[0]
-                                // HW is 2nd fastest if its speed >= spdsSorted[1]
-                                if (hwSpd >= spdsSorted[1]) {
-                                    continue; // skip - HW would be top 2 in speed
-                                }
-                            }
+                            const spdsSorted = fullSlot.map(ci => userSpds[ci]).sort((a,b) => b-a);
+                            if (userSpds[hwCardIdx] >= spdsSorted[1]) continue;
                         }
-
                         arrs.push(fullSlot);
                     }
                 }
@@ -2212,16 +2529,32 @@ function runOptimizer() {
         return arrs;
     }
 
+    // ── Helper: run N fights for a given config ───────────────────────────
+    function runFights(arts, spds, slotAssign, n, vCI) {
+        let total = 0;
+        for (let f = 0; f < n; f++) {
+            const heroes = Array.from({length:6}, (_,slot) => {
+                const hi = slotAssign[slot];
+                return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
+            });
+            { const _fr = runOne({ heroes, fromOptimizer: true }); total += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
+        }
+        return total / n;
+    }
+
     const artCombos = buildArtCombos();
     const slotArrs  = buildSlotArrs();
-    const defaultSlot = slotArrs[0] || [0,1,2,3,4,5];
+    const defaultSlot = slotArrs[0];
 
+    // ── Phase 1: art × voidCI only (default speed + position) ───────────────
+    // Use user-inputted speeds directly
+    const userSpds = Array.from({length:6}, (_,i) => parseInt(document.getElementById(`s${i}`).value) || (2000 - i*100));
     const phase1 = [];
     for (const arts of artCombos)
         for (const voidCI of voidMasks)
             phase1.push({ arts, spds: userSpds, slotAssign: defaultSlot, voidCI });
 
-    prog.textContent = `Phase 1/6: scanning ${phase1.length.toLocaleString()} combos (HW filtered from top-2 speed)...`;
+    prog.textContent = `Phase 1/6: scanning ${phase1.length.toLocaleString()} art×voidCI combos — ${eligIdx.length} heroes with void CI explored (${voidMasks.length} CI masks × 3 fights each)...`;
     let p1idx = 0, p1results = [];
     const CHUNK = 300;
 
@@ -2235,39 +2568,46 @@ function runOptimizer() {
                     const hi = slotAssign[slot];
                     return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI1||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
                 });
-                const _fr = runOne({ heroes, fromOptimizer: true });
-                dmgSum += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0);
+                { const _fr = runOne({ heroes, fromOptimizer: true }); dmgSum += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
             }
             p1results.push({ dmg: dmgSum/3, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign], voidCI:[...(vCI1||[])] });
         }
         silent = false;
         const pct = Math.round(p1idx/phase1.length*100);
-        prog.textContent = `Phase 1/6: ${pct}% (${p1idx.toLocaleString()}/${phase1.length.toLocaleString()}) — HW excluded from top-2 speed`;
+        prog.textContent = `Phase 1/6: art×voidCI (3 fights) — ${pct}% (${p1idx.toLocaleString()}/${phase1.length.toLocaleString()})`;
         if (p1idx < phase1.length) { requestAnimationFrame(runPhase1Chunk); return; }
 
+        // ── Phase 2: top 150 art×speed × all slot arrangements ───────────
         p1results.sort((a,b) => b.dmg - a.dmg);
         const top80 = p1results.slice(0, 80);
-        const phase2 = top80.map(r => ({ arts: r.arts, spds: r.spds, slotAssign: defaultSlot, voidCI: r.voidCI }));
+        const phase2 = [];
+        for (const r of top80)
+            phase2.push({ arts: r.arts, spds: r.spds, slotAssign: defaultSlot, voidCI: r.voidCI });
 
-        prog.textContent = `Phase 2/6: re-testing top 80...`;
+        prog.textContent = `Phase 2/6: re-testing top 80 art×voidCI builds (1 fight each)...`;
         let p2idx = 0, p2results = [];
 
         function runPhase2Chunk() {
             silent = true;
             for (let end = Math.min(p2idx + CHUNK, phase2.length); p2idx < end; p2idx++) {
                 const { arts, spds, slotAssign, voidCI: vCI2 } = phase2[p2idx];
+                const sa = slotAssign;
                 const heroes = Array.from({length:6}, (_,slot) => {
-                    const hi = slotAssign[slot];
+                    const hi = sa[slot];
                     return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (vCI2||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
                 });
                 const _res2 = runOne({ heroes, fromOptimizer: true });
                 const _d2 = (safeMode && _res2.shrinkMissed) ? 0 : (_res2.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg||0);
-                p2results.push({ dmg: _d2, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign], voidCI:[...(vCI2||new Array(6).fill(false))] });
+                p2results.push({ dmg: _d2, arts:[...arts], spds:[...spds], slotAssign:[...sa], voidCI:[...(vCI2||new Array(6).fill(false))] });
             }
             silent = false;
-            prog.textContent = `Phase 2/6: ${Math.round(p2idx/phase2.length*100)}%`;
+            const pct2 = Math.round(p2idx/phase2.length*100);
+            prog.textContent = `Phase 2/6: re-testing — ${pct2}% (${p2idx.toLocaleString()}/${phase2.length.toLocaleString()})`;
             if (p2idx < phase2.length) { requestAnimationFrame(runPhase2Chunk); return; }
 
+            // ── Phase 2.5: top 5 slot arrangements × all art×speed × 3 fights
+            p2results.sort((a,b) => b.dmg - a.dmg);
+            // Phase 2.5: top 30 art×speed builds × all slot arrangements
             p2results.sort((a,b) => b.dmg - a.dmg);
             const top30art = p2results.slice(0, 30);
             const phase15 = [];
@@ -2275,7 +2615,7 @@ function runOptimizer() {
                 for (const slotAssign of slotArrs)
                     phase15.push({ arts: r.arts, spds: r.spds, slotAssign, voidCI: r.voidCI });
 
-            prog.textContent = `Phase 2.5/6: ${phase15.length.toLocaleString()} slot arrangements...`;
+            prog.textContent = `Phase 2.5/6: ${phase15.length.toLocaleString()} slot arrangements on top 30 builds (3 fights each)...`;
             let p15idx = 0, p15results = [];
 
             function runPhase15Chunk() {
@@ -2288,24 +2628,24 @@ function runOptimizer() {
                             const hi = slotAssign[slot];
                             return { name: heroNames[hi], art: arts[hi], spd: spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
                         });
-                        const _fr = runOne({ heroes, fromOptimizer: true });
-                        dmgSum += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0);
+                        { const _fr = runOne({ heroes, fromOptimizer: true }); dmgSum += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
                     }
                     p15results.push({ dmg: dmgSum/3, arts:[...arts], spds:[...spds], slotAssign:[...slotAssign], voidCI:[...(voidCI||[])] });
                 }
                 silent = false;
-                prog.textContent = `Phase 2.5/6: ${Math.round(p15idx/phase15.length*100)}%`;
+                const pct15 = Math.round(p15idx/phase15.length*100);
+                prog.textContent = `Phase 2.5/6: slot arrangements — ${pct15}% (${p15idx.toLocaleString()}/${phase15.length.toLocaleString()})`;
                 if (p15idx < phase15.length) { requestAnimationFrame(runPhase15Chunk); return; }
 
+                // ── Phase 2.6: crit sweep on top 50 builds ────────────────
                 p15results.sort((a,b) => b.dmg - a.dmg);
 
+                // ── Phase 2.7 (optional): speed permutation ────────────────
                 const relaxSpeeds = document.getElementById('relaxSpeeds')?.checked;
                 function permuteArr(arr) {
                     if (arr.length <= 1) return [arr];
                     return arr.flatMap((v,i) => permuteArr([...arr.slice(0,i),...arr.slice(i+1)]).map(p=>[v,...p]));
                 }
-
-                // ── Speed perms: also filter out HW in top-2 ─────────────
                 let speedPerms = [[...userSpds]];
                 if (relaxSpeeds) {
                     const allPerms = permuteArr([...userSpds]);
@@ -2321,6 +2661,7 @@ function runOptimizer() {
                 let p27results = [];
 
                 if (!relaxSpeeds || speedPerms.length <= 1) {
+                    // No speed relaxation — skip phase 2.7
                     p27results = top50base.map(r => ({...r}));
                     startCritSweep();
                 } else {
@@ -2328,7 +2669,7 @@ function runOptimizer() {
                     for (const r of top50base)
                         for (const sperm of speedPerms)
                             phase27.push({ ...r, spds: sperm });
-                    prog.textContent = `Phase 2.7: ${phase27.length.toLocaleString()} speed permutations (HW excluded top-2)...`;
+                    prog.textContent = `Phase 2.7: speed permutations — ${phase27.length.toLocaleString()} combos (1 fight each)...`;
                     let p27idx = 0;
                     function runPhase27Chunk() {
                         silent = true;
@@ -2343,7 +2684,7 @@ function runOptimizer() {
                             p27results.push({ ...rb, dmg });
                         }
                         silent = false;
-                        prog.textContent = `Phase 2.7: ${Math.round(p27idx/phase27.length*100)}%`;
+                        prog.textContent = `Phase 2.7: speed perms — ${Math.round(p27idx/phase27.length*100)}% (${p27idx.toLocaleString()}/${phase27.length.toLocaleString()})`;
                         if (p27idx < phase27.length) { requestAnimationFrame(runPhase27Chunk); return; }
                         p27results.sort((a,b) => b.dmg - a.dmg);
                         p27results = p27results.slice(0, 30);
@@ -2353,132 +2694,142 @@ function runOptimizer() {
                 }
 
                 function startCritSweep() {
-                    const top50 = p27results.slice(0, 30);
-                    prog.textContent = `Phase 2.6: crit sweep for top ${top50.length} builds...`;
-                    const critInput = document.getElementById('dc_crit');
-                    const origCrit  = critInput.value;
-                    let csIdx = 0;
-                    let p3idx = 0, p3results = [];
-
-                    function runCritSweep() {
-                        if (csIdx >= top50.length) {
-                            critInput.value = origCrit;
-                            prog.textContent = `Phase 3/6: top 30 builds (100 fights each)...`;
-                            requestAnimationFrame(runPhase3Chunk);
-                            return;
-                        }
-                        const rb = top50[csIdx];
-                        let bestCrit = parseInt(origCrit) || 0, bestDmg = -1;
-                        for (let crit = 0; crit <= 100; crit += 5) {
-                            critInput.value = crit;
-                            let tot = 0;
-                            silent = true;
-                            for (let f = 0; f < 10; f++) {
-                                const heroes = Array.from({length:6}, (_,slot) => {
-                                    const hi = rb.slotAssign[slot];
-                                    return { name: heroNames[hi], art: rb.arts[hi], spd: rb.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (rb.voidCI||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
-                                });
-                                const _fr = runOne({ heroes, fromOptimizer: true });
-                                tot += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0);
-                            }
-                            silent = false;
-                            if (tot > bestDmg) { bestDmg = tot; bestCrit = crit; }
-                        }
-                        rb.optimalCrit = bestCrit;
-                        csIdx++;
-                        requestAnimationFrame(runCritSweep);
+                const top50 = p27results.slice(0, 30);
+                prog.textContent = `Phase 2.6: finding optimal crit % for top ${top50.length} builds...`;
+                const critInput = document.getElementById('dc_crit');
+                const origCrit  = critInput.value;
+                let csIdx = 0;
+                let p3idx = 0, p3results = [];
+                function runCritSweep() {
+                    if (csIdx >= top50.length) {
+                        critInput.value = origCrit;
+                        // ── Phase 3: top 50 × 300 fights ─────────────────────────
+                        prog.textContent = `Phase 3/6: re-testing top 30 builds (100 fights each)...`;
+                        requestAnimationFrame(runPhase3Chunk);
+                        return;
                     }
-
-                    function runPhase3Chunk() {
-                        if (p3idx >= top50.length) {
-                            p3results.sort((a,b) => b.avgDmg - a.avgDmg);
-                            const top20 = p3results.slice(0, 20);
-                            prog.textContent = `Phase 4/6: top 20 (100 fights each)...`;
-                            let p4idx = 0, p4results = [];
-                            function runPhase4Chunk() {
-                                if (p4idx >= top20.length) {
-                                    p4results.sort((a,b) => b.avgDmg - a.avgDmg);
-                                    const top10 = p4results.slice(0, 10);
-                                    prog.textContent = `Phase 5/6: top 10 (100 fights each)...`;
-                                    let p5idx = 0, p5results = [];
-                                    function runPhase5Chunk() {
-                                        if (p5idx >= top10.length) {
-                                            p5results.sort((a,b) => b.avgDmg - a.avgDmg);
-                                            prog.textContent = 'Phase 6/6: final crit sweep + 100-fight validation...';
-                                            runPhase6(p5results, heroNames, mIdx, heroCIs, lowhpNames, btn, prog, heroUpgPurify);
-                                            return;
-                                        }
-                                        const r = top10[p5idx];
-                                        silent = true;
-                                        let total = 0, minDmg = Infinity, maxDmg = -Infinity;
-                                        critInput.value = r.optimalCrit ?? origCrit;
-                                        for (let f = 0; f < 100; f++) {
-                                            const heroes = Array.from({length:6}, (_,slot) => {
-                                                const hi = r.slotAssign[slot];
-                                                return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
-                                            });
-                                            const _fr = runOne({ heroes, fromOptimizer: true });
-                                            const d = (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0);
-                                            total += d; if (d < minDmg) minDmg = d; if (d > maxDmg) maxDmg = d;
-                                        }
-                                        silent = false;
-                                        critInput.value = origCrit;
-                                        p5results.push({ ...r, avgDmg: total/100, minDmg, maxDmg, optimalCrit: r.optimalCrit });
-                                        p5idx++;
-                                        requestAnimationFrame(runPhase5Chunk);
-                                    }
-                                    requestAnimationFrame(runPhase5Chunk);
-                                    return;
-                                }
-                                const r = top20[p4idx];
-                                silent = true;
-                                let total = 0;
-                                critInput.value = r.optimalCrit ?? origCrit;
-                                for (let f = 0; f < 100; f++) {
-                                    const heroes = Array.from({length:6}, (_,slot) => {
-                                        const hi = r.slotAssign[slot];
-                                        return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
-                                    });
-                                    const _fr = runOne({ heroes, fromOptimizer: true });
-                                    total += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0);
-                                }
-                                silent = false;
-                                critInput.value = origCrit;
-                                p4results.push({ ...r, avgDmg: total/100, optimalCrit: r.optimalCrit });
-                                p4idx++;
-                                requestAnimationFrame(runPhase4Chunk);
-                            }
-                            requestAnimationFrame(runPhase4Chunk);
-                            return;
-                        }
-                        const r = top50[p3idx];
+                    // Sweep crit 0–100 for this build (10 fights per step = 1010 fights)
+                    const rb = top50[csIdx];
+                    let bestCrit = parseInt(origCrit) || 0, bestDmg = -1;
+                    for (let crit = 0; crit <= 100; crit += 5) {
+                        critInput.value = crit;
+                        let tot = 0;
                         silent = true;
-                        let total = 0;
-                        critInput.value = r.optimalCrit ?? origCrit;
-                        for (let f = 0; f < 100; f++) {
+                        for (let f = 0; f < 10; f++) {
                             const heroes = Array.from({length:6}, (_,slot) => {
-                                const hi = r.slotAssign[slot];
-                                return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
+                                const hi = rb.slotAssign[slot];
+                                return { name: heroNames[hi], art: rb.arts[hi], spd: rb.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (rb.voidCI||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
                             });
-                            const _fr = runOne({ heroes, fromOptimizer: true });
-                            total += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0);
+                            { const _fr = runOne({ heroes, fromOptimizer: true }); tot += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
                         }
                         silent = false;
-                        p3results.push({ ...r, avgDmg: total/100, optimalCrit: r.optimalCrit });
-                        p3idx++;
-                        requestAnimationFrame(runPhase3Chunk);
+                        if (tot > bestDmg) { bestDmg = tot; bestCrit = crit; }
                     }
+                    rb.optimalCrit = bestCrit;
+                    prog.textContent = `Phase 2.6: crit sweep ${csIdx+1}/${top50.length} — optimal crit: ${bestCrit}% (${Math.round((csIdx+1)/top50.length*100)}%)`;
+                    csIdx++;
                     requestAnimationFrame(runCritSweep);
                 }
-                requestAnimationFrame(runPhase15Chunk);
+
+                        function runPhase3Chunk() {
+                    if (p3idx >= top50.length) {
+                        // ── Phase 4: top 20 × 300 fights ─────────────────
+                        p3results.sort((a,b) => b.avgDmg - a.avgDmg);
+                        const top20 = p3results.slice(0, 20);
+                        prog.textContent = `Phase 4/6: re-testing top 20 builds (100 fights each)...`;
+                                            let p4idx = 0, p4results = [];
+
+                        function runPhase4Chunk() {
+                            if (p4idx >= top20.length) {
+                                // ── Phase 5: top 10 × 300 fights ─────────
+                                p4results.sort((a,b) => b.avgDmg - a.avgDmg);
+                                const top10 = p4results.slice(0, 10);
+                                prog.textContent = `Phase 5/6: top 10 (100 fights each)...`;
+                                                            let p5idx = 0, p5results = [];
+
+                                function runPhase5Chunk() {
+                                    if (p5idx >= top10.length) {
+                                        p5results.sort((a,b) => b.avgDmg - a.avgDmg);
+                                        // ── Phase 6: optimal crit sweep per top-10 build ─────────────────
+                                        prog.textContent = 'Phase 6/6: sweeping optimal crit % for each top-10 build...';
+                                        runPhase6(p5results, heroNames, mIdx, heroCIs, lowhpNames, btn, prog, heroUpgPurify);
+                                        return;
+                                    }
+                                    const r = top10[p5idx];
+                                    silent = true;
+                                    let total = 0, minDmg = Infinity, maxDmg = -Infinity;
+                                    critInput.value = r.optimalCrit ?? origCrit;
+                                    for (let f = 0; f < 100; f++) {
+                                        const heroes = Array.from({length:6}, (_,slot) => {
+                                            const hi = r.slotAssign[slot];
+                                            return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
+                                        });
+                                        const _fr = runOne({ heroes, fromOptimizer: true });
+                                        const d = (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0);
+                                        total += d;
+                                        if (d < minDmg) minDmg = d;
+                                        if (d > maxDmg) maxDmg = d;
+                                    }
+                                    silent = false;
+                                    critInput.value = origCrit;
+                                        p5results.push({ ...r, avgDmg: total/100, minDmg, maxDmg, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
+                                    prog.textContent = `Phase 5/6: top 10 — ${p5idx+1}/10 done`;
+                                    p5idx++;
+                                    requestAnimationFrame(runPhase5Chunk);
+                                }
+                                requestAnimationFrame(runPhase5Chunk);
+                                return;
+                            }
+                            const r = top20[p4idx];
+                            silent = true;
+                            let total = 0;
+                            critInput.value = r.optimalCrit ?? origCrit;
+                            for (let f = 0; f < 100; f++) {
+                                const heroes = Array.from({length:6}, (_,slot) => {
+                                    const hi = r.slotAssign[slot];
+                                    return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
+                                });
+                                { const _fr = runOne({ heroes, fromOptimizer: true }); total += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
+                            }
+                            silent = false;
+                            critInput.value = origCrit;
+                                p4results.push({ ...r, avgDmg: total/100, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
+                            prog.textContent = `Phase 4/6: top 20 — ${p4idx+1}/20 done`;
+                            p4idx++;
+                            requestAnimationFrame(runPhase4Chunk);
+                        }
+                        requestAnimationFrame(runPhase4Chunk);
+                        return;
+                    }
+                    const r = top50[p3idx];
+                    silent = true;
+                    let total = 0;
+                    critInput.value = r.optimalCrit ?? origCrit;
+                    for (let f = 0; f < 100; f++) {
+                        const heroes = Array.from({length:6}, (_,slot) => {
+                            const hi = r.slotAssign[slot];
+                            return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: ((r.voidCI||[])[hi]||false), upgradedPurify: heroUpgPurify[hi] };
+                        });
+                        { const _fr = runOne({ heroes, fromOptimizer: true }); total += (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0); }
+                    }
+                    silent = false;
+                    p3results.push({ ...r, avgDmg: total/100, voidCI: r.voidCI, optimalCrit: r.optimalCrit });
+                    prog.textContent = `Phase 3/6: top 30 — ${p3idx+1}/30 done`;
+                    p3idx++;
+                    requestAnimationFrame(runPhase3Chunk);
+                }
+                requestAnimationFrame(runPhase3Chunk);
+                } // end startCritSweep
             }
-            requestAnimationFrame(runPhase2Chunk);
+            requestAnimationFrame(runPhase15Chunk);
         }
-        requestAnimationFrame(runPhase1Chunk);
+        requestAnimationFrame(runPhase2Chunk);
     }
     requestAnimationFrame(runPhase1Chunk);
 }
 
+
+// ── Phase 6: per-build optimal crit sweep ────────────────────────────────────
 function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog, heroUpgPurify) {
     const critInput  = document.getElementById('dc_crit');
     const safeMode   = document.getElementById('safeMode')?.checked || false;
@@ -2486,17 +2837,23 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog, hero
     const FINAL_N    = 100;
     const CI_N       = 50;
     const CI_DELTAS  = [-35, -20, -10, +10, +20, +35];
-    let bIdx = 0, step = 0;
+
+    let bIdx = 0;
+    // step: 0 = baseline, 1-6 = CI deltas
+    let step = 0;
 
     function buildHeroes(r, slot) {
         const hi = r.slotAssign[slot];
-        return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi], isFr: slot < 2, cardIdx: hi, voidCI: (r.voidCI||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
+        return { name: heroNames[hi], art: r.arts[hi], spd: r.spds[hi],
+                 isFr: slot < 2, cardIdx: hi, voidCI: (r.voidCI||[])[hi]||false, upgradedPurify: heroUpgPurify[hi] };
     }
+
     function runNFights(r, n, ciOverride) {
         const ciInput = document.getElementById(`ci${mIdx}`);
         const origCI  = ciInput.value;
         if (ciOverride != null) ciInput.value = Math.max(0, parseFloat(origCI) + ciOverride);
-        let total = 0; silent = true;
+        let total = 0;
+        silent = true;
         for (let f = 0; f < n; f++) {
             const heroes = Array.from({length:6}, (_,slot) => buildHeroes(r, slot));
             const _fr = runOne({ heroes, fromOptimizer: true });
@@ -2512,13 +2869,19 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog, hero
             critInput.value = origCrit;
             builds.sort((a,b) => (b.phase6Dmg ?? b.avgDmg) - (a.phase6Dmg ?? a.avgDmg));
             finishOptimizer(builds, heroNames, mIdx, heroCIs, lowhpNames);
-            btn.disabled = false; btn.textContent = '⚡ Find Optimal Build'; prog.style.display = 'none';
+            btn.disabled = false;
+            btn.textContent = '⚡ Find Optimal Build';
+            prog.style.display = 'none';
             return;
         }
+
         const r = builds[bIdx];
         const useCrit = r.optimalCrit ?? (parseInt(origCrit) || 0);
         critInput.value = useCrit;
+
         if (step === 0) {
+            // Baseline fights
+            prog.textContent = `Phase 6/6: build ${bIdx+1}/${builds.length} — baseline ${FINAL_N} fights`;
             r.ciSensitivity = {};
             const distDmgs = [];
             silent = true;
@@ -2527,7 +2890,8 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog, hero
                 const heroes = Array.from({length:6}, (_,slot) => buildHeroes(r, slot));
                 const _fr = runOne({ heroes, fromOptimizer: true });
                 const d = (safeMode && _fr.shrinkMissed) ? 0 : (_fr.units.find(u=>u.name===heroNames[mIdx])?.totalEstDmg || 0);
-                total += d; distDmgs.push(d);
+                total += d;
+                distDmgs.push(d);
             }
             silent = false;
             r.phase6Dmg = total / FINAL_N;
@@ -2539,134 +2903,336 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog, hero
             }
             step = 1;
         } else {
+            // CI sensitivity step
             const delta = CI_DELTAS[step - 1];
+            prog.textContent = `Phase 6/6: build ${bIdx+1}/${builds.length} — CI ${delta > 0 ? '+' : ''}${delta} sensitivity (${step}/${CI_DELTAS.length})`;
             const avg = runNFights(r, CI_N, delta);
             r.ciSensitivity[delta] = avg - r.phase6Dmg;
             step++;
-            if (step > CI_DELTAS.length) { bIdx++; step = 0; }
+            if (step > CI_DELTAS.length) {
+                // Done with this build
+                prog.textContent = `Phase 6/6: build ${bIdx+1}/${builds.length} — crit: ${useCrit}% → ${Math.round(r.phase6Dmg).toLocaleString()}`;
+                bIdx++;
+                step = 0;
+            }
         }
+
         requestAnimationFrame(sweepStep);
     }
+
     requestAnimationFrame(sweepStep);
 }
 
 function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
+    // Sort by avgDmg (500-fight average) descending — this is the only correct sort
     results.sort((a,b) => (b.phase6Dmg ?? b.avgDmg) - (a.phase6Dmg ?? a.avgDmg));
+
     const fmt = v => v > 0 ? Math.round(v).toLocaleString() : '—';
-    const artColors = { 'Antiwarrior': '#f59e0b', 'Antlers': '#4ade80', 'Scissors': '#38bdf8', 'Demon Bell': '#ec4899', 'Spiritual Mirror': '#a78bfa' };
+    const artColors = {
+        'Antiwarrior': '#f59e0b', 'Antlers': '#4ade80',
+        'Scissors': '#38bdf8', 'Demon Bell': '#ec4899',
+        'Spiritual Mirror': '#a78bfa'
+    };
     const badge = (art) => `<span style="background:${artColors[art]||'#475569'}22;color:${artColors[art]||'#94a3b8'};border:1px solid ${artColors[art]||'#475569'}44;padding:1px 6px;border-radius:4px;font-size:11px">${art}</span>`;
 
-    let html = `<div style="margin-top:16px"><h3 style="color:#a78bfa;margin-bottom:12px">⚡ Top 10 Optimal Builds</h3>
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    let html = `<div style="margin-top:16px">
+    <h3 style="color:#a78bfa;margin-bottom:12px">⚡ Top 10 Optimal Builds (Phase 6: optimal crit × 100 fights)</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
     <thead><tr style="background:#1e293b;color:#94a3b8">
-        <th style="padding:8px">#</th><th style="padding:8px">Avg Dmg</th>
-        <th style="padding:8px">Speed Order</th><th style="padding:8px">Slots (1-2 Front)</th>
+        <th style="padding:8px;text-align:left">#</th>
+        <th style="padding:8px;text-align:left">Avg Damage (300 fights)</th>
+        <th style="padding:8px;text-align:left">Acting Order</th>
+        <th style="padding:8px;text-align:left">Slot 1→6 (1-2 Front · Artifact · CI)</th>
     </tr></thead><tbody>`;
+    const lowhpBadge = lowhpNames && lowhpNames.length ? `<div style="color:#64748b;font-size:11px;margin-bottom:6px">Low HP: ${lowhpNames.join(', ')}</div>` : '';
+    html = html.replace('</h3>', '</h3>' + lowhpBadge);
 
     results.forEach((r, rank) => {
-        const spdOrder = Array.from({length:6},(_,i)=>i).sort((a,b) => r.spds[b]-r.spds[a]);
+        const spdOrder = Array.from({length:6},(_,i)=>i).sort((a,b) => r.spds[b] - r.spds[a]);
         const actingOrder = spdOrder.map(i => heroNames[i]).join(' → ');
         const slotStr = r.slotAssign.map((hi, slot) => {
+            const ci = heroCIs ? heroCIs[hi] : null;
             const artName = r.arts[hi];
-            const artCI = artName==='Spiritual Mirror'?20:artName==='Scissors'?24:artName==='Jade Toad'?32:0;
+            const artCI = artName === 'Spiritual Mirror' ? 20 : artName === 'Scissors' ? 24 : artName === 'Jade Toad' ? 32 : 0;
             const voidOn = r.voidCI && r.voidCI[hi];
-            const effCI = heroCIs ? heroCIs[hi]+artCI+(voidOn?35:0) : null;
-            const ciTag = effCI!=null?`<span style="color:#38bdf8;font-size:10px"> ${effCI}%CI</span>`:'';
-            return `<span style="color:#64748b;font-size:10px">${slot+1}.</span> <span style="color:${slot<2?'#f87171':'#94a3b8'}">${heroNames[hi]}</span> ${badge(r.arts[hi])}${ciTag}`;
-        }).join('<br>');
-        const voidOnHeroes = r.slotAssign.map(hi=>({name:heroNames[hi],on:r.voidCI&&r.voidCI[hi]})).filter(x=>STELLAR_HEROES.includes(x.name));
-        const imprintStr = voidOnHeroes.length>0 ? voidOnHeroes.map(x=>`<span style="color:${x.on?'#a78bfa':'#64748b'};font-size:11px">${x.name}: ${x.on?'✦ Void ON':'Void OFF'}</span>`).join(' ') : '';
-        const rowBg = rank===0 ? '#172033' : 'transparent';
-        const dmgColor = rank===0 ? '#4ade80' : 'var(--accent)';
-        const rangeStr = r.minDmg!=null ? `<div style="color:#64748b;font-size:10px">[${fmt(r.minDmg)} – ${fmt(r.maxDmg)}]</div>` : '';
+            const effCI = ci != null ? (ci + artCI + (voidOn ? 35 : 0)) : null;
+            const ciTag = effCI != null ? `<span style="color:#38bdf8;font-size:10px"> ${effCI}%CI</span>` : '';
+            return `<span style="color:#64748b;font-size:10px">${slot+1}.</span> ` +
+                `<span style="color:${slot<2?'#f87171':'#94a3b8'}">${heroNames[hi]}</span> ` +
+                badge(r.arts[hi]) + ciTag;
+        }).join('<span style="color:#1e293b"> | </span>');
+        // Void CI imprint summary line
+        const voidOnHeroes = r.slotAssign
+            .map(hi => ({ name: heroNames[hi], on: r.voidCI && r.voidCI[hi] }))
+            .filter(x => STELLAR_HEROES.includes(x.name));
+        const imprintStr = voidOnHeroes.length > 0
+            ? voidOnHeroes.map(x =>
+                `<span style="color:${x.on?'#a78bfa':'#64748b'};font-size:11px">${x.name}: ${x.on?'✦ Void CI ON':'Void CI OFF'}</span>`
+              ).join(' &nbsp;')
+            : '';
+
+        const rowBg = rank === 0 ? '#172033' : 'transparent';
+        const dmgColor = rank === 0 ? '#4ade80' : 'var(--accent)';
+        const rangeStr = (r.minDmg != null && r.maxDmg != null)
+            ? `<div style="color:#64748b;font-size:10px;margin-top:2px">Range: ${fmt(r.minDmg)} – ${fmt(r.maxDmg)}</div>`
+            : '';
         html += `<tr style="background:${rowBg};border-bottom:1px solid #1e293b">
             <td style="padding:8px;color:#64748b;font-weight:bold">${rank+1}</td>
             <td style="padding:8px;white-space:nowrap">
-                <div style="color:${dmgColor};font-weight:bold">${fmt(r.phase6Dmg??r.avgDmg)}</div>
-                ${r.phase6Dmg!=null?`<div style="color:#a78bfa;font-size:11px">Opt Crit: ${r.optimalCrit}%</div>`:''}
+                <div style="color:${dmgColor};font-weight:bold">${fmt(r.phase6Dmg != null ? r.phase6Dmg : r.avgDmg)}</div>
+                ${r.phase6Dmg != null ? `<div style="color:#a78bfa;font-size:11px">Optimal Crit: ${r.optimalCrit}%</div>` : ''}
+                ${r.phase6Dmg != null ? `<div style="color:#64748b;font-size:10px">Phase 5 avg: ${fmt(r.avgDmg)}</div>` : ''}
                 ${rangeStr}
-                ${r.ciSensitivity?`<div style="font-size:10px;color:#64748b;margin-top:4px">CI±10: <span style="color:${(r.ciSensitivity[10]||0)>0?'#4ade80':'#f87171'}">${(r.ciSensitivity[10]||0)>0?'+':''}${Math.round(r.ciSensitivity[10]||0).toLocaleString()}</span></div>`:''}
+                ${(() => {
+                    if (!r.dmgDistribution || Object.keys(r.dmgDistribution).length === 0) return '';
+                    const total = Object.values(r.dmgDistribution).reduce((a,b)=>a+b,0);
+                    const mags = Object.keys(r.dmgDistribution).map(Number).sort((a,b)=>b-a);
+                    return '<div style="margin-top:4px">' +
+                        mags.map(mag => {
+                            const count = r.dmgDistribution[mag];
+                            const pct = (count/total*100).toFixed(0);
+                            const bar = Math.round(count/total*30);
+                            const barStr = '█'.repeat(bar) + '░'.repeat(30-bar);
+                            const col = mag >= 23 ? '#4ade80' : mag >= 22 ? '#a78bfa' : mag >= 21 ? '#38bdf8' : '#94a3b8';
+                            return '<div style="font-size:10px;color:'+col+';font-family:monospace">e'+mag+': '+pct+'% ('+count+'/'+total+')</div>';
+                        }).join('') +
+                    '</div>';
+                })()}
             </td>
-            <td style="padding:8px;color:#e2e8f0;white-space:nowrap;font-size:11px">${actingOrder}</td>
-            <td style="padding:8px;line-height:2">${slotStr}${imprintStr?`<div style="margin-top:4px">${imprintStr}</div>`:''}
-            ${r.ciSensitivity?`<div style="margin-top:4px;font-size:10px;color:#64748b">CI sens: ${[-35,-20,-10,+10,+20,+35].map(d=>`<span style="color:${(r.ciSensitivity[d]||0)>0?'#4ade80':'#f87171'}">${d>0?'+':''}${d}→${(r.ciSensitivity[d]||0)>0?'+':''}${Math.round(r.ciSensitivity[d]||0).toLocaleString()}</span>`).join(' ')}</div>`:''}
+            <td style="padding:8px;color:#e2e8f0;white-space:nowrap">${actingOrder}</td>
+            <td style="padding:8px;line-height:2">
+                ${slotStr}
+                ${imprintStr ? `<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:6px">${imprintStr}</div>` : ''}
+                ${(() => {
+                    if (!r.ciSensitivity) return '';
+                    const s = r.ciSensitivity;
+                    const fmtD = d => {
+                        const sign = d >= 0 ? '+' : '';
+                        const col = d > 0 ? '#4ade80' : d < 0 ? '#f87171' : '#64748b';
+                        return `<span style="color:${col}">${sign}${Math.round(d).toLocaleString()}</span>`;
+                    };
+                    const baseDmg = r.phase6Dmg ?? r.avgDmg;
+                    return `<div style="margin-top:6px;font-size:10px;color:#64748b">
+                        <span style="color:#94a3b8;font-weight:bold">CI Sensitivity (${heroNames[mIdx]}):</span>
+                        <table style="margin-top:3px;border-collapse:collapse;font-size:10px">
+                            <tr style="color:#64748b">
+                                <td style="padding:1px 6px">CI delta</td>
+                                ${[-35,-20,-10,+10,+20,+35].map(d=>`<td style="padding:1px 6px;text-align:center">${d>0?'+':''}${d}</td>`).join('')}
+                            </tr>
+                            <tr>
+                                <td style="padding:1px 6px;color:#64748b">Dmg delta</td>
+                                ${[-35,-20,-10,+10,+20,+35].map(d=>`<td style="padding:1px 6px;text-align:center">${fmtD(s[d]??0)}</td>`).join('')}
+                            </tr>
+                            <tr>
+                                <td style="padding:1px 6px;color:#64748b">% change</td>
+                                ${[-35,-20,-10,+10,+20,+35].map(d=>{
+                                    const pct = baseDmg > 0 ? ((s[d]??0)/baseDmg*100) : 0;
+                                    const col = pct > 0 ? '#4ade80' : pct < 0 ? '#f87171' : '#64748b';
+                                    return `<td style="padding:1px 6px;text-align:center;color:${col}">${pct>=0?'+':''}${pct.toFixed(1)}%</td>`;
+                                }).join('')}
+                            </tr>
+                        </table>
+                    </div>`;
+                })()}
             </td>
         </tr>`;
     });
-    html += `</tbody></table></div></div>`;
+
+    html += `</tbody></table>
+    <p style="color:#64748b;font-size:11px;margin-top:8px">
+        Phase 1: art×speed×voidCI (3 fights) → Phase 2: slot arrangements → Phase 2.5: re-test positions → Phases 3-5: progressive 300-fight refinement → Phase 6: crit sweep (0-100%, 30 fights each) then 100 fights at optimal crit. Final ranking by Phase 6 damage. Red = frontline, grey = backline.
+    </p></div>`;
+
     document.getElementById('optOutput').innerHTML = html;
 }
 
-// ── Crit Optimizer ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// CRIT % OPTIMIZER
+// ═══════════════════════════════════════════════════════════════════════════
 function runCritOptimizer() {
     const btn  = document.getElementById('critOptBtn');
     const prog = document.getElementById('critOptProgress');
     const out  = document.getElementById('critOptOutput');
-    btn.disabled = true; btn.textContent = '⏳ Optimizing...'; prog.style.display = 'block'; out.innerHTML = '';
+
+    // Check damage calc panel is open
+    const dcPanel = document.getElementById('dmgCalcPanel');
+    if (!dcPanel || dcPanel.style.display === 'none') {
+        alert('Please open the Damage Calculator panel and fill in LFA\'s stats before running the crit optimizer.');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Optimizing...';
+    prog.style.display = 'block';
+    out.innerHTML = '';
+
     const mIdx = parseInt(document.querySelector('input[name="max"]:checked').value);
     const FIGHTS_PER_VALUE = 100;
-    const results = [];
-    const critValues = Array.from({length: 101}, (_, i) => i);
-    let ci = 0;
+    const results = []; // { crit, avgDmg }
+
+    // Sweep crit 0% to 100% in 1% steps
+    const critValues = Array.from({length: 101}, (_, i) => i); // 0..100
+
+    let ci = 0; // current crit index
+
     function runNextCrit() {
-        if (ci >= critValues.length) { finishCritOptimizer(results, mIdx); btn.disabled = false; btn.textContent = '🎯 Optimal Crit %'; prog.style.display = 'none'; return; }
+        if (ci >= critValues.length) {
+            finishCritOptimizer(results, mIdx);
+            btn.disabled = false;
+            btn.textContent = '🎯 Optimal Crit %';
+            prog.style.display = 'none';
+            return;
+        }
+
         const critPct = critValues[ci];
+        // Temporarily override the crit input
         const critInput = document.getElementById('dc_crit');
         const origCrit = critInput.value;
         critInput.value = critPct;
-        let total = 0; silent = true;
-        for (let f = 0; f < FIGHTS_PER_VALUE; f++) { const res = runOne(); total += res.units[mIdx]?.totalEstDmg || 0; }
+
+        let total = 0;
+        silent = true;
+        for (let f = 0; f < FIGHTS_PER_VALUE; f++) {
+            const res = runOne();
+            total += res.units[mIdx]?.totalEstDmg || 0;
+        }
         silent = false;
-        critInput.value = origCrit;
+
+        critInput.value = origCrit; // restore
         results.push({ crit: critPct, avgDmg: total / FIGHTS_PER_VALUE });
-        prog.textContent = `Sweeping crit %... ${critPct}% tested`;
-        ci++; requestAnimationFrame(runNextCrit);
+
+        const pct = Math.round((ci + 1) / critValues.length * 100);
+        prog.textContent = `Sweeping crit %... ${critPct}% tested | ${pct}% complete`;
+
+        ci++;
+        requestAnimationFrame(runNextCrit);
     }
+
     requestAnimationFrame(runNextCrit);
 }
 
 function finishCritOptimizer(results, mIdx) {
     const out = document.getElementById('critOptOutput');
+
+    // Find optimum
     const best = results.reduce((a, b) => b.avgDmg > a.avgDmg ? b : a);
     const maxDmg = Math.max(...results.map(r => r.avgDmg));
     const minDmg = Math.min(...results.map(r => r.avgDmg));
     const dmgRange = maxDmg - minDmg || 1;
+
     const fmt = v => Math.round(v).toLocaleString();
-    const W = 560, H = 220, PAD = { t:20, r:20, b:40, l:60 };
-    const cW = W-PAD.l-PAD.r, cH = H-PAD.t-PAD.b;
-    const toX = crit => PAD.l + (crit/100)*cW, toY = dmg => PAD.t + cH - ((dmg-minDmg)/dmgRange)*cH;
-    const pts = results.map(r=>`${toX(r.crit).toFixed(1)},${toY(r.avgDmg).toFixed(1)}`).join(' ');
-    const xLabels = Array.from({length:11},(_,i)=>i*10).map(v=>`<text x="${toX(v)}" y="${PAD.t+cH+18}" text-anchor="middle" fill="#64748b" font-size="10">${v}%</text>`).join('');
-    const yLabels = [0,0.5,1].map(t=>{const dmgVal=minDmg+t*dmgRange;const y=toY(dmgVal);return `<text x="${PAD.l-6}" y="${y+4}" text-anchor="end" fill="#64748b" font-size="10">${Math.round(dmgVal/1e9).toFixed(1)}B</text><line x1="${PAD.l}" y1="${y}" x2="${PAD.l+cW}" y2="${y}" stroke="#1e293b" stroke-width="1"/>`;}).join('');
+
+    // Build SVG chart
+    const W = 600, H = 220, PAD = { t:20, r:20, b:40, l:60 };
+    const cW = W - PAD.l - PAD.r;
+    const cH = H - PAD.t - PAD.b;
+
+    const toX = crit => PAD.l + (crit / 100) * cW;
+    const toY = dmg  => PAD.t + cH - ((dmg - minDmg) / dmgRange) * cH;
+
+    // Polyline points
+    const pts = results.map(r => `${toX(r.crit).toFixed(1)},${toY(r.avgDmg).toFixed(1)}`).join(' ');
+
+    // X-axis labels every 10%
+    const xLabels = Array.from({length:11}, (_,i) => i*10).map(v =>
+        `<text x="${toX(v)}" y="${PAD.t+cH+18}" text-anchor="middle" fill="#64748b" font-size="10">${v}%</text>`
+    ).join('');
+
+    // Y-axis labels (3 ticks)
+    const yLabels = [0, 0.5, 1].map(t => {
+        const dmgVal = minDmg + t * dmgRange;
+        const y = toY(dmgVal);
+        return `<text x="${PAD.l-6}" y="${y+4}" text-anchor="end" fill="#64748b" font-size="10">${Math.round(dmgVal/1e9).toFixed(1)}B</text>
+                <line x1="${PAD.l}" y1="${y}" x2="${PAD.l+cW}" y2="${y}" stroke="#1e293b" stroke-width="1"/>`;
+    }).join('');
+
+    // Best marker
     const bx = toX(best.crit), by = toY(best.avgDmg);
-    const bsPts = results.map(r=>{const bsProb=1-Math.pow(r.crit/100,5);const bsY=PAD.t+cH-bsProb*cH;return `${toX(r.crit).toFixed(1)},${bsY.toFixed(1)}`;}).join(' ');
+
+    // Balanced Strike boundary — probability BS fires = 1 - (crit/100)^numHits
+    // At boss HP 50-59%: 5 hits. Show BS probability on secondary axis as dashed line
+    const bsPts = results.map(r => {
+        const bsProb = 1 - Math.pow(r.crit/100, 5);
+        const bsY = PAD.t + cH - bsProb * cH; // scale 0-100% probability to chart height
+        return `${toX(r.crit).toFixed(1)},${bsY.toFixed(1)}`;
+    }).join(' ');
+
+    const svgChart = `<svg width="${W}" height="${H}" style="display:block;margin:0 auto;overflow:visible">
+        <!-- grid -->
+        ${yLabels}
+        <!-- BS probability dashed line -->
+        <polyline points="${bsPts}" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
+        <!-- damage line -->
+        <polyline points="${pts}" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+        <!-- best marker -->
+        <circle cx="${bx}" cy="${by}" r="6" fill="#4ade80" stroke="#fff" stroke-width="1.5"/>
+        <line x1="${bx}" y1="${PAD.t}" x2="${bx}" y2="${PAD.t+cH}" stroke="#4ade80" stroke-width="1" stroke-dasharray="3,3"/>
+        <text x="${bx}" y="${PAD.t-6}" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="bold">${best.crit}% optimal</text>
+        <!-- axes -->
+        <line x1="${PAD.l}" y1="${PAD.t}" x2="${PAD.l}" y2="${PAD.t+cH}" stroke="#334155" stroke-width="1"/>
+        <line x1="${PAD.l}" y1="${PAD.t+cH}" x2="${PAD.l+cW}" y2="${PAD.t+cH}" stroke="#334155" stroke-width="1"/>
+        ${xLabels}
+        <text x="${PAD.l+cW/2}" y="${H-2}" text-anchor="middle" fill="#64748b" font-size="11">Pre-Battle Crit %</text>
+        <text x="12" y="${PAD.t+cH/2}" text-anchor="middle" fill="#64748b" font-size="11" transform="rotate(-90,12,${PAD.t+cH/2})">Avg Damage</text>
+        <!-- legend -->
+        <line x1="${PAD.l+cW-120}" y1="${PAD.t+8}" x2="${PAD.l+cW-100}" y2="${PAD.t+8}" stroke="#38bdf8" stroke-width="2"/>
+        <text x="${PAD.l+cW-96}" y="${PAD.t+12}" fill="#38bdf8" font-size="10">Avg Damage</text>
+        <line x1="${PAD.l+cW-120}" y1="${PAD.t+22}" x2="${PAD.l+cW-100}" y2="${PAD.t+22}" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <text x="${PAD.l+cW-96}" y="${PAD.t+26}" fill="#f59e0b" font-size="10">BS Proc Rate</text>
+    </svg>`;
+
+    // Top 5 table
+    const sorted = [...results].sort((a,b) => b.avgDmg - a.avgDmg).slice(0,5);
+    const tableRows = sorted.map((r, i) => {
+        const bsProb = (1 - Math.pow(r.crit/100, 5)) * 100;
+        const color = i === 0 ? '#4ade80' : 'var(--accent)';
+        return `<tr style="border-bottom:1px solid #1e293b">
+            <td style="padding:6px 10px;color:#64748b">${i+1}</td>
+            <td style="padding:6px 10px;color:${color};font-weight:bold">${r.crit}%</td>
+            <td style="padding:6px 10px;color:var(--accent)">${fmt(r.avgDmg)}</td>
+            <td style="padding:6px 10px;color:#f59e0b">${bsProb.toFixed(1)}%</td>
+        </tr>`;
+    }).join('');
+
     out.innerHTML = `<div style="margin-top:16px;padding:16px;background:var(--card);border:1px solid #334155;border-radius:8px;">
-        <h3 style="color:#0ea5e9;margin:0 0 10px">🎯 Optimal Crit %</h3>
-        <div style="overflow-x:auto"><svg width="${W}" height="${H}" style="display:block;overflow:visible">
-            ${yLabels}
-            <polyline points="${bsPts}" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
-            <polyline points="${pts}" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
-            <circle cx="${bx}" cy="${by}" r="6" fill="#4ade80" stroke="#fff" stroke-width="1.5"/>
-            <line x1="${bx}" y1="${PAD.t}" x2="${bx}" y2="${PAD.t+cH}" stroke="#4ade80" stroke-width="1" stroke-dasharray="3,3"/>
-            <text x="${bx}" y="${PAD.t-6}" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="bold">${best.crit}% optimal</text>
-            <line x1="${PAD.l}" y1="${PAD.t}" x2="${PAD.l}" y2="${PAD.t+cH}" stroke="#334155"/>
-            <line x1="${PAD.l}" y1="${PAD.t+cH}" x2="${PAD.l+cW}" y2="${PAD.t+cH}" stroke="#334155"/>
-            ${xLabels}
-        </svg></div>
-        <div style="margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:24px;padding:12px;background:#0f172a;border-radius:8px;">
-            <div><div style="color:#64748b;font-size:11px">Optimal Crit</div><div style="color:#4ade80;font-size:22px;font-weight:bold">${best.crit}%</div></div>
-            <div><div style="color:#64748b;font-size:11px">Avg Damage</div><div style="color:#4ade80;font-size:18px;font-weight:bold">${fmt(best.avgDmg)}</div></div>
-            <div><div style="color:#64748b;font-size:11px">BS Proc Rate</div><div style="color:#f59e0b;font-size:18px;font-weight:bold">${((1-Math.pow(best.crit/100,5))*100).toFixed(1)}%</div></div>
+        <h3 style="color:#0ea5e9;margin:0 0 4px">🎯 Optimal Pre-Battle Crit %</h3>
+        <p style="color:#64748b;font-size:12px;margin:0 0 14px">
+            Sweeping 0–100% crit in 1% steps × 100 fights each. Crit DMG %, Holy, AllDmg and all other stats held at current damage calculator values.
+            <br>Tradeoff: higher crit = stronger hits but fewer Balanced Strike procs (fires when any of the 5 hits misses crit).
+        </p>
+        ${svgChart}
+        <div style="margin-top:16px;display:flex;align-items:center;gap:24px;padding:12px;background:#0f172a;border-radius:8px;">
+            <div><div style="color:#64748b;font-size:11px">Optimal Crit %</div><div style="color:#4ade80;font-size:22px;font-weight:bold">${best.crit}%</div></div>
+            <div><div style="color:#64748b;font-size:11px">Avg Damage at Optimum</div><div style="color:#4ade80;font-size:18px;font-weight:bold">${fmt(best.avgDmg)}</div></div>
+            <div><div style="color:#64748b;font-size:11px">BS Proc Rate at Optimum</div><div style="color:#f59e0b;font-size:18px;font-weight:bold">${((1-Math.pow(best.crit/100,5))*100).toFixed(1)}%</div></div>
+            <div><div style="color:#64748b;font-size:11px">Damage vs 100% Crit</div>
+                <div style="color:${best.crit<100?'#4ade80':'#64748b'};font-size:18px;font-weight:bold">
+                    ${best.crit < 100 ? '+' + (((best.avgDmg - (results[100]?.avgDmg||best.avgDmg)) / (results[100]?.avgDmg||1))*100).toFixed(1) + '%' : 'N/A'}
+                </div>
+            </div>
         </div>
+        <table style="width:100%;margin-top:12px;border-collapse:collapse;font-size:12px">
+            <thead><tr style="background:#1e293b;color:#94a3b8">
+                <th style="padding:6px 10px;text-align:left">#</th>
+                <th style="padding:6px 10px;text-align:left">Crit %</th>
+                <th style="padding:6px 10px;text-align:left">Avg Damage</th>
+                <th style="padding:6px 10px;text-align:left">BS Proc Rate</th>
+            </tr></thead>
+            <tbody>${tableRows}</tbody>
+        </table>
+        <p style="color:#475569;font-size:11px;margin-top:8px">100 fights per crit value. Chart Y-axis normalized to damage range. Orange dashed = Balanced Strike proc probability.</p>
     </div>`;
 }
 
-// ── DC label ──────────────────────────────────────────────────────────────
+// ── Update damage calc label dynamically ─────────────────────────────────────
 function updateDCLabel() {
-    updateDmgCalcVisibility();
+    const mIdx = parseInt(document.querySelector('input[name="max"]:checked')?.value || 0);
+    const heroName = document.getElementById(`h${mIdx}`)?.value || 'Max ATK Hero';
+    const lbl = document.getElementById('dcHeroLabel');
+    if (lbl) lbl.textContent = heroName;
 }
 
-// ── DGN helpers ───────────────────────────────────────────────────────────
+// ── DGN helper: count unique Attribute Reduction types on boss ────────────────
 function getDGNAttrCount() {
     let count = 0;
     if ((boss.atkDebuff   || 0) > 0) count++;
@@ -2679,30 +3245,44 @@ function getDGNAttrCount() {
     return count;
 }
 
+// ── DGN Battle Start ──────────────────────────────────────────────────────────
 function initDGN(units) {
     const dgn = units.find(u => u.name === 'DGN');
     if (!dgn) return;
+    // Undying Shadow on boss (boss flag)
     boss.undyingShadow = true;
+    log(`🌑 [DGN INIT] Undying Shadow applied to boss`, '#c084fc');
+    // Bright Blessing on highest ATK ally (isM)
     const bb = units.find(u => u.isM) || dgn;
     bb.brightBlessing = true;
     dgn.brightBlessingTarget = bb;
+    log(`✨ [DGN INIT] Bright Blessing → ${bb.name}`, '#c084fc');
+    // Acheron Barque: +10% CI Offset to highest ATK ally (permanent, non-stacking)
     if (!bb.dgnAcheronApplied) {
         bb.dgnAcheronApplied = true;
         addBuff(bb, 'drOffset', 0.10, 999, 'DGN Acheron Barque CI Offset');
+        log(`✨ [DGN ACHERON BARQUE] ${bb.name} +10% CI Offset (permanent)`, '#c084fc');
     }
+    // Excellent Twins: HP+8%, ATK+6% (Pure sub)
     addBuff(dgn, 'atk', 0.06, 999, 'DGN Excellent Twins ATK');
+    // Fluorescent Shield trigger flags
     dgn.fluorShield50Used = false;
     dgn.fluorShield30Used = false;
 }
 
+// ── DGN Fluorescent Shield ────────────────────────────────────────────────────
 function triggerFluorShield(dgn) {
+    // +20% Holy Damage for 6 rounds (skill effect, not offsettable — use addBuff with high rounds)
     addBuff(dgn, 'hd', 0.20, 6, 'DGN Fluorescent Shield Holy');
+    log(`✨ [DGN FLUOR SHIELD] +20% Holy Damage 6r`, '#c084fc');
 }
 
+// ── DGN Active: Dance of Shadowland ──────────────────────────────────────────
 function fireDGNActive(dgn, isBoss, r) {
     if (!isBoss) return;
     const dc = getDmgCalcInputs();
     if (!dc) return;
+
     const attrCount = getDGNAttrCount();
     const atkBuff    = getBuffTotal(dgn, 'atk');
     const allDmgBuff = getBuffTotal(dgn, 'allDmg');
@@ -2719,127 +3299,256 @@ function fireDGNActive(dgn, isBoss, r) {
     const allDmgMult = 1 + allDmgBuff + dc.alldmg / 100;
     const modMult    = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
     const dgnSkill   = window.optimizerContext ? (dgn.art === 'Antlers' ? 300 : dgn.art === 'Antiwarrior' ? 50 : 0) : 0;
-    const mainMultPct = 14 + attrCount * 10;
-    const baseMain = dc.atk * (1+atkBuff) * (mainMultPct + (dc.skill+dgnSkill)/100) * (1+precCapped*0.3) * (1+holyBuff*0.7) * allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+
+    // Main hit: (1400% + 1000% × attrCount) skill multiplier
+    const mainMultPct = 14 + attrCount * 10; // in units of 100% (so 14 = 1400%)
+    const baseMain = dc.atk
+        * (1 + atkBuff)
+        * (mainMultPct + (dc.skill + dgnSkill) / 100)
+        * (1 + precCapped * 0.3)
+        * (1 + holyBuff * 0.7)
+        * allDmgMult * gkMult * defMult * templeMult * shrinkMult;
     const mainCrit = Math.random() < critBuff;
     const mainHit  = mainCrit ? baseMain * critMult : baseMain;
+
     let totalDmg = mainHit;
-    let srcUndying = 0, srcLostHP = 0, srcLethal = 0, srcBS = 0, srcAddl = 0;
-    if (boss.undyingShadow) { srcUndying = mainHit * 0.70 * modMult; totalDmg += srcUndying; }
-    const lostHPDmg = Math.min((boss.maxHP||1e15)*0.001, dc.atk*15)*modMult;
-    srcLostHP = lostHPDmg; totalDmg += lostHPDmg;
+    let srcMain = mainHit, srcUndying = 0, srcLostHP = 0, srcLethal = 0, srcBS = 0, srcAddl = 0;
+    let hitLog = [`Main hit (${(mainMultPct*100).toFixed(0)}%+${attrCount}×1000% attr): ${Math.round(mainHit).toLocaleString()}${mainCrit?' CRIT':''}`];
+
+    // 70% Undying Shadow bonus (cannot crit, skill effect so not offsettable by curse)
+    if (boss.undyingShadow) {
+        srcUndying = mainHit * 0.70 * modMult;
+        totalDmg  += srcUndying;
+        hitLog.push(`Undying Shadow (70% of main × modMult): ${Math.round(srcUndying).toLocaleString()}`);
+    }
+
+    // Deep Sub: 30% of boss lost HP, capped at 1500% ATK × modMult
+    const bossLostHP = (1 - (boss.hp || 100) / 100) * (boss.maxHP || 1e15);
+    const lostHPDmg  = Math.min(bossLostHP * 0.30, dc.atk * 15) * modMult;
+    srcLostHP = lostHPDmg;
+    totalDmg += lostHPDmg;
+    hitLog.push(`Deep Sub lost HP (30% lost HP, cap 1500% ATK): ${Math.round(lostHPDmg).toLocaleString()}`);
+
     const preLFBase = totalDmg;
-    srcLethal = preLFBase * 0.18 * modMult; totalDmg += srcLethal;
-    if (!mainCrit) { const bsPct = bossHPTier==='below50'?1.95:0.45; srcBS=preLFBase*bsPct*modMult; totalDmg+=srcBS; }
-    if (dgn.cc.seal <= 0 && Math.random() < 0.80) { srcAddl=(preLFBase+srcLethal+srcBS)*0.10*modMult; totalDmg+=srcAddl; }
-    addBuff(dgn,'atk',0.16,2,'DGN Guiding Glow ATK'); addBuff(dgn,'hd',0.20,2,'DGN Guiding Glow Holy');
-    addBuff(dgn,'dr',0.16,2,'DGN Guiding Glow DR'); addBuff(dgn,'cd',0.20,2,'DGN Guiding Glow CD');
+
+    // Lethal Fightback: 18% of all prior × modMult (always fires)
+    srcLethal = preLFBase * 0.18 * modMult;
+    totalDmg += srcLethal;
+    hitLog.push(`Lethal Fightback (18%): ${Math.round(srcLethal).toLocaleString()}`);
+
+    // Balanced Strike: fires if main hit did NOT crit
+    if (!mainCrit) {
+        const bsPct = bossHPTier === 'below50' ? 1.95 : 0.45;
+        srcBS = preLFBase * bsPct * modMult;
+        totalDmg += srcBS;
+        hitLog.push(`Balanced Strike (${(bsPct*100).toFixed(0)}%, no crit): ${Math.round(srcBS).toLocaleString()}`);
+    } else {
+        hitLog.push(`Balanced Strike: skipped (main hit crit)`);
+    }
+
+    // Additional Multiplier: 80% proc if not sealed
+    if (dgn.cc.seal <= 0 && Math.random() < 0.80) {
+        srcAddl = (preLFBase + srcLethal + srcBS) * 0.10 * modMult;
+        totalDmg += srcAddl;
+        hitLog.push(`Additional Multiplier (80% proc, 10%): ${Math.round(srcAddl).toLocaleString()}`);
+    }
+
+    // Guiding Glow: +16% ATK, +20% Holy, +16% DR, +20% CD (skill effect stacks, not offsettable)
+    addBuff(dgn, 'atk', 0.16, 2, 'DGN Guiding Glow ATK');
+    addBuff(dgn, 'hd',  0.20, 2, 'DGN Guiding Glow Holy');
+    addBuff(dgn, 'dr',  0.16, 2, 'DGN Guiding Glow DR');
+    addBuff(dgn, 'cd',  0.20, 2, 'DGN Guiding Glow CD');
     const bbTarget = units.find(u => u.brightBlessing);
     if (bbTarget && bbTarget !== dgn) {
-        addBuff(bbTarget,'atk',0.16,2,'DGN Guiding Glow ATK (BB)'); addBuff(bbTarget,'hd',0.20,2,'DGN Guiding Glow Holy (BB)');
-        addBuff(bbTarget,'dr',0.16,2,'DGN Guiding Glow DR (BB)'); addBuff(bbTarget,'cd',0.20,2,'DGN Guiding Glow CD (BB)');
+        addBuff(bbTarget, 'atk', 0.16, 2, 'DGN Guiding Glow ATK (BB)');
+        addBuff(bbTarget, 'hd',  0.20, 2, 'DGN Guiding Glow Holy (BB)');
+        addBuff(bbTarget, 'dr',  0.16, 2, 'DGN Guiding Glow DR (BB)');
+        addBuff(bbTarget, 'cd',  0.20, 2, 'DGN Guiding Glow CD (BB)');
+        log(`&nbsp;&nbsp;&nbsp;✨ [DGN GUIDING GLOW] ${bbTarget.name} (BB) +16%ATK +20%Holy +16%DR +20%CD 2r`, '#c084fc');
     }
-    dgn.totalEstDmg = (dgn.totalEstDmg||0) + totalDmg;
-    if (dgn.dmgPerRound) dgn.dmgPerRound[r-1] = (dgn.dmgPerRound[r-1]||0) + totalDmg;
-    dgn.srcMain    = (dgn.srcMain   ||0) + mainHit;
-    dgn.srcUndying = (dgn.srcUndying||0) + srcUndying;
-    dgn.srcLethal  = (dgn.srcLethal ||0) + srcLethal;
-    dgn.srcBS      = (dgn.srcBS     ||0) + srcBS;
-    dgn.srcAddl    = (dgn.srcAddl   ||0) + srcAddl;
+    log(`&nbsp;&nbsp;&nbsp;✨ [DGN GUIDING GLOW] DGN +16%ATK +20%Holy +16%DR +20%CD 2r`, '#c084fc');
+
+    // Replicate 2 random debuffs from DGN onto boss (attribute reductions on DGN herself)
+    // In a boss fight DGN likely has no debuffs on herself, so this is typically 0
+    // but if boss applies debuffs to DGN they get spread here
+
+    // Log
+    log(`&nbsp;&nbsp;&nbsp;🌑 [DGN ACTIVE] Dance of Shadowland | AttrReductions: ${attrCount} | ${hitLog.join(' | ')}`, '#c084fc');
+    log(`&nbsp;&nbsp;&nbsp;🌑 [DGN ACTIVE TOTAL] ${Math.round(totalDmg).toLocaleString()}`, '#facc15');
+
+    dgn.totalEstDmg = (dgn.totalEstDmg || 0) + totalDmg;
+    if (dgn.dmgPerRound) dgn.dmgPerRound[r-1] = (dgn.dmgPerRound[r-1] || 0) + totalDmg;
+    dgn.srcMain    = (dgn.srcMain    || 0) + srcMain;
+    dgn.srcUndying = (dgn.srcUndying || 0) + srcUndying;
+    dgn.srcLostHP  = (dgn.srcLostHP  || 0) + srcLostHP;
+    dgn.srcLethal  = (dgn.srcLethal  || 0) + srcLethal;
+    dgn.srcBS      = (dgn.srcBS      || 0) + srcBS;
+    dgn.srcAddl    = (dgn.srcAddl    || 0) + srcAddl;
 }
 
+// ── DGN Basic: Ode of Holylight ───────────────────────────────────────────────
 function fireDGNBasic(dgn, r) {
     const dc = getDmgCalcInputs();
     if (!dc) return;
+
     const attrCount  = getDGNAttrCount();
-    const atkBuff    = getBuffTotal(dgn,'atk');
-    const allDmgBuff = getBuffTotal(dgn,'allDmg');
-    const holyBuff   = dc.holy/100+getBuffTotal(dgn,'hd');
-    const critBuff   = dc.crit/100+getBuffTotal(dgn,'crit');
-    const precCapped = Math.min(dc.prec/100,1.50);
-    const cdCapped   = Math.min(dc.cd/100+getBuffTotal(dgn,'cd'),1.50);
-    const corrMult   = 1+0.24*(boss.abyssalCorruption||0);
-    const critMult   = 1.5*cdCapped*2*corrMult;
-    const gkMult     = dc.gk?2.0:1.0;
-    const defMult    = (dc.defier&&bossHPTier==='above70')?1.3:1.0;
-    const templeMult = 1+dc.temple/100;
-    const shrinkMult = boss.shrink?1.4:1.0;
-    const allDmgMult = 1+allDmgBuff+dc.alldmg/100;
-    const modMult    = allDmgMult*gkMult*defMult*templeMult*shrinkMult;
-    const dgnSkill   = window.optimizerContext?(dgn.art==='Antlers'?300:dgn.art==='Antiwarrior'?50:0):0;
-    const mainMultPct = 12+attrCount*10;
-    const baseMain = dc.atk*(1+atkBuff)*(mainMultPct+(dc.skill+dgnSkill)/100)*(1+precCapped*0.3)*(1+holyBuff*0.7)*allDmgMult*gkMult*defMult*templeMult*shrinkMult;
-    const mainCrit = Math.random()<critBuff;
-    const mainHit  = mainCrit?baseMain*critMult:baseMain;
-    let totalDmg = mainHit, preLF = mainHit, srcLethal=0, srcBS=0, srcAddl=0;
-    srcLethal = preLF*0.18*modMult; totalDmg+=srcLethal;
-    if (!mainCrit) { const bsPct=bossHPTier==='below50'?1.95:0.45; srcBS=preLF*bsPct*modMult; totalDmg+=srcBS; }
-    if (dgn.cc.seal<=0&&Math.random()<0.80) { srcAddl=(preLF+srcLethal+srcBS)*0.10*modMult; totalDmg+=srcAddl; }
-    boss.armorDebuff=(boss.armorDebuff||0)+0.18; boss.armorDebuffRounds=2;
-    const bbTarget=units.find(u=>u.brightBlessing);
-    if (bbTarget) {
-        const buffTypes=['atk','hd','cd','crit','dr','ci','spd','armor'];
-        const dgnBuffs=buffTypes.filter(t=>getBuffTotal(dgn,t)>0);
-        const shuffled=dgnBuffs.sort(()=>Math.random()-0.5).slice(0,2);
-        shuffled.forEach(t=>{const val=getBuffTotal(dgn,t);if(val>0)addBuff(bbTarget,t,val,2,`DGN Basic Replicate ${t}`);});
+    const atkBuff    = getBuffTotal(dgn, 'atk');
+    const allDmgBuff = getBuffTotal(dgn, 'allDmg');
+    const holyBuff   = dc.holy / 100 + getBuffTotal(dgn, 'hd');
+    const critBuff   = dc.crit / 100 + getBuffTotal(dgn, 'crit');
+    const precCapped = Math.min(dc.prec / 100, 1.50);
+    const cdCapped   = Math.min(dc.cd / 100 + getBuffTotal(dgn, 'cd'), 1.50);
+    const corrMult   = 1 + 0.24 * (boss.abyssalCorruption || 0);
+    const critMult   = 1.5 * cdCapped * 2 * corrMult;
+    const gkMult     = dc.gk ? 2.0 : 1.0;
+    const defMult    = (dc.defier && bossHPTier === 'above70') ? 1.3 : 1.0;
+    const templeMult = 1 + dc.temple / 100;
+    const shrinkMult = boss.shrink ? 1.4 : 1.0;
+    const allDmgMult = 1 + allDmgBuff + dc.alldmg / 100;
+    const modMult    = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+    const dgnSkill   = window.optimizerContext ? (dgn.art === 'Antlers' ? 300 : dgn.art === 'Antiwarrior' ? 50 : 0) : 0;
+
+    const mainMultPct = 12 + attrCount * 10; // 1200% + 1000% × attrCount
+    const baseMain = dc.atk
+        * (1 + atkBuff)
+        * (mainMultPct + (dc.skill + dgnSkill) / 100)
+        * (1 + precCapped * 0.3)
+        * (1 + holyBuff * 0.7)
+        * allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+    const mainCrit = Math.random() < critBuff;
+    const mainHit  = mainCrit ? baseMain * critMult : baseMain;
+
+    let totalDmg = mainHit, preLF = mainHit;
+    let srcLethal = 0, srcBS = 0, srcAddl = 0;
+
+    // Lethal Fightback
+    srcLethal = preLF * 0.18 * modMult;
+    totalDmg += srcLethal;
+
+    // Balanced Strike if no crit
+    if (!mainCrit) {
+        const bsPct = bossHPTier === 'below50' ? 1.95 : 0.45;
+        srcBS = preLF * bsPct * modMult;
+        totalDmg += srcBS;
     }
-    dgn.totalEstDmg=(dgn.totalEstDmg||0)+totalDmg;
-    if(dgn.dmgPerRound)dgn.dmgPerRound[r-1]=(dgn.dmgPerRound[r-1]||0)+totalDmg;
+
+    // Additional Multiplier
+    if (dgn.cc.seal <= 0 && Math.random() < 0.80) {
+        srcAddl = (preLF + srcLethal + srcBS) * 0.10 * modMult;
+        totalDmg += srcAddl;
+    }
+
+    // Deep sub: Armor -18% on boss
+    boss.armorDebuff = (boss.armorDebuff || 0) + 0.18; boss.armorDebuffRounds = 2;
+
+    // Replicate 2 random buffs from DGN to Bright Blessing ally (can be DGN herself)
+    const bbTarget = units.find(u => u.brightBlessing);
+    if (bbTarget) {
+        const buffTypes = ['atk','hd','cd','crit','dr','ci','spd','armor'];
+        const dgnBuffs = buffTypes.filter(t => getBuffTotal(dgn, t) > 0);
+        const shuffled = dgnBuffs.sort(() => Math.random() - 0.5).slice(0, 2);
+        shuffled.forEach(t => {
+            const val = getBuffTotal(dgn, t);
+            if (val > 0) addBuff(bbTarget, t, val, 2, `DGN Basic Replicate ${t}`);
+        });
+        if (shuffled.length > 0) log(`&nbsp;&nbsp;&nbsp;✨ [DGN BASIC] Replicated ${shuffled.join(', ')} to ${bbTarget.name}${bbTarget === dgn ? ' (self)' : ''}`, '#c084fc');
+    }
+
+    log(`&nbsp;&nbsp;&nbsp;🌑 [DGN BASIC] Ode of Holylight | AttrReductions: ${attrCount} | Main (${(mainMultPct*100).toFixed(0)}%): ${Math.round(mainHit).toLocaleString()}${mainCrit?' CRIT':''} | Total: ${Math.round(totalDmg).toLocaleString()}`, '#c084fc');
+
+    dgn.totalEstDmg = (dgn.totalEstDmg || 0) + totalDmg;
+    if (dgn.dmgPerRound) dgn.dmgPerRound[r-1] = (dgn.dmgPerRound[r-1] || 0) + totalDmg;
 }
 
+// ── DGN Double Nature counter (fires when boss uses active) ──────────────────
 function triggerDGNDoubleNature(dgn, r) {
     const dc = getDmgCalcInputs();
     if (!dc) return;
-    const atkBuff    = getBuffTotal(dgn,'atk');
-    const allDmgBuff = getBuffTotal(dgn,'allDmg');
-    const allDmgMult = 1+allDmgBuff+dc.alldmg/100;
-    const gkMult=dc.gk?2.0:1.0, defMult=(dc.defier&&bossHPTier==='above70')?1.3:1.0;
-    const templeMult=1+dc.temple/100, shrinkMult=boss.shrink?1.4:1.0;
-    const modMult=allDmgMult*gkMult*defMult*templeMult*shrinkMult;
-    const counter=dc.atk*(1+atkBuff)*10*modMult;
-    dgn.totalEstDmg=(dgn.totalEstDmg||0)+counter;
-    if(dgn.dmgPerRound)dgn.dmgPerRound[r-1]=(dgn.dmgPerRound[r-1]||0)+counter;
-    boss.critDebuff=(boss.critDebuff||0)+0.28; boss.critDebuffRounds=2;
-    boss.atkDebuff=(boss.atkDebuff||0)+0.06; boss.atkDebuffRounds=4;
-    const attrTypes=['atkDebuff','armorDebuff','drDebuff','ciDebuff','spdDebuff','critDebuff','healReduction'];
-    const activeAttrs=attrTypes.filter(t=>(boss[t]||0)>0);
-    const shuffled=[...activeAttrs].sort(()=>Math.random()-0.5).slice(0,2);
-    shuffled.forEach(t=>{const rk=t==='healReduction'?'healReductionRounds':t+'Rounds';if(boss[rk]!==undefined)boss[rk]=Math.max(boss[rk]||0,2);});
+    const atkBuff    = getBuffTotal(dgn, 'atk');
+    const allDmgBuff = getBuffTotal(dgn, 'allDmg');
+    const allDmgMult = 1 + allDmgBuff + dc.alldmg / 100;
+    const gkMult     = dc.gk ? 2.0 : 1.0;
+    const defMult    = (dc.defier && bossHPTier === 'above70') ? 1.3 : 1.0;
+    const templeMult = 1 + dc.temple / 100;
+    const shrinkMult = boss.shrink ? 1.4 : 1.0;
+    const modMult    = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+
+    const counter = dc.atk * (1 + atkBuff) * 10 * modMult; // 1000% ATK
+    dgn.totalEstDmg = (dgn.totalEstDmg || 0) + counter;
+    if (dgn.dmgPerRound) dgn.dmgPerRound[r-1] = (dgn.dmgPerRound[r-1] || 0) + counter;
+
+    // Apply debuffs
+    boss.critDebuff = (boss.critDebuff || 0) + 0.28; boss.critDebuffRounds = 2;
+    boss.atkDebuff  = (boss.atkDebuff  || 0) + 0.06; boss.atkDebuffRounds = 4;
+    log(`&nbsp;&nbsp;&nbsp;🌑 [DGN DOUBLE NATURE] Counter: ${Math.round(counter).toLocaleString()} | Boss Crit -28% 2r, ATK -6% 4r`, '#c084fc');
+
+    // Replicate 2 random Attribute Reductions from boss back onto boss (refreshes/stacks debuffs)
+    const attrTypes = ['atkDebuff','armorDebuff','drDebuff','ciDebuff','spdDebuff','critDebuff','healReduction'];
+    const activeAttrs = attrTypes.filter(t => (boss[t] || 0) > 0);
+    const shuffled = [...activeAttrs].sort(() => Math.random() - 0.5).slice(0, 2);
+    shuffled.forEach(t => {
+        // Refresh duration of this debuff
+        const roundsKey = t === 'healReduction' ? 'healReductionRounds' : t + 'Rounds';
+        if (boss[roundsKey] !== undefined) boss[roundsKey] = Math.max(boss[roundsKey] || 0, 2);
+    });
+    if (shuffled.length > 0) log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌑 [DOUBLE NATURE] Replicated ${shuffled.join(', ')} back to boss`, '#c084fc');
 }
 
+// ── DGN Transition (end of round) ────────────────────────────────────────────
 function fireDGNTransition(dgn, r) {
     if (!dgn || dgn.cc.seal > 0) return;
-    if (Math.random() < 0.50) { dgn.transPower=(dgn.transPower||0)+1; }
-    addBuff(dgn,'atk',0.15,2,'DGN Sun Halo ATK');
-    const tp=dgn.transPower||0;
-    if (tp>=12) {
-        dgn.transPower-=12;
-        boss.atkDebuff=(boss.atkDebuff||0)+0.50; boss.atkDebuffRounds=3;
-        boss.critDebuff=(boss.critDebuff||0)+0.50; boss.critDebuffRounds=3;
-        boss.ciDebuff=(boss.ciDebuff||0)+0.50; boss.ciDebuffRounds=3;
-        const dc=getDmgCalcInputs();
-        if (dc) {
-            const totalDebuffs=[boss.atkDebuff,boss.armorDebuff,boss.drDebuff,boss.ciDebuff,boss.spdDebuff,boss.critDebuff,boss.healReduction,boss.bleed?.length,boss.burn,boss.watcherMark].filter(v=>v&&v>0).length;
-            const moonDmg=dc.atk*(1+getBuffTotal(dgn,'atk'))*20*totalDebuffs;
-            dgn.totalEstDmg=(dgn.totalEstDmg||0)+moonDmg;
-            if(dgn.dmgPerRound)dgn.dmgPerRound[r-1]=(dgn.dmgPerRound[r-1]||0)+moonDmg;
-        }
-    } else if (tp>=3) {
-        dgn.transPower-=3;
-        const roll=Math.floor(Math.random()*3);
-        if(roll===0){boss.atkDebuff=(boss.atkDebuff||0)+0.30;boss.atkDebuffRounds=2;}
-        else if(roll===1){boss.spdDebuff=(boss.spdDebuff||0)+50;boss.spdDebuffRounds=2;}
-        else{boss.armorDebuff=(boss.armorDebuff||0)+0.80;boss.armorDebuffRounds=2;}
+
+    // Comet Hop: 50% chance +1 Transition Power
+    if (Math.random() < 0.50) {
+        dgn.transPower = (dgn.transPower || 0) + 1;
+        log(`&nbsp;&nbsp;&nbsp;✨ [DGN COMET HOP] +1 Transition Power → ${dgn.transPower}`, '#c084fc');
     }
-    const dc=getDmgCalcInputs();
+
+    // Sun Halo: +15% ATK to self for 2r
+    addBuff(dgn, 'atk', 0.15, 2, 'DGN Sun Halo ATK');
+
+    const tp = dgn.transPower || 0;
+
+    if (tp >= 12) {
+        // 12-stack: consume 12, apply 3 debuffs, deal 2000% ATK × total debuff count
+        dgn.transPower -= 12;
+        boss.atkDebuff  = (boss.atkDebuff  || 0) + 0.50; boss.atkDebuffRounds  = 3;
+        boss.critDebuff = (boss.critDebuff || 0) + 0.50; boss.critDebuffRounds = 3;
+        boss.ciDebuff   = (boss.ciDebuff   || 0) + 0.50; boss.ciDebuffRounds   = 3;
+        log(`&nbsp;&nbsp;&nbsp;🌑 [DGN MOON ABYSS 12] Boss ATK -50% 3r, Crit -50% 3r, CI -50% 3r`, '#c084fc');
+
+        const dc = getDmgCalcInputs();
+        if (dc) {
+            const totalDebuffs = [
+                boss.atkDebuff, boss.armorDebuff, boss.drDebuff, boss.ciDebuff,
+                boss.spdDebuff, boss.critDebuff, boss.healReduction,
+                boss.bleed?.length, boss.burn, boss.watcherMark
+            ].filter(v => v && v > 0).length;
+            const moonDmg = dc.atk * (1 + getBuffTotal(dgn, 'atk')) * 20 * totalDebuffs; // 2000% × count
+            dgn.totalEstDmg = (dgn.totalEstDmg || 0) + moonDmg;
+            if (dgn.dmgPerRound) dgn.dmgPerRound[r-1] = (dgn.dmgPerRound[r-1] || 0) + moonDmg;
+            log(`&nbsp;&nbsp;&nbsp;🌑 [DGN MOON ABYSS 12] Extra dmg: ${Math.round(moonDmg).toLocaleString()} (${totalDebuffs} debuffs × 2000% ATK)`, '#facc15');
+        }
+    } else if (tp >= 3) {
+        // 3-stack: consume 3, apply 1 random debuff
+        dgn.transPower -= 3;
+        const roll = Math.floor(Math.random() * 3);
+        if (roll === 0)      { boss.atkDebuff   = (boss.atkDebuff   || 0) + 0.30; boss.atkDebuffRounds   = 2; log(`&nbsp;&nbsp;&nbsp;🌑 [DGN TRANS] Boss ATK -30% 2r`, '#c084fc'); }
+        else if (roll === 1) { boss.spdDebuff   = (boss.spdDebuff   || 0) + 50;   boss.spdDebuffRounds   = 2; log(`&nbsp;&nbsp;&nbsp;🌑 [DGN TRANS] Boss SPD -50 2r`, '#c084fc'); }
+        else                 { boss.armorDebuff = (boss.armorDebuff || 0) + 0.80; boss.armorDebuffRounds = 2; log(`&nbsp;&nbsp;&nbsp;🌑 [DGN TRANS] Boss Armor -80% 2r`, '#c084fc'); }
+    }
+
+    // Glowed Glory: extra dmg to frontline (boss) = 20% max HP, cap 1500% ATK
+    const dc = getDmgCalcInputs();
     if (dc) {
-        const glowDmg=Math.min((boss.maxHP||1e15)*0.20,dc.atk*15);
-        dgn.totalEstDmg=(dgn.totalEstDmg||0)+glowDmg;
-        if(dgn.dmgPerRound)dgn.dmgPerRound[r-1]=(dgn.dmgPerRound[r-1]||0)+glowDmg;
+        const glowDmg = Math.min((boss.maxHP || 1e15) * 0.20, dc.atk * 15);
+        dgn.totalEstDmg = (dgn.totalEstDmg || 0) + glowDmg;
+        if (dgn.dmgPerRound) dgn.dmgPerRound[r-1] = (dgn.dmgPerRound[r-1] || 0) + glowDmg;
+        log(`&nbsp;&nbsp;&nbsp;🌑 [DGN GLOWED GLORY] ${Math.round(glowDmg).toLocaleString()} (20% boss HP, cap 1500% ATK)`, '#c084fc');
     }
 }
 
-// ── CI helpers ────────────────────────────────────────────────────────────
+// ── CI helpers ───────────────────────────────────────────────────────────────
 const STELLAR_HEROES = ["LFA","SQH","STV","BDSM","LBRM","DGN"];
 const ART_CI_BONUS   = { "Spiritual Mirror": 20, "Scissors": 24, "Jade Toad": 32 };
 
@@ -2858,9 +3567,10 @@ function getEffectiveCI(i) {
 function updateAllCardCI() {
     const tot = getGlobalCI();
     const el = document.getElementById('globalCITotal');
-    if (el) el.textContent = tot > 0 ? `Total global: +${tot}% CI` : '';
+    if (el) el.textContent = tot > 0 ? `Total global bonus: +${tot}% CI to all heroes` : '';
     for (let i = 0; i < 6; i++) updateCardCI(i);
 }
+
 function updateCardCI(i) {
     const hero = document.getElementById(`h${i}`)?.value || '';
     const lbl  = document.getElementById(`stellarLbl${i}`);
