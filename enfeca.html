@@ -163,6 +163,22 @@
     </div>
 </div>
 
+<!-- ═══ BUILD SAVE / LOAD ═══ -->
+<div style="margin-bottom:12px;border:1px solid #2d3748;border-radius:8px;background:#1a1f2e;overflow:hidden;max-width:860px;opacity:0.85;">
+  <div onclick="toggleSection('buildSaveBody','buildSaveArrow')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;user-select:none;">
+    <span style="color:#38bdf8;font-weight:bold;font-size:13px">💾 Saved Builds</span>
+    <span id="buildSaveArrow" style="color:#64748b;font-size:11px;transition:transform 0.2s;display:inline-block;transform:rotate(-90deg)">▼</span>
+  </div>
+  <div id="buildSaveBody" style="padding:0 14px 12px;display:none;">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+      <input id="buildNameInput" type="text" placeholder="Build name…" style="flex:1;min-width:140px;background:#0b0e14;border:1px solid #334155;border-radius:4px;color:#e2e8f0;padding:5px 8px;font-size:12px;">
+      <button onclick="saveCurrentBuild()" style="padding:5px 14px;font-size:12px;white-space:nowrap;">💾 Save</button>
+    </div>
+    <div id="savedBuildsList" style="display:flex;flex-direction:column;gap:6px;"></div>
+    <div id="noBuildMsg" style="color:#64748b;font-size:11px;display:none;">No saved builds yet.</div>
+  </div>
+</div>
+
 <!-- ═══ ACTION BUTTONS ═══ -->
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;max-width:860px;">
     <button onclick="sim(false)" style="padding:12px;font-size:13px;">📋 Simulate (Full Log)</button>
@@ -384,6 +400,9 @@ function buildCardHTML(i, d) {
 defaults.forEach((d, i) => {
     container.innerHTML += buildCardHTML(i, d);
 });
+
+// Render saved builds list on page load
+renderBuildsList();
 
 // ── Drag-and-drop logic ───────────────────────────────────────────────────
 let dragSrcIndex = null;
@@ -865,6 +884,137 @@ function toggleSection(bodyId, arrowId) {
     body.style.display = isHidden ? '' : 'none';
     arrow.style.transform = isHidden ? '' : 'rotate(-90deg)';
 }
+// ═══════════════════════════════════════════════════════
+// BUILD SAVE / LOAD
+// ═══════════════════════════════════════════════════════
+
+function collectFullState() {
+    const cards = [];
+    for (let i = 0; i < 6; i++) cards.push(collectCardData(i));
+    const get  = id => document.getElementById(id)?.value;
+    const chkd = id => document.getElementById(id)?.checked;
+    return {
+        cards,
+        env: {
+            seTrainCI: get('seTrainCI'),
+            bossHP:    get('bossHP'),
+            isl8:      chkd('isl8'),
+            isl9:      chkd('isl9'),
+            isl10:     chkd('isl10'),
+            isl11:     chkd('isl11'),
+            lowhp0:    get('lowhp0'),
+            lowhp1:    get('lowhp1'),
+            lowhp2:    get('lowhp2'),
+        },
+        dc: {
+            atk:    get('dc_atk'),
+            skill:  get('dc_skill'),
+            prec:   get('dc_prec'),
+            holy:   get('dc_holy'),
+            alldmg: get('dc_alldmg'),
+            crit:   get('dc_crit'),
+            cd:     get('dc_cd'),
+            temple: get('dc_temple'),
+            defier: chkd('dc_defier'),
+            gk:     chkd('dc_gk'),
+        }
+    };
+}
+
+function applyFullState(state) {
+    for (let i = 0; i < 6; i++) {
+        if (state.cards[i]) {
+            applyCardData(i, state.cards[i]);
+            updateCardCI(i);
+            updateCardSummary(i);
+        }
+    }
+    const set  = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; };
+    const chk  = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.checked = val; };
+    if (state.env) {
+        set('seTrainCI', state.env.seTrainCI);
+        set('bossHP',    state.env.bossHP);
+        chk('isl8',  state.env.isl8);
+        chk('isl9',  state.env.isl9);
+        chk('isl10', state.env.isl10);
+        chk('isl11', state.env.isl11);
+        // lowhp dropdowns need a tick to populate first
+        setTimeout(() => {
+            set('lowhp0', state.env.lowhp0);
+            set('lowhp1', state.env.lowhp1);
+            set('lowhp2', state.env.lowhp2);
+        }, 50);
+    }
+    if (state.dc) {
+        set('dc_atk',    state.dc.atk);
+        set('dc_skill',  state.dc.skill);
+        set('dc_prec',   state.dc.prec);
+        set('dc_holy',   state.dc.holy);
+        set('dc_alldmg', state.dc.alldmg);
+        set('dc_crit',   state.dc.crit);
+        set('dc_cd',     state.dc.cd);
+        set('dc_temple', state.dc.temple);
+        chk('dc_defier', state.dc.defier);
+        chk('dc_gk',     state.dc.gk);
+    }
+    updateAllCardCI();
+    updateDCLabel();
+    refreshLowHPDropdowns();
+}
+
+function getBuilds() {
+    try { return JSON.parse(localStorage.getItem('cod_builds') || '{}'); }
+    catch { return {}; }
+}
+
+function setBuilds(builds) {
+    localStorage.setItem('cod_builds', JSON.stringify(builds));
+}
+
+function saveCurrentBuild() {
+    const name = document.getElementById('buildNameInput').value.trim();
+    if (!name) { alert('Please enter a build name.'); return; }
+    const builds = getBuilds();
+    builds[name] = { state: collectFullState(), savedAt: new Date().toLocaleString() };
+    setBuilds(builds);
+    document.getElementById('buildNameInput').value = '';
+    renderBuildsList();
+}
+
+function loadBuild(name) {
+    const builds = getBuilds();
+    if (builds[name]) applyFullState(builds[name].state);
+}
+
+function deleteBuild(name) {
+    if (!confirm(`Delete build "${name}"?`)) return;
+    const builds = getBuilds();
+    delete builds[name];
+    setBuilds(builds);
+    renderBuildsList();
+}
+
+function renderBuildsList() {
+    const builds = getBuilds();
+    const list   = document.getElementById('savedBuildsList');
+    const noMsg  = document.getElementById('noBuildMsg');
+    const names  = Object.keys(builds);
+    list.innerHTML = '';
+    if (names.length === 0) { noMsg.style.display = ''; return; }
+    noMsg.style.display = 'none';
+    names.forEach(name => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;background:#0b0e14;border:1px solid #334155;border-radius:6px;padding:6px 10px;';
+        row.innerHTML = `
+            <span style="flex:1;color:#e2e8f0;font-size:12px;font-weight:bold;">${name}</span>
+            <span style="color:#64748b;font-size:10px;">${builds[name].savedAt || ''}</span>
+            <button onclick="loadBuild('${name.replace(/'/g,"\\'")}');renderBuildsList();" style="padding:3px 10px;font-size:11px;background:transparent;border:1px solid #38bdf8;color:#38bdf8;border-radius:4px;cursor:pointer;">Load</button>
+            <button onclick="deleteBuild('${name.replace(/'/g,"\\'")}');" style="padding:3px 8px;font-size:11px;background:transparent;border:1px solid #ef4444;color:#ef4444;border-radius:4px;cursor:pointer;">✕</button>`;
+        list.appendChild(row);
+    });
+}
+
+
 
 function updateDmgCalcVisibility() {
     const mIdx = parseInt(document.querySelector('input[name="max"]:checked')?.value ?? 0);
