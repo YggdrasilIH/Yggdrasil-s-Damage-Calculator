@@ -7,7 +7,8 @@
     <style>
         :root { --bg: #0b0e14; --card: #1a1f2e; --accent: #38bdf8; --text: #cbd5e1; --border: #334155; }
         body { font-family: 'Consolas', monospace; background: var(--bg); color: var(--text); padding: 20px; font-size: 12px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .grid { display: flex; flex-direction: row; gap: 12px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 6px; }
+        .grid .hero-card-wrapper { flex: 0 0 260px; min-width: 220px; }
         .card { background: var(--card); border: 1px solid var(--border); padding: 12px; border-radius: 4px; }
         .card h3 { margin: 0 0 8px 0; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom:4px; }
         input, select { background: #000; color: #fff; border: 1px solid var(--border); padding: 4px; width: 100%; margin: 4px 0; box-sizing:border-box; }
@@ -19,6 +20,42 @@
         th, td { border: 1px solid var(--border); padding: 6px; text-align: left; }
         th { background: #111; color: var(--accent); }
         small { color: #64748b; }
+
+        /* ── Collapsible card (width-based) ── */
+        .grid { align-items: stretch; }
+        .hero-card-wrapper { transition: flex-basis 0.25s ease, min-width 0.25s ease; display: flex; flex-direction: column; }
+        .hero-card-wrapper .card { flex: 1; display: flex; flex-direction: column; }
+        .hero-card-wrapper.is-collapsed { flex: 0 0 72px !important; min-width: 72px !important; }
+        .hero-card-wrapper.is-collapsed .card { cursor: pointer; justify-content: flex-start; overflow: hidden; }
+        .card-body { overflow: hidden; transition: opacity 0.2s ease; opacity: 1; }
+        .hero-card-wrapper.is-collapsed .card-body { opacity: 0; pointer-events: none; width: 0; overflow: hidden; height: 0; }
+        .card-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; padding-bottom: 4px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+        .card-header:hover .card-title { color: #fff; }
+        .card-title { color: var(--accent); font-size: 12px; font-weight: bold; white-space: nowrap; }
+        .collapse-arrow { font-size: 10px; color: #64748b; transition: transform 0.2s; margin-left: 4px; flex-shrink: 0; }
+        /* Vertical label shown when collapsed */
+        .card-vert-label {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            flex: 1;
+            padding: 4px 0;
+            gap: 4px;
+            overflow: hidden;
+        }
+        .card-vert-label .vi {
+            font-size: 10px;
+            white-space: nowrap;
+            text-align: center;
+            line-height: 1.2;
+        }
+        .hero-card-wrapper.is-collapsed .card-vert-label { display: flex; }
+        .hero-card-wrapper.is-collapsed .card-header { border-bottom: none; padding-bottom: 0; margin-bottom: 0; justify-content: center; }
+        .hero-card-wrapper.is-collapsed .card-header .card-title { display: none; }
+        .hero-card-wrapper.is-collapsed .card-header .collapse-arrow { transform: rotate(-90deg); margin-left: 0; }
 
         /* ── Drag-and-drop styles ── */
         .hero-card-wrapper {
@@ -50,8 +87,6 @@
         /* ── Mobile layout ── */
         @media (max-width: 600px) {
             body { padding: 10px; font-size: 13px; }
-            .grid { grid-template-columns: 1fr; gap: 10px; }
-            .card { padding: 10px; }
             button { padding: 12px 10px; font-size: 13px; }
             #output { height: 400px; font-size: 11px; }
             .env-controls { flex-direction: column !important; }
@@ -64,112 +99,92 @@
 </head>
 <body>
 
-<div class="global-ci-bar" style="background:#1a1f2e;border:1px solid #334155;border-radius:8px;padding:10px 16px;margin-bottom:10px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
-  <span style="color:#94a3b8;font-size:12px;font-weight:bold">Global CI Bonuses:</span>
-  <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:6px;">
-    SE Train CI:
-    <input type="number" id="seTrainCI" value="17" min="0" max="200" style="width:60px;background:#0b0e14;border:1px solid #334155;border-radius:4px;color:#38bdf8;padding:2px 6px;font-size:12px;" oninput="updateAllCardCI()">
-    <span style="color:#64748b;font-size:11px">% added to all heroes</span>
-  </label>
-  <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:6px;">
-    Pet CI:
-    <input type="number" id="petCI" value="10" min="0" max="200" style="width:60px;background:#0b0e14;border:1px solid #334155;border-radius:4px;color:#a78bfa;padding:2px 6px;font-size:12px;" oninput="updateAllCardCI()">
-    <span style="color:#64748b;font-size:11px">% added to all heroes</span>
-  </label>
-  <span id="globalCITotal" style="color:#4ade80;font-size:11px"></span>
-</div>
 <div class="grid" id="hero-inputs"></div>
 
-<div class="card" style="margin-bottom:12px;">
-    <h3>👁️ Pupil — 3 Lowest HP Heroes</h3>
-    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <div style="flex:1"><label>Lowest HP #1</label><select id="lowhp0"><option value="">-- None --</option></select></div>
-        <div style="flex:1"><label>Lowest HP #2</label><select id="lowhp1"><option value="">-- None --</option></select></div>
-        <div style="flex:1"><label>Lowest HP #3</label><select id="lowhp2"><option value="">-- None --</option></select></div>
+<!-- ═══ PUPIL (collapsible) ═══ -->
+<div style="margin-bottom:10px;border:1px solid #334155;border-radius:8px;background:var(--card);overflow:hidden;">
+    <div onclick="toggleSection('pupilBody','pupilArrow')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;user-select:none;">
+        <span style="color:var(--accent);font-weight:bold;font-size:13px">👁️ Pupil — 3 Lowest HP Heroes</span>
+        <span id="pupilArrow" style="color:#64748b;font-size:11px;transition:transform 0.2s;display:inline-block;transform:rotate(-90deg)">▼</span>
     </div>
-    <small style="margin-top:4px;display:block;">Every 4 Pupil-wearer actions → these 3 heroes get 100% boss-active dodge for 2 rounds.</small>
-</div>
-
-<div class="card" style="margin-bottom:20px;">
-    <h3>Environment Controls</h3>
-    <div class="env-row" style="display:flex; gap:20px; flex-wrap:wrap;">
-        <div style="flex:1"><label>Global Star Imprint</label>
-            <select id="gImp"><option value="none">None</option><option value="foresight" selected>Foresight</option><option value="destiny">Destiny</option></select>
+    <div id="pupilBody" style="display:none;padding:0 14px 12px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1"><label style="font-size:11px;color:#94a3b8">Lowest HP #1</label><select id="lowhp0" style="margin-top:3px"><option value="">-- None --</option></select></div>
+            <div style="flex:1"><label style="font-size:11px;color:#94a3b8">Lowest HP #2</label><select id="lowhp1" style="margin-top:3px"><option value="">-- None --</option></select></div>
+            <div style="flex:1"><label style="font-size:11px;color:#94a3b8">Lowest HP #3</label><select id="lowhp2" style="margin-top:3px"><option value="">-- None --</option></select></div>
         </div>
-        <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="isl8" checked> Island 8 (+3% allDmg per ally active)</label></div>
-        <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="isl9" checked> Island 9 (allDmgReduction decay + HD ramp)</label></div>
-        <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="isl10" checked> Island 10 (+25% allDmg all at round start)</label></div>
-        <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="isl11" checked> Island 11 (Soul Protection — random CC immunity)</label></div>
-        <div style="flex:1; margin-top:15px;"><label><input type="checkbox" id="fearGT" checked> Fear Guild Train (sub-100 CI bonus applies to Fear)</label></div>
-        <div style="flex:1; margin-top:15px;">
-            <label>Boss HP Tier</label>
-            <select id="bossHP">
-                <option value="above70">Above 70%</option>
-                <option value="60-69">60–69%</option>
-                <option value="50-59" selected>50–59%</option>
-                <option value="below50">Below 50%</option>
-            </select>
-        </div>
+        <small style="margin-top:6px;display:block;color:#64748b;">Every 4 Pupil-wearer actions → these 3 heroes get 100% boss-active dodge for 2 rounds.</small>
     </div>
 </div>
 
-<!-- ═══ DAMAGE CALCULATOR (collapsible) ═══ -->
-<div style="margin-top:20px;">
-    <button onclick="toggleDmgCalc()" style="background:var(--card);border:1px solid #334155;width:100%;text-align:left;padding:10px 14px;font-size:14px;cursor:pointer;">
-        ⚔️ Damage Calculator (Max ATK Hero) <span id="dmgCalcArrow">▼</span>
-    </button>
-    <div id="dmgCalcPanel" style="display:none;background:var(--card);border:1px solid #334155;border-top:none;padding:16px;border-radius:0 0 8px 8px;">
-        <p style="color:#94a3b8;font-size:12px;margin-top:0;">Set base stats for the highest ATK hero (<span id="dcHeroLabel" style="color:var(--accent);font-weight:bold">LFA</span>). Used to compute damage output per active.</p>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
-            <div>
-                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">ATK (absolute)</label>
-                <input type="number" id="dc_atk" value="750000000" style="width:100%">
-            </div>
-            <div>
-                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Skill DMG %</label>
-                <input type="number" id="dc_skill" value="1500" style="width:100%">
-            </div>
-            <div>
-                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Precision %</label>
-                <input type="number" id="dc_prec" value="150" style="width:100%">
-            </div>
-            <div>
-                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Holy DMG % (base)</label>
-                <input type="number" id="dc_holy" value="230" style="width:100%">
-            </div>
-            <div>
-                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">All DMG Dealt %</label>
-                <input type="number" id="dc_alldmg" value="140" style="width:100%">
-            </div>
-            <div>
-                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Crit %</label>
-                <input type="number" id="dc_crit" value="35" style="width:100%">
-            </div>
-            <div>
-                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Crit DMG %</label>
-                <input type="number" id="dc_cd" value="150" style="width:100%">
-            </div>
-            <div>
-                <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:3px;">Temple DMG %</label>
-                <input type="number" id="dc_temple" value="160" min="0" placeholder="e.g. 150" style="width:100%">
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;padding-top:18px;">
-                <label style="font-size:12px;"><input type="checkbox" id="dc_defier" checked> Defier</label>
-                <label style="font-size:12px;"><input type="checkbox" id="dc_gk" checked> Giant Killer</label>
-            </div>
+<!-- ═══ ENVIRONMENT CONTROLS (collapsible, includes Global CI) ═══ -->
+<div style="margin-bottom:10px;border:1px solid #334155;border-radius:8px;background:var(--card);overflow:hidden;">
+    <div onclick="toggleSection('envBody','envArrow')" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;cursor:pointer;user-select:none;">
+        <span style="color:var(--accent);font-weight:bold;font-size:13px">⚙️ Environment Controls</span>
+        <span id="envArrow" style="color:#64748b;font-size:11px;transition:transform 0.2s;display:inline-block">▼</span>
+    </div>
+    <div id="envBody" style="padding:0 14px 14px;">
+        <!-- Global CI -->
+        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding:8px 0 12px;border-bottom:1px solid #1e293b;margin-bottom:12px;">
+            <span style="color:#94a3b8;font-size:12px;font-weight:bold">Global CI Bonuses:</span>
+            <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:6px;">
+                SE Train CI:
+                <input type="number" id="seTrainCI" value="17" min="0" max="200" style="width:55px;background:#0b0e14;border:1px solid #334155;border-radius:4px;color:#38bdf8;padding:2px 6px;font-size:12px;" oninput="updateAllCardCI()">
+                <span style="color:#64748b;font-size:11px">%</span>
+            </label>
+            <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:6px;">
+                Pet CI:
+                <input type="number" id="petCI" value="10" min="0" max="200" style="width:55px;background:#0b0e14;border:1px solid #334155;border-radius:4px;color:#a78bfa;padding:2px 6px;font-size:12px;" oninput="updateAllCardCI()">
+                <span style="color:#64748b;font-size:11px">%</span>
+            </label>
+            <span id="globalCITotal" style="color:#4ade80;font-size:11px"></span>
+        </div>
+        <!-- Settings grid -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 20px;">
+            <label style="font-size:12px;display:flex;flex-direction:column;gap:3px;">
+                <span style="color:#94a3b8">Global Star Imprint</span>
+                <select id="gImp"><option value="none">None</option><option value="foresight" selected>Foresight</option><option value="destiny">Destiny</option></select>
+            </label>
+            <label style="font-size:12px;display:flex;flex-direction:column;gap:3px;">
+                <span style="color:#94a3b8">Boss HP Tier</span>
+                <select id="bossHP">
+                    <option value="above70" selected>Above 70%</option>
+                    <option value="60-69">60–69%</option>
+                    <option value="50-59">50–59%</option>
+                    <option value="below50">Below 50%</option>
+                </select>
+            </label>
+            <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="isl8" checked> Island 8 (+3% allDmg per ally active)</label>
+            <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="isl9" checked> Island 9 (allDmgReduction decay + HD ramp)</label>
+            <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="isl10" checked> Island 10 (+25% allDmg all at round start)</label>
+            <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="isl11" checked> Island 11 (Soul Protection — random CC immunity)</label>
+            <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="fearGT" checked> Fear Guild Train (sub-100 CI bonus → Fear)</label>
         </div>
     </div>
 </div>
 
-<button onclick="sim(false)">Simulate 15-Round Battle (Full Log)</button>
-<button onclick="sim(true)">Statistical Batch (1000 Fights Summary)</button>
-<label style="font-size:12px;color:#cbd5e1;margin-right:12px;vertical-align:middle"><input type="checkbox" id="relaxSpeeds"> Relax Speed Order (optimizer tests all speed assignments)</label>
-<label style="font-size:12px;color:#38bdf8;margin-right:12px;vertical-align:middle"><input type="checkbox" id="safeMode"> 🌊 ELY Safe Mode (guarantees shrink every action)</label>
-<button onclick="runOptimizer()" id="optBtn" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;color:#fff;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;">⚡ Find Optimal Build</button>
-<button onclick="runCritOptimizer()" id="critOptBtn" style="background:linear-gradient(135deg,#0ea5e9,#0369a1);border:none;color:#fff;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;">🎯 Optimal Crit %</button>
-<div id="critOptProgress" style="display:none;margin-top:10px;padding:10px 14px;background:var(--card);border-radius:8px;font-size:13px;color:#94a3b8;"></div>
+<!-- ═══ ACTION BUTTONS ═══ -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+    <button onclick="sim(false)" style="padding:12px;font-size:13px;">📋 Simulate (Full Log)</button>
+    <button onclick="sim(true)" style="padding:12px;font-size:13px;">📊 Statistical Batch (1000)</button>
+</div>
+
+<div style="border:1px solid #4f46e5;border-radius:8px;background:#0f0f1a;overflow:hidden;margin-bottom:10px;">
+    <div style="padding:12px 14px;border-bottom:1px solid #4f46e540;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button onclick="runOptimizer()" id="optBtn" style="flex:1;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;color:#fff;padding:12px 16px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:14px;">⚡ Find Optimal Build</button>
+            <button onclick="runCritOptimizer()" id="critOptBtn" style="flex:1;background:linear-gradient(135deg,#0ea5e9,#0369a1);border:none;color:#fff;padding:12px 16px;border-radius:6px;cursor:pointer;font-weight:bold;font-size:14px;">🎯 Optimal Crit %</button>
+        </div>
+    </div>
+    <div style="padding:10px 14px;display:flex;gap:20px;flex-wrap:wrap;">
+        <label style="font-size:12px;color:#a78bfa;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="relaxSpeeds"> Relax Speed Order</label>
+        <label style="font-size:12px;color:#38bdf8;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="safeMode"> 🌊 ELY Safe Mode</label>
+    </div>
+</div>
+
+<div id="critOptProgress" style="display:none;margin-bottom:8px;padding:10px 14px;background:var(--card);border-radius:8px;font-size:13px;color:#94a3b8;"></div>
 <div id="critOptOutput"></div>
-<div id="optProgress" style="display:none;margin-top:10px;padding:10px 14px;background:var(--card);border-radius:8px;font-size:13px;color:#94a3b8;"></div>
+<div id="optProgress" style="display:none;margin-bottom:8px;padding:10px 14px;background:var(--card);border-radius:8px;font-size:13px;color:#94a3b8;"></div>
 <div id="optOutput"></div>
 <div id="output"></div>
 
@@ -191,6 +206,55 @@ const defaults = [
 
 const container = document.getElementById('hero-inputs');
 
+function toggleCard(i) {
+    const wrapper = document.getElementById(`wrapper${i}`);
+    const hdr     = document.getElementById(`card-hdr${i}`);
+    const isNowCollapsed = wrapper.classList.toggle('is-collapsed');
+    hdr.classList.toggle('is-collapsed', isNowCollapsed);
+    updateCardSummary(i);
+}
+
+const ART_ACRONYM = {
+    'None':             '—',
+    'Demon Bell':       'DB',
+    'Spiritual Mirror': 'SM',
+    'Antlers':          'ANT',
+    'Scissors':         'SCI',
+    'Antiwarrior':      'AW',
+    'Jade Toad':        'JT',
+};
+
+function updateCardSummary(i) {
+    const el = document.getElementById(`card-vert${i}`);
+    if (!el) return;
+    const hero  = document.getElementById(`h${i}`)?.value  || '?';
+    const art   = document.getElementById(`a${i}`)?.value  || 'None';
+    const spd   = document.getElementById(`s${i}`)?.value  || '—';
+    const eff   = getEffectiveCI(i);
+    const dodge = document.getElementById(`dg${i}`)?.value  || '0';
+    const dr    = document.getElementById(`dr${i}`)?.value  || '0';
+    const adr   = document.getElementById(`adr${i}`)?.value || '0';
+    const spec  = document.getElementById(`spec${i}`)?.checked;
+    const pupil = document.getElementById(`pupil${i}`)?.checked;
+    const nova  = document.getElementById(`nova${i}`)?.checked;
+    const stars = [spec && 'Specter', pupil && 'Pupil', nova && 'Nova'].filter(Boolean);
+    const artAcro = ART_ACRONYM[art] || art.slice(0,3).toUpperCase();
+    const pos   = i + 1;
+
+    el.innerHTML = `
+        <span class="vi" style="color:var(--accent);font-weight:bold;font-size:11px">P${pos}</span>
+        <span class="vi" style="color:#e2e8f0;font-weight:bold;font-size:11px">${hero}</span>
+        <span class="vi" style="color:#64748b;font-size:9px">──</span>
+        <span class="vi" style="color:#fcd34d">${artAcro}</span>
+        <span class="vi" style="color:#94a3b8">${spd}</span>
+        <span class="vi" style="color:#38bdf8">${eff}%CI</span>
+        <span class="vi" style="color:#a3e635">${dodge}% Dg</span>
+        <span class="vi" style="color:#fb923c">${dr}% DR</span>
+        <span class="vi" style="color:#f472b6">${adr}% ADR</span>
+        ${stars.map(s => `<span class="vi" style="color:#a78bfa">${s}</span>`).join('')}
+    `;
+}
+
 function buildCardHTML(i, d) {
     return `<div class="hero-card-wrapper" id="wrapper${i}" draggable="true"
         ondragstart="onDragStart(event, ${i})"
@@ -198,52 +262,75 @@ function buildCardHTML(i, d) {
         ondragleave="onDragLeave(event, ${i})"
         ondrop="onDrop(event, ${i})">
       <span class="drag-handle" title="Drag to reorder">⠿⠿</span>
-      <div class="card">
-        <h3>POS ${i+1}</h3>
-        <select id="h${i}" onchange="updateDCLabel();updateCardCI(${i});refreshLowHPDropdowns()">${HEROES.map(h=>`<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
-        <select id="a${i}" onchange="updateCardCI(${i})">${ARTS.map(a=>`<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
-        <div style="display:flex;gap:5px;margin-top:4px;">
-            <div style="flex:1">
-                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">SPD</label>
-                <input type="number" id="s${i}" value="${d.s}" placeholder="SPD" style="width:100%">
-            </div>
-            <div style="flex:1">
-                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Base CI %</label>
-                <input type="number" id="ci${i}" value="${d.ci}" placeholder="CI%" style="width:100%" oninput="updateCardCI(${i})">
-            </div>
-            <div style="flex:1">
-                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Dodge %</label>
-                <input type="number" id="dg${i}" value="0" min="0" max="100" placeholder="Dodge%" style="width:100%">
-            </div>
+      <div class="card" style="padding:10px;">
+        <div class="card-header" id="card-hdr${i}" onclick="toggleCard(${i})">
+          <span class="card-title">POS ${i+1}</span>
+          <span class="collapse-arrow">▼</span>
         </div>
-        <div style="display:flex;gap:5px;margin-top:4px;">
-            <div style="flex:1">
-                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Pre-Battle DR %</label>
-                <input type="number" id="dr${i}" value="0" min="0" placeholder="DR%" style="width:100%">
+        <div class="card-vert-label" id="card-vert${i}" onclick="toggleCard(${i})"></div>
+        <div class="card-body" id="card-body${i}">
+          <select id="h${i}" onchange="updateDCLabel();updateCardCI(${i});refreshLowHPDropdowns();updateCardSummary(${i})" style="margin-top:6px">${HEROES.map(h=>`<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
+          <select id="a${i}" onchange="updateCardCI(${i});updateCardSummary(${i})">${ARTS.map(a=>`<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
+          <div style="display:flex;gap:5px;margin-top:4px;">
+              <div style="flex:1">
+                  <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">SPD</label>
+                  <input type="number" id="s${i}" value="${d.s}" placeholder="SPD" style="width:100%" oninput="updateCardSummary(${i})">
+              </div>
+              <div style="flex:1">
+                  <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Base CI %</label>
+                  <input type="number" id="ci${i}" value="${d.ci}" placeholder="CI%" style="width:100%" oninput="updateCardCI(${i});updateCardSummary(${i})">
+              </div>
+              <div style="flex:1">
+                  <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Dodge %</label>
+                  <input type="number" id="dg${i}" value="0" min="0" max="100" placeholder="Dodge%" style="width:100%" oninput="updateCardSummary(${i})">
+              </div>
+          </div>
+          <div style="display:flex;gap:5px;margin-top:4px;">
+              <div style="flex:1">
+                  <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Pre-Battle DR %</label>
+                  <input type="number" id="dr${i}" value="0" min="0" placeholder="DR%" style="width:100%" oninput="updateCardSummary(${i})">
+              </div>
+              <div style="flex:1">
+                  <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">All DMG Reduction %</label>
+                  <input type="number" id="adr${i}" value="0" min="0" placeholder="ADR%" style="width:100%" oninput="updateCardSummary(${i})">
+              </div>
+          </div>
+          <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;">
+              <div style="display:flex;gap:3px;">
+                  <label style="flex:1;font-size:11px;background:#1e293b;border:1px solid #334155;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="spec${i}" onchange="updateCardSummary(${i})"> Specter</label>
+                  <label style="flex:1;font-size:11px;background:#1e293b;border:1px solid #334155;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="pupil${i}" onchange="updateCardSummary(${i})"> Pupil</label>
+                  <label style="flex:1;font-size:11px;background:#1e293b;border:1px solid #334155;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="nova${i}" onchange="updateCardSummary(${i})"> Nova</label>
+              </div>
+              <div style="display:flex;gap:3px;">
+                  <label style="flex:1;font-size:11px;background:#1e293b40;border:1px solid #ef444430;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer;color:#fca5a5"><input type="checkbox" id="fearImm${i}"> Fear</label>
+                  <label style="flex:1;font-size:11px;background:#78350f30;border:1px solid #f59e0b50;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer;color:#fcd34d"><input type="checkbox" id="sealImm${i}"> Seal</label>
+                  <label style="flex:1;font-size:11px;background:#1e3a5f40;border:1px solid #38bdf850;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer;color:#7dd3fc"><input type="checkbox" id="silImm${i}"> Silence</label>
+              </div>
+          </div>
+          <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
+              <label style="font-size:11px" id="stellarLbl${i}"><input type="checkbox" id="stellar${i}" onchange="updateCardCI(${i});updateCardSummary(${i})"> Void CI (+35)</label>
+              <span style="font-size:11px;color:#38bdf8;font-weight:bold" id="effCI${i}"></span>
+          </div>
+          <label style="margin-top:4px;display:block;font-size:11px"><input type="radio" name="max" value="${i}" ${i===0?'checked':''} onchange="updateDCLabel();updateDmgCalcVisibility()"> Max ATK</label>
+          <label style="margin-top:4px;display:block;font-size:11px;color:#a78bfa"><input type="checkbox" id="upgPurify${i}"> ✦ Upgraded Control Purify</label>
+          <div id="dmgCalc${i}" style="display:${i===0?'block':'none'};margin-top:10px;padding-top:10px;border-top:1px solid #334155;">
+            <div style="color:#facc15;font-size:11px;font-weight:bold;margin-bottom:6px;">⚔️ Damage Calculator</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">ATK</label><input type="number" id="dc_atk" value="750000000" style="width:100%"></div>
+              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Skill DMG %</label><input type="number" id="dc_skill" value="1500" style="width:100%"></div>
+              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Precision %</label><input type="number" id="dc_prec" value="150" style="width:100%"></div>
+              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Holy DMG %</label><input type="number" id="dc_holy" value="230" style="width:100%"></div>
+              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">All DMG %</label><input type="number" id="dc_alldmg" value="140" style="width:100%"></div>
+              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Crit %</label><input type="number" id="dc_crit" value="35" style="width:100%"></div>
+              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Crit DMG %</label><input type="number" id="dc_cd" value="150" style="width:100%"></div>
+              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Temple DMG %</label><input type="number" id="dc_temple" value="160" style="width:100%"></div>
             </div>
-            <div style="flex:1">
-                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">All DMG Reduction %</label>
-                <input type="number" id="adr${i}" value="0" min="0" placeholder="ADR%" style="width:100%">
+            <div style="display:flex;gap:12px;margin-top:6px;">
+              <label style="font-size:11px;"><input type="checkbox" id="dc_defier" checked> Defier</label>
+              <label style="font-size:11px;"><input type="checkbox" id="dc_gk" checked> Giant Killer</label>
             </div>
+          </div>
         </div>
-        <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;">
-            <div style="display:flex;gap:3px;">
-                <label style="flex:1;font-size:11px;background:#1e293b;border:1px solid #334155;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="spec${i}"> Specter</label>
-                <label style="flex:1;font-size:11px;background:#1e293b;border:1px solid #334155;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="pupil${i}"> Pupil</label>
-                <label style="flex:1;font-size:11px;background:#1e293b;border:1px solid #334155;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="nova${i}"> Nova</label>
-            </div>
-            <div style="display:flex;gap:3px;">
-                <label style="flex:1;font-size:11px;background:#1e293b40;border:1px solid #ef444430;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer;color:#fca5a5"><input type="checkbox" id="fearImm${i}"> Fear</label>
-                <label style="flex:1;font-size:11px;background:#78350f30;border:1px solid #f59e0b50;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer;color:#fcd34d"><input type="checkbox" id="sealImm${i}"> Seal</label>
-                <label style="flex:1;font-size:11px;background:#1e3a5f40;border:1px solid #38bdf850;border-radius:5px;padding:3px 5px;display:flex;align-items:center;gap:4px;cursor:pointer;color:#7dd3fc"><input type="checkbox" id="silImm${i}"> Silence</label>
-            </div>
-        </div>
-        <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
-            <label style="font-size:11px" id="stellarLbl${i}"><input type="checkbox" id="stellar${i}" onchange="updateCardCI(${i})"> Void CI (+35)</label>
-            <span style="font-size:11px;color:#38bdf8;font-weight:bold" id="effCI${i}"></span>
-        </div>
-        <label style="margin-top:4px;display:block;font-size:11px"><input type="radio" name="max" value="${i}" ${i===0?'checked':''} onchange="updateDCLabel()"> Max ATK</label>
-        <label style="margin-top:4px;display:block;font-size:11px;color:#a78bfa"><input type="checkbox" id="upgPurify${i}"> ✦ Upgraded Control Purify</label>
       </div>
     </div>`;
 }
@@ -362,6 +449,8 @@ function swapCards(a, b) {
     // Refresh dependent UI
     updateCardCI(a);
     updateCardCI(b);
+    updateCardSummary(a);
+    updateCardSummary(b);
     updateDCLabel();
     refreshLowHPDropdowns();
 
@@ -445,7 +534,10 @@ window.addEventListener('load', () => {
     for (let i = 0; i < 6; i++) {
         document.getElementById(`h${i}`).addEventListener('change', refreshLowHPDropdowns);
         updateCardCI(i);
+        updateCardSummary(i);
         document.getElementById(`a${i}`)?.addEventListener('change', () => updateCardCI(i));
+        // Start all collapsed except position 0
+        if (i > 0) toggleCard(i);
     }
 });
 
@@ -713,32 +805,37 @@ function triggerNova(u) {
     }
 }
 
-function toggleDmgCalc() {
-    const panel = document.getElementById('dmgCalcPanel');
-    const arrow = document.getElementById('dmgCalcArrow');
-    if (panel.style.display === 'none') {
-        panel.style.display = 'block';
-        arrow.textContent = '▲';
-    } else {
-        panel.style.display = 'none';
-        arrow.textContent = '▼';
+function toggleSection(bodyId, arrowId) {
+    const body  = document.getElementById(bodyId);
+    const arrow = document.getElementById(arrowId);
+    const isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? '' : 'none';
+    arrow.style.transform = isHidden ? '' : 'rotate(-90deg)';
+}
+
+function updateDmgCalcVisibility() {
+    const mIdx = parseInt(document.querySelector('input[name="max"]:checked')?.value ?? 0);
+    for (let i = 0; i < 6; i++) {
+        const el = document.getElementById(`dmgCalc${i}`);
+        if (el) el.style.display = (i === mIdx) ? 'block' : 'none';
     }
+    // Also expand the card if it's collapsed
+    const wrapper = document.getElementById(`wrapper${mIdx}`);
+    if (wrapper && wrapper.classList.contains('is-collapsed')) toggleCard(mIdx);
 }
 
 function getDmgCalcInputs() {
-    const panel = document.getElementById('dmgCalcPanel');
-    if (panel.style.display === 'none' && !window.optimizerContext) return null;
     return {
-        atk:    parseFloat(document.getElementById('dc_atk').value)    || 0,
-        skill:  parseFloat(document.getElementById('dc_skill').value)  || 0,
-        prec:   parseFloat(document.getElementById('dc_prec').value)   || 0,
-        holy:   parseFloat(document.getElementById('dc_holy').value)   || 0,
-        alldmg: parseFloat(document.getElementById('dc_alldmg').value) || 0,
-        crit:   parseFloat(document.getElementById('dc_crit').value)   || 0,
-        cd:     parseFloat(document.getElementById('dc_cd').value)     || 150,
-        defier: document.getElementById('dc_defier').checked,
-        gk:     document.getElementById('dc_gk').checked,
-        temple: parseFloat(document.getElementById('dc_temple').value) || 0,
+        atk:    parseFloat(document.getElementById('dc_atk')?.value)    || 0,
+        skill:  parseFloat(document.getElementById('dc_skill')?.value)  || 0,
+        prec:   parseFloat(document.getElementById('dc_prec')?.value)   || 0,
+        holy:   parseFloat(document.getElementById('dc_holy')?.value)   || 0,
+        alldmg: parseFloat(document.getElementById('dc_alldmg')?.value) || 0,
+        crit:   parseFloat(document.getElementById('dc_crit')?.value)   || 0,
+        cd:     parseFloat(document.getElementById('dc_cd')?.value)     || 150,
+        defier: document.getElementById('dc_defier')?.checked || false,
+        gk:     document.getElementById('dc_gk')?.checked || false,
+        temple: parseFloat(document.getElementById('dc_temple')?.value) || 0,
     };
 }
 
@@ -1261,6 +1358,12 @@ function runOne(ov = null) {
                         const watcherMarkMult  = 1 + (boss.watcherMark || 0);
                         const burnBonusMult    = (boss.burn > 0) ? 1 + getBuffTotal(u, "burnBonus") : 1.0;
 
+                        const modMult = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+                        let hitLog = []; let totalDmg = 0;
+                        let srcHits = 0, srcDKM = 0, srcLethal = 0, srcBS = 0, srcAddl = 0;
+                        let anyCritMiss = false;
+                        let hits14Sum = 0;
+
                         function calcHitTracked(multPct) {
                             const base = dc.atk
                                 * (1 + atkBuff)
@@ -1270,13 +1373,9 @@ function runOne(ov = null) {
                                 * allDmgMult * gkMult * defMult * templeMult * shrinkMult
                                 * antiwarriorMult * watcherMarkMult * burnBonusMult;
                             const isCrit = Math.random() < (critBuff + 0.10);
+                            if (!isCrit) anyCritMiss = true;
                             return isCrit ? base * critMult : base;
                         }
-                        const modMult = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
-                        let hitLog = []; let totalDmg = 0;
-                        let srcHits = 0, srcDKM = 0, srcLethal = 0, srcBS = 0, srcAddl = 0;
-                        let anyCritMiss = false;
-                        let hits14Sum = 0;
 
                         for (let h = 1; h <= 2; h++) {
                             const d = calcHitTracked(12); totalDmg += d; hits14Sum += d;
@@ -2018,12 +2117,6 @@ function runOptimizer() {
     const prog = document.getElementById('optProgress');
     const out  = document.getElementById('optOutput');
 
-    const dcPanel = document.getElementById('dmgCalcPanel');
-    if (!dcPanel || dcPanel.style.display === 'none') {
-        alert('Please open the Damage Calculator panel first.');
-        return;
-    }
-
     btn.disabled = true;
     btn.textContent = '⏳ Optimizing...';
     prog.style.display = 'block';
@@ -2509,8 +2602,6 @@ function runCritOptimizer() {
     const btn  = document.getElementById('critOptBtn');
     const prog = document.getElementById('critOptProgress');
     const out  = document.getElementById('critOptOutput');
-    const dcPanel = document.getElementById('dmgCalcPanel');
-    if (!dcPanel || dcPanel.style.display === 'none') { alert('Please open the Damage Calculator panel first.'); return; }
     btn.disabled = true; btn.textContent = '⏳ Optimizing...'; prog.style.display = 'block'; out.innerHTML = '';
     const mIdx = parseInt(document.querySelector('input[name="max"]:checked').value);
     const FIGHTS_PER_VALUE = 100;
@@ -2572,10 +2663,7 @@ function finishCritOptimizer(results, mIdx) {
 
 // ── DC label ──────────────────────────────────────────────────────────────
 function updateDCLabel() {
-    const mIdx = parseInt(document.querySelector('input[name="max"]:checked')?.value || 0);
-    const heroName = document.getElementById(`h${mIdx}`)?.value || 'Max ATK Hero';
-    const lbl = document.getElementById('dcHeroLabel');
-    if (lbl) lbl.textContent = heroName;
+    updateDmgCalcVisibility();
 }
 
 // ── DGN helpers ───────────────────────────────────────────────────────────
