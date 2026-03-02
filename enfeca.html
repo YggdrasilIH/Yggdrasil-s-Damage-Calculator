@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SE Simulator</title>
+    <title>Curse of Decay: Full Restoration & HD Tracking</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         :root { --bg: #0b0e14; --card: #1a1f2e; --accent: #38bdf8; --text: #cbd5e1; --border: #334155; }
@@ -117,6 +117,7 @@
 </div>
 
 <div class="grid" id="hero-inputs"></div>
+<div id="teamBonusDisplay" style="max-width:860px;margin-bottom:10px;padding:6px 14px;background:#0b0e14;border:1px solid #1e293b;border-radius:6px;font-size:11px;color:#94a3b8;display:flex;gap:16px;flex-wrap:wrap;"></div>
 
 <!-- ═══ PUPIL (collapsible) ═══ -->
 <div style="margin-bottom:10px;border:1px solid #334155;border-radius:8px;background:var(--card);overflow:hidden;max-width:860px;">
@@ -315,7 +316,7 @@ function updateCardSummary(i) {
         : (art !== 'None' ? `<span class="vi" style="color:#fcd34d;font-size:9px">${(ART_ACRONYM[art]||art.slice(0,3).toUpperCase())}</span>` : '');
 
     el.innerHTML = `
-        <span class="vi" style="color:var(--accent);font-weight:bold;font-size:10px">P${pos}</span>
+        <span class="vi" style="color:var(--accent);font-weight:bold;font-size:10px">${pos <= 2 ? "Front " + pos : "Back " + pos}</span>
         ${heroImg}
         ${artImg}
         <span class="vi" style="color:#94a3b8;font-size:9px">${spd} SPD</span>
@@ -629,6 +630,7 @@ window.addEventListener('load', () => {
         // Start all collapsed
         toggleCard(i);
     }
+    updateTeamBonusDisplay();
 });
 
 let units = [], boss = {}, silent = false, bossHDStacks = 0, bossHPTier = "above70";
@@ -1231,9 +1233,14 @@ function runOne(ov = null) {
     log(`⚔️ ═══ BATTLE START CI BONUSES ═══`, "#facc15");
     units.forEach(u => {
         // 1. Team CI bonus: flat +15% to all heroes
-        u.buffs.ci.push({ value: 0.12, rounds: 999, source: "Team CI Bonus" });
+        const _hasELY = units.some(x => x.name === "ELY");
+        const _hasHW  = units.some(x => x.name === "HW");
+        const _teamCI = (18 - (_hasELY ? 3 : 0) - (_hasHW ? 3 : 0)) / 100;
+        const _teamDR = (9  + (_hasELY ? 0.5 : 0) + (_hasHW ? 0.5 : 0)) / 100;
+        u.buffs.ci.push({ value: _teamCI, rounds: 999, source: "Team CI Bonus" });
+        u.buffs.dr.push({ value: _teamDR, rounds: 999, source: "Team DR Bonus" });
         let teamTotal = u.baseCI + getBuffTotal(u, "ci");
-        log(`&nbsp;&nbsp;&nbsp;💠 [TEAM CI BONUS] ${u.name} +12% CI (permanent) | Eff. CI now: ${(teamTotal*100).toFixed(1)}%`, "#facc15");
+        log(`&nbsp;&nbsp;&nbsp;💠 [TEAM BONUS] ${u.name} +${(_teamCI*100).toFixed(0)}% CI, +${(_teamDR*100).toFixed(1)}% DR (permanent) | Eff. CI now: ${(teamTotal*100).toFixed(1)}%`, "#facc15");
 
         // 2. Sub-100% pre-battle CI bonus: 20% of remainder below 100%
         if (u.baseCI < 1.0) {
@@ -1319,6 +1326,8 @@ function runOne(ov = null) {
         units.forEach(u => {
             u.infuseUsed = false;
             u.boundlessTriggers = 0;
+            u.mirrorMagicWingsUsed = false;
+            u.dreamMagicWingsReactions = 0;
             if (u.franticGluttony) {
                 u.franticGluttonyRounds--;
                 if (u.franticGluttonyRounds <= 0) {
@@ -1850,7 +1859,7 @@ function runOne(ov = null) {
                         let hspd = units.reduce((a,b)=>(a.spd>b.spd?a:b));
                         addBuff(hspd, "drOffset", 0.20, 2, "Shadow CI Offset");
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [SHADOW] All +20%SPD (2r); ${hspd.name} +20% CI Offset (2r)`, "#f0abfc");
-                        if (Math.random() < 0.5) log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [SHADOW DEEP] Boss SPD -10 for 2 rounds (tracked)`, "#f0abfc");
+                        if (Math.random() < 0.5) { boss.spdDebuff = (boss.spdDebuff || 0) + 10; boss.spdDebuffRounds = 2; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [SHADOW DEEP] Boss SPD -10 for 2 rounds (total: -${boss.spdDebuff})`, "#f0abfc"); }
                         if (Math.random() < 0.5) {
                             if (checkC(hspd, "LBRM Shadow Noble", "+50")) hspd.energy += 50;
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [SHADOW NOBLE] ${hspd.name} +50 energy (50% proc)`, "#f0abfc");
@@ -1971,14 +1980,13 @@ function runOne(ov = null) {
                         if (transEffect === 0) {
                             units.filter(a => a.dreamMagicWings || a.mirrorMagicWings).forEach(a => {
                                 tryBuff(a, "atk", 0.20, 2, "LBRM Trans Wings ATK");
-                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 1] ${a.name} (Wings) +20% ATK 2r`, "#f0abfc");
+                                a.ccRemovalBonus = Math.min(2, (a.ccRemovalBonus || 0) + 1);
+                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 1] ${a.name} (Wings) +20% ATK 2r, +1 CC removal attempt (total: ${a.ccRemovalBonus})`, "#f0abfc");
                             });
                         } else if (transEffect === 1) {
                             units.filter(a => a.dreamMagicMagnification || a.mirrorMagicMagnification).forEach(a => {
                                 addBuff(a, "allDmgReduction", 0.10, 2, "LBRM Trans Magnification DR");
-                                a.hp = Math.min(100, a.hp + 33);
-                                trackStat(a, "healingDone", 33);
-                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 2] ${a.name} (Magnification) +10% allDmgReduction 2r, +33% HP`, "#f0abfc");
+                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 2] ${a.name} (Magnification) +10% allDmgReduction 2r`, "#f0abfc");
                             });
                         } else {
                             units.filter(a => a.dreamMagicProtection || a.mirrorMagicProtection).forEach(a => {
@@ -2076,16 +2084,9 @@ function runOne(ov = null) {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${u.name} +2 Calamity (now ${u.calamity}) & +2 Curse (now ${u.curse})`, "#ef4444");
                 trigCal(u);
 
-                let lbrm2 = units.find(x => x.name === "LBRM" && x.cc.seal <= 0);
-                if (lbrm2 && lbrm2.energy >= 30) {
-                    lbrm2.energy -= 30;
-                    lbrm2.powerOfDream = Math.min(3, lbrm2.powerOfDream + 1);
-                    let ccKeys2 = ["silence","fear","seal"].filter(k => u.cc[k] > 0);
-                    if (ccKeys2.length > 0) { let rem2 = ccKeys2[Math.floor(Math.random()*ccKeys2.length)]; u.cc[rem2]=0; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BRILLIANT BOON] ${u.name} ${rem2} removed, LBRM PoD=${lbrm2.powerOfDream}`, "#f0abfc"); }
-                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BRILLIANT BOON DEEP] ${u.name} Shield 3500% ATK granted`, "#f0abfc");
-                }
-                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚡ ${u.name} hit by boss active: +10 Energy`, "#38bdf8");
-                if (checkC(u, "Boss Active Hit Energy", "+10")) u.energy += 10;
+
+                u.energy += 10;
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚡ ${u.name} hit by boss active: +10 Energy (direct)`, "#38bdf8");
 
                 let specterWearer = units.find(s => s.hasS);
                 if (specterWearer && specterWearer.cc.seal <= 0) {
@@ -2093,16 +2094,7 @@ function runOne(ov = null) {
                     if (checkC(u, "Boss Active Hit Specter Bonus", "+10")) u.energy += 10;
                 }
 
-                if (u.name === "LBRM" && !u.mirrorMagicWingsUsed) {
-                    u.mirrorMagicWingsUsed = true;
-                    let ccK = ["silence","fear","seal"].filter(k => u.cc[k] > 0);
-                    if (ccK.length > 0) {
-                        let rk = ccK[Math.floor(Math.random()*ccK.length)];
-                        u.cc[rk] = 0;
-                        if (checkC(u, "LBRM Mirror Wings", "+30")) u.energy += 30;
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [MIRROR WINGS] ${u.name} CC removed (${rk}), +30 energy`, "#f0abfc");
-                    }
-                }
+
                 if (u.name === "STV") {
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [FATAL ALLURE] STV hit by boss active`, "#a78bfa");
                     if (Math.random() < 0.80) {
@@ -2147,6 +2139,16 @@ function runOne(ov = null) {
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✦ ${u.name} UPGRADED PURIFY removes ${pick2.toUpperCase()}`, "#a78bfa");
                     }
                 }
+                // ccRemovalBonus from LBRM Trans 1 (Wings effect)
+                let bonusRemovals = u.ccRemovalBonus || 0;
+                for (let b = 0; b < bonusRemovals; b++) {
+                    activeCC = ccTypes.filter(t => u.cc[t] > 0);
+                    if (activeCC.length === 0) break;
+                    let pickB = activeCC[Math.floor(Math.random() * activeCC.length)];
+                    u.cc[pickB] = 0;
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [WINGS CC BONUS] ${u.name} removes ${pickB.toUpperCase()} (bonus ${b+1}/${bonusRemovals})`, "#f0abfc");
+                }
+                u.ccRemovalBonus = 0;
             } else {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ ${u.name} has no CC to remove`, "#a78bfa");
             }
@@ -3772,13 +3774,26 @@ function getGlobalCI() {
     return (parseFloat(document.getElementById('seTrainCI')?.value) || 0)
          + (parseFloat(document.getElementById('petCI')?.value) || 0);
 }
+function getTeamBonus() {
+    const heroes = Array.from({length: 6}, (_, i) => document.getElementById(`h${i}`)?.value || '');
+    const hasELY = heroes.includes('ELY');
+    const hasHW  = heroes.includes('HW');
+    const ci = 18 - (hasELY ? 3 : 0) - (hasHW ? 3 : 0);
+    const dr = 9 + (hasELY ? 0.5 : 0) + (hasHW ? 0.5 : 0);
+    return { ci, dr };
+}
+function updateTeamBonusDisplay() {
+    const { ci, dr } = getTeamBonus();
+    const el = document.getElementById('teamBonusDisplay');
+    if (el) el.innerHTML = `<span style="color:#64748b;font-size:10px;font-weight:600;letter-spacing:0.05em;">TEAM BONUS</span><span style="color:#38bdf8">&#x1F6E1; ${ci}% Control Immunity</span><span style="color:#fb923c">&#x1F6E1; ${dr}% Damage Reduction</span>`;
+}
 function getEffectiveCI(i) {
     const hero    = document.getElementById(`h${i}`)?.value || '';
     const art     = document.getElementById(`a${i}`)?.value || '';
     const base    = parseFloat(document.getElementById(`ci${i}`)?.value) || 0;
     const stellar = document.getElementById(`stellar${i}`)?.checked && STELLAR_HEROES.includes(hero) ? 35 : 0;
     const artCI   = ART_CI_BONUS[art] || 0;
-    return base + stellar + artCI + getGlobalCI();
+    return base + stellar + artCI + getGlobalCI() + getTeamBonus().ci;
 }
 function updateAllCardCI() {
     const tot = getGlobalCI();
@@ -3794,6 +3809,13 @@ function updateCardCI(i) {
     const eff = getEffectiveCI(i);
     const el  = document.getElementById(`effCI${i}`);
     if (el) el.textContent = `→ ${eff}%`;
+    updateTeamBonusDisplay();
+    for (let j = 0; j < 6; j++) {
+        if (j === i) continue;
+        const ej = getEffectiveCI(j);
+        const elj = document.getElementById(`effCI${j}`);
+        if (elj) elj.textContent = `→ ${ej}%`;
+    }
 }
 </script>
 </body>
