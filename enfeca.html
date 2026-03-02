@@ -3174,7 +3174,7 @@ function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
             const artName = r.arts[hi];
             const artCI = artName === 'Spiritual Mirror' ? 20 : artName === 'Scissors' ? 24 : artName === 'Jade Toad' ? 32 : 0;
             const voidOn = r.voidCI && r.voidCI[hi];
-            const effCI = ci != null ? (ci + artCI + (voidOn ? 35 : 0)) : null;
+            const effCI = ci != null ? (ci + artCI + (voidOn ? 35 : 0) + getGlobalCI() + getTeamBonus().ci) : null;
             const ciTag = effCI != null ? `<span style="color:#38bdf8;font-size:10px"> ${effCI}%CI</span>` : '';
             return `<span style="color:#64748b;font-size:10px">${slot+1}.</span> ` +
                 `<span style="color:${slot<2?'#f87171':'#94a3b8'}">${heroNames[hi]}</span> ` +
