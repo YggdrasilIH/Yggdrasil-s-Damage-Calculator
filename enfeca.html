@@ -3096,6 +3096,7 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog, hero
 
         const r = builds[bIdx];
         const useCrit = r.optimalCrit ?? (parseInt(origCrit) || 0);
+        r.optimalCrit = useCrit;
         critInput.value = useCrit;
 
         if (step === 0) {
@@ -3285,7 +3286,7 @@ function runCritOptimizer() {
     out.innerHTML = '';
 
     const mIdx = parseInt(document.querySelector('input[name="max"]:checked').value);
-    const FIGHTS_PER_VALUE = 100;
+    const FIGHTS_PER_VALUE = 500;
     const results = []; // { crit, avgDmg }
 
     // Sweep crit 0% to 100% in 1% steps
