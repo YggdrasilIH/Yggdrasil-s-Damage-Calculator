@@ -99,6 +99,23 @@
 </head>
 <body>
 
+<!-- ═══ TITLE HEADER ═══ -->
+<div style="max-width:860px;margin-bottom:12px;padding:10px 14px 8px;background:linear-gradient(135deg,#0f172a 0%,#1a1f2e 60%,#0c1425 100%);border:1px solid #334155;border-radius:8px;position:relative;overflow:hidden;">
+  <div style="position:absolute;top:-40px;left:-40px;width:180px;height:180px;background:radial-gradient(circle,#38bdf818 0%,transparent 70%);pointer-events:none;"></div>
+  <div style="position:relative;">
+    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+      <h1 style="margin:0;font-size:17px;font-weight:800;letter-spacing:0.04em;background:linear-gradient(90deg,#38bdf8,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Star Expedition Simulator</h1>
+      <span style="font-size:11px;color:#64748b;font-style:italic;">by Yggdrasil</span>
+    </div>
+    <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">
+      <span style="display:inline-flex;align-items:center;gap:4px;background:#0b0e14;border:1px solid #1e293b;border-radius:20px;padding:2px 8px;font-size:10px;color:#64748b;"><span style="color:#38bdf8">&#9658;</span> Click panel to expand</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;background:#0b0e14;border:1px solid #1e293b;border-radius:20px;padding:2px 8px;font-size:10px;color:#64748b;"><span style="color:#a78bfa">&#8286;</span> Drag to reorder</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;background:#0b0e14;border:1px solid #1e293b;border-radius:20px;padding:2px 8px;font-size:10px;color:#64748b;"><span style="color:#facc15">&#9733;</span> Set Highest ATK on your damage dealer</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;background:#0b0e14;border:1px solid #1e293b;border-radius:20px;padding:2px 8px;font-size:10px;color:#64748b;"><span style="color:#4ade80">&#128190;</span> Save &amp; load builds below</span>
+    </div>
+  </div>
+</div>
+
 <div class="grid" id="hero-inputs"></div>
 
 <!-- ═══ PUPIL (collapsible) ═══ -->
@@ -373,7 +390,7 @@ function buildCardHTML(i, d) {
               <label style="font-size:11px" id="stellarLbl${i}"><input type="checkbox" id="stellar${i}" onchange="updateCardCI(${i});updateCardSummary(${i})"> Void CI (+35)</label>
               <span style="font-size:11px;color:#38bdf8;font-weight:bold" id="effCI${i}"></span>
           </div>
-          <label style="margin-top:4px;display:block;font-size:11px"><input type="radio" name="max" value="${i}" ${i===0?'checked':''} onchange="updateDCLabel();updateDmgCalcVisibility()"> Max ATK</label>
+          <label style="margin-top:4px;display:block;font-size:11px"><input type="radio" name="max" value="${i}" ${i===0?'checked':''} onchange="updateDCLabel();updateDmgCalcVisibility()"> Highest ATK</label>
           <label style="margin-top:4px;display:block;font-size:11px;color:#a78bfa"><input type="checkbox" id="upgPurify${i}"> ✦ Upgraded Control Purify</label>
           <div id="dmgCalc${i}" style="display:${i===0?'block':'none'};margin-top:10px;padding-top:10px;border-top:1px solid #334155;">
             <div style="color:#facc15;font-size:11px;font-weight:bold;margin-bottom:6px;">⚔️ Damage Calculator</div>
@@ -480,6 +497,7 @@ function applyCardData(i, d) {
     chk(`upgPurify${i}`, d.upgPurify);
     // Radio: max ATK — only set if that card originally held it
     if (d.maxAtk) {
+        document.querySelectorAll('input[name="max"]').forEach(r => r.checked = false);
         const radio = document.querySelector(`input[name="max"][value="${i}"]`);
         if (radio) radio.checked = true;
     }
@@ -608,8 +626,8 @@ window.addEventListener('load', () => {
         updateCardCI(i);
         updateCardSummary(i);
         document.getElementById(`a${i}`)?.addEventListener('change', () => updateCardCI(i));
-        // Start all collapsed except position 0
-        if (i > 0) toggleCard(i);
+        // Start all collapsed
+        toggleCard(i);
     }
 });
 
@@ -897,11 +915,13 @@ function collectFullState() {
         cards,
         env: {
             seTrainCI: get('seTrainCI'),
+            petCI:     get('petCI'),
             bossHP:    get('bossHP'),
             isl8:      chkd('isl8'),
             isl9:      chkd('isl9'),
             isl10:     chkd('isl10'),
             isl11:     chkd('isl11'),
+            fearGT:    chkd('fearGT'),
             lowhp0:    get('lowhp0'),
             lowhp1:    get('lowhp1'),
             lowhp2:    get('lowhp2'),
@@ -933,12 +953,13 @@ function applyFullState(state) {
     const chk  = (id, val) => { const el = document.getElementById(id); if (el && val !== undefined) el.checked = val; };
     if (state.env) {
         set('seTrainCI', state.env.seTrainCI);
+        set('petCI',     state.env.petCI);
         set('bossHP',    state.env.bossHP);
-        chk('isl8',  state.env.isl8);
-        chk('isl9',  state.env.isl9);
-        chk('isl10', state.env.isl10);
-        chk('isl11', state.env.isl11);
-        // lowhp dropdowns need a tick to populate first
+        chk('isl8',    state.env.isl8);
+        chk('isl9',    state.env.isl9);
+        chk('isl10',   state.env.isl10);
+        chk('isl11',   state.env.isl11);
+        chk('fearGT',  state.env.fearGT);
         setTimeout(() => {
             set('lowhp0', state.env.lowhp0);
             set('lowhp1', state.env.lowhp1);
@@ -959,6 +980,7 @@ function applyFullState(state) {
     }
     updateAllCardCI();
     updateDCLabel();
+    updateDmgCalcVisibility();
     refreshLowHPDropdowns();
 }
 
