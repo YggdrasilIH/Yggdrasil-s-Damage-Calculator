@@ -1937,6 +1937,7 @@ function runOne(ov = null) {
                 }
                 if (u.name === "LBRM" && !silenced) {
                     if (u.powerOfDream >= 2) {
+                        u.acts++; if (u.actsByRound) u.actsByRound[r-1]++;
                         log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM] Power of Dream ≥2 → Dreamland Dominion fires as basic! (+6 trans)`, "#f0abfc");
                         // Apply imprint basic effects as if this were a basic action
                         if (imp === "foresight") {
@@ -3994,7 +3995,7 @@ function buildDmgHistogramHTML(samples, magCounts) {
         bins[bi]++;
     });
     const maxB = Math.max(...bins);
-    const W = 320, H = 80, PAD = {l:4, r:4, t:4, b:18};
+    const W = 320, H = 90, PAD = {l:4, r:4, t:4, b:28};
     const cW = W - PAD.l - PAD.r, cH = H - PAD.t - PAD.b;
     const barW = cW / BINS;
     const toY = v => PAD.t + cH - (v / maxB) * cH;
@@ -4010,18 +4011,27 @@ function buildDmgHistogramHTML(samples, magCounts) {
         if (v === 0) return '';
         return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(barW-0.5).toFixed(1)}" height="${h.toFixed(1)}" fill="${colOf(i)}" opacity="0.85"/>`;
     }).join('');
-    // X labels: min and max
     const fmtD = d => {
         if (d >= 1e23) return (d/1e23).toFixed(1)+'e23';
         if (d >= 1e22) return (d/1e22).toFixed(1)+'e22';
         if (d >= 1e21) return (d/1e21).toFixed(1)+'e21';
         return (d/1e20).toFixed(1)+'e20';
     };
+    // X-axis labels: 5 evenly spaced ticks
+    const N_TICKS = 5;
+    const xLabels = Array.from({length: N_TICKS}, (_, ti) => {
+        const frac = ti / (N_TICKS - 1);
+        const val = mn + frac * (mx - mn);
+        const x = PAD.l + frac * cW;
+        const anchor = ti === 0 ? 'start' : ti === N_TICKS - 1 ? 'end' : 'middle';
+        return `<line x1="${x.toFixed(1)}" y1="${PAD.t+cH}" x2="${x.toFixed(1)}" y2="${PAD.t+cH+3}" stroke="#334155" stroke-width="1"/>
+                <text x="${x.toFixed(1)}" y="${H-2}" fill="#475569" font-size="8" text-anchor="${anchor}">${fmtD(val)}</text>`;
+    }).join('');
     const svg = `<svg width="${W}" height="${H}" style="display:block;overflow:visible">
         <rect x="${PAD.l}" y="${PAD.t}" width="${cW}" height="${cH}" fill="#0b0e14" rx="2"/>
         ${bars}
-        <text x="${PAD.l}" y="${H-2}" fill="#475569" font-size="9" text-anchor="start">${fmtD(mn)}</text>
-        <text x="${W-PAD.r}" y="${H-2}" fill="#475569" font-size="9" text-anchor="end">${fmtD(mx)}</text>
+        <line x1="${PAD.l}" y1="${PAD.t+cH}" x2="${PAD.l+cW}" y2="${PAD.t+cH}" stroke="#334155" stroke-width="1"/>
+        ${xLabels}
     </svg>`;
 
     // Magnitude badges (existing style)
