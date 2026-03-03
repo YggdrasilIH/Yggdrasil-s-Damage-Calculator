@@ -752,9 +752,44 @@ function trigCal(u) {
                     boss.holyDmg = (boss.holyDmg || 0) + 0.125;
                     log(`&nbsp;&nbsp;&nbsp;📈 [BOSS HD] Fear on ${u.name} → +12.5% Holy Dmg | Total: ${bossHDStacks} stacks (+${(bossHDStacks*12.5).toFixed(1)}%)`, "#38bdf8");
                 }
+                // ── LBRM CC Reactions (fire when any CC lands on any ally) ────────────
+                { const lbrm = units.find(x => x.name === "LBRM" && x.cc.seal <= 0);
+                  // Brilliant Boon: costs 30 energy, removes the CC just applied, +1 PoD
+                  if (lbrm && lbrm.energy >= 30) {
+                      lbrm.energy -= 30;
+                      u.cc[t] = 0;
+                      lbrm.powerOfDream = Math.min(3, (lbrm.powerOfDream || 0) + 1);
+                      log(`&nbsp;&nbsp;&nbsp;🌸 [BRILLIANT BOON] CC on ${u.name} → LBRM spends 30 energy, removes ${t.toUpperCase()}, PoD=${lbrm.powerOfDream}`, "#f0abfc");
+                  }
+                  // Mirror Magic Wings: LBRM only, 1×/round, +30 energy offsettable
+                  if (lbrm && lbrm.mirrorMagicWings && !lbrm.mirrorMagicWingsUsed) {
+                      lbrm.mirrorMagicWingsUsed = true;
+                      if (checkC(lbrm, "Mirror Magic Wings CC Energy", "+30")) lbrm.energy += 30;
+                      log(`&nbsp;&nbsp;&nbsp;🌸 [MIRROR MAGIC WINGS] CC on ${u.name} → LBRM +30 energy (offsettable, 1×/round)`, "#f0abfc");
+                  }
+                  // Dream Magic Wings: any hero with dreamMagicWings, 2×/round, +30 energy direct
+                  units.forEach(a => {
+                      if (a.dreamMagicWings && (a.dreamMagicWingsReactions || 0) < 2) {
+                          a.dreamMagicWingsReactions = (a.dreamMagicWingsReactions || 0) + 1;
+                          a.energy += 30;
+                          log(`&nbsp;&nbsp;&nbsp;🌸 [DREAM MAGIC WINGS] CC on ${u.name} → ${a.name} +30 energy (direct, ${a.dreamMagicWingsReactions}/2 this round)`, "#f0abfc");
+                      }
+                  });
+                }
             }
         });
         u.calamity = 0;
+    }
+}
+
+function setSMBuff(unit, type, value, source) {
+    // Replace existing SM buff in-place, or add if missing
+    const idx = unit.buffs[type].findIndex(b => b.source === source);
+    if (idx >= 0) {
+        unit.buffs[type][idx].value = value;
+        unit.buffs[type][idx].rounds = 999; // persists, decayed manually
+    } else {
+        unit.buffs[type].push({ value, rounds: 999, source });
     }
 }
 
@@ -1269,6 +1304,21 @@ function runOne(ov = null) {
 
     // DGN battle start
     if (units.find(u => u.name === "DGN")) initDGN(units);
+
+    // ── Spiritual Mirror: apply peak buffs at battle start ──────────────────
+    { const smWearers = units.filter(u => u.art === "Spiritual Mirror");
+      if (smWearers.length > 0) {
+          log(`🪞 [SPIRITUAL MIRROR] Battle start: applying peak buffs`, "#38bdf8");
+          units.forEach(a => {
+              const mult = a.art === "Spiritual Mirror" ? 2 : 1;
+              setSMBuff(a, "allDmg", 0.045 * mult, "SM allDmg");
+              setSMBuff(a, "dr",     0.030 * mult, "SM DR");
+              log(`&nbsp;&nbsp;&nbsp;🪞 [SM] ${a.name}: allDmg=${(4.5*mult).toFixed(1)}% DR=${(3*mult).toFixed(1)}% (peak)`, "#38bdf8");
+          });
+          boss.ciDebuff = (boss.ciDebuff || 0) + 0.03;
+          log(`&nbsp;&nbsp;&nbsp;🪞 [SM] Boss CI -3%`, "#38bdf8");
+      }
+    }
 
     units.forEach(u => {
         if (u.name === "SQH") {
@@ -2230,19 +2280,33 @@ function runOne(ov = null) {
         log(`&nbsp;&nbsp;&nbsp;🪞 ARTIFACT END-OF-ROUND PHASE`, "#38bdf8");
 
         boss.spiritMirrorRound++;
-        let smWearers = units.filter(u => u.art === "Spiritual Mirror" && u.cc.seal <= 0);
-        if (smWearers.length > 0 && (boss.spiritMirrorRound === 1 || boss.spiritMirrorRound % 3 === 0)) {
-            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SPIRITUAL MIRROR] Every-3-round pulse (round ${boss.spiritMirrorRound})`, "#38bdf8");
-            units.forEach(a => {
-                let hasSM = a.art === "Spiritual Mirror";
-                let mult = hasSM ? 2 : 1;
-                addBuff(a, "allDmg", 0.045 * mult, 3, `Spiritual Mirror allDmg (×${mult})`);
-                addBuff(a, "dr", 0.03 * mult, 3, `Spiritual Mirror DR (×${mult})`);
-                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SM] ${a.name}: +${(4.5*mult).toFixed(1)}% allDmg, +${(3*mult).toFixed(0)}% DR (3r decay)`, "#38bdf8");
-            });
-            boss.ciDebuff = (boss.ciDebuff || 0) + 0.03;
-            boss.ciDebuffRounds = 3;
-            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SM] Boss CI -3% (3r decay)`, "#38bdf8");
+        { const smWearers = units.filter(u => u.art === "Spiritual Mirror" && u.cc.seal <= 0);
+          if (smWearers.length > 0) {
+              const isPulseRound = (boss.spiritMirrorRound % 3 === 0); // EoR of r3,r6,r9...
+              log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SPIRITUAL MIRROR] EoR round ${boss.spiritMirrorRound}${isPulseRound ? ' — PULSE (reset to peak)' : ' — decay -1.5%'}`, "#38bdf8");
+              units.forEach(a => {
+                  const mult = a.art === "Spiritual Mirror" ? 2 : 1;
+                  const step = 0.015 * mult; // 1.5% per round decay
+                  const peak = 0.045 * mult; // 4.5% peak
+                  const curAD = (a.buffs.allDmg.find(b => b.source === "SM allDmg") || {}).value || 0;
+                  const curDR = (a.buffs.dr.find(b => b.source === "SM DR") || {}).value || 0;
+                  let newAD, newDR;
+                  if (isPulseRound) {
+                      newAD = peak; newDR = 0.030 * mult;
+                  } else {
+                      newAD = Math.max(0, curAD - step);
+                      newDR = Math.max(0, curDR - step);
+                  }
+                  setSMBuff(a, "allDmg", newAD, "SM allDmg");
+                  setSMBuff(a, "dr",     newDR, "SM DR");
+                  log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SM] ${a.name}: allDmg=${(newAD*100).toFixed(1)}% DR=${(newDR*100).toFixed(1)}%`, "#38bdf8");
+              });
+              if (isPulseRound) {
+                  boss.ciDebuff = (boss.ciDebuff || 0) + 0.03;
+                  boss.ciDebuffRounds = 999;
+                  log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SM] Boss CI -3% refreshed`, "#38bdf8");
+              }
+          }
         }
 
         units.forEach(u => {
