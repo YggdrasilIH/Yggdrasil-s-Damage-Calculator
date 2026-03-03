@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -105,7 +104,7 @@
   <div style="position:relative;">
     <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
       <h1 style="margin:0;font-size:17px;font-weight:800;letter-spacing:0.04em;background:linear-gradient(90deg,#38bdf8,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Star Expedition Simulator</h1>
-      <span style="font-size:10px;color:#475569;font-weight:600;letter-spacing:0.06em;margin-left:8px;background:#1e293b;padding:2px 7px;border-radius:10px;border:1px solid #334155;align-self:center;">v1.1.1</span>
+      
       <span style="font-size:11px;color:#64748b;font-style:italic;">by Yggdrasil</span>
     </div>
     <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">
@@ -406,9 +405,9 @@ function buildCardHTML(i, d) {
             <div style="color:#facc15;font-size:11px;font-weight:bold;margin-bottom:6px;">⚔️ Damage Calculator</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
               <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">ATK</label><input type="number" id="dc_atk" value="750000000" style="width:100%"></div>
-              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Skill DMG %</label><input type="number" id="dc_skill" value="1500" style="width:100%"></div>
+              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Skill DMG % (SD)</label><input type="number" id="dc_skill" value="1500" style="width:100%"></div>
               <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Precision %</label><input type="number" id="dc_prec" value="150" style="width:100%"></div>
-              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Holy DMG %</label><input type="number" id="dc_holy" value="230" style="width:100%"></div>
+              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Holy DMG % (HD)</label><input type="number" id="dc_holy" value="230" style="width:100%"></div>
               <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">All DMG %</label><input type="number" id="dc_alldmg" value="140" style="width:100%"></div>
               <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Crit %</label><input type="number" id="dc_crit" value="35" style="width:100%"></div>
               <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Crit DMG %</label><input type="number" id="dc_cd" value="150" style="width:100%"></div>
@@ -798,7 +797,7 @@ function fireSQHQueensGuard(hitUnit) {
     const sqh = units.find(u => u.name === "SQH" && u.hasCoreOfOrigin && u.cc.seal <= 0);
     if (!sqh) return;
     log(`&nbsp;&nbsp;&nbsp;⬡ [CORE OF ORIGIN — SQH CORE LIBERATION] ${hitUnit.name} hit → +20% Crit 3r`, "#c084fc");
-    addBuff(hitUnit, "crit", 0.20, 3, "Queens Guard Crit");
+    tryBuff(hitUnit, "crit", 0.20, 3, "Queens Guard Crit");
 }
 
 function fireBDSMCoreLiberation(u) {
@@ -838,18 +837,54 @@ function grantFG(target, bdsm) {
         addBuff(target, "atk", 0.15, 999, "Frantic Gluttony");
         addBuff(target, "spd", 0.20, 999, "Frantic Gluttony SPD");
     }
-    const ccList = ["silence","fear","seal"];
-    let active = ccList.filter(t => target.cc[t] > 0);
-    if (active.length > 0) {
-        let pick = active[Math.floor(Math.random() * active.length)];
-        target.cc[pick] = 0;
-        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ [BDSM DEEP SUB] ${target.name}: ${pick.toUpperCase()} cleansed via FG grant`, "#a78bfa");
+    // Remove 1 random debuff: CC (silence/fear/seal) or negative attribute (ATK/armor)
+    const ccTypes = ["silence","fear","seal"];
+    let activeCC = ccTypes.filter(t => target.cc[t] > 0);
+    let attrDebuffs = [];
+    if (target.buffs.atk.some(b => b.value < 0))   attrDebuffs.push("atk");
+    if (target.buffs.armor.some(b => b.value < 0))  attrDebuffs.push("armor");
+    let allDebuffs = [...activeCC, ...attrDebuffs];
+    if (allDebuffs.length > 0) {
+        let pick = allDebuffs[Math.floor(Math.random() * allDebuffs.length)];
+        if (activeCC.includes(pick)) {
+            target.cc[pick] = 0;
+            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ [FG DEBUFF REMOVE] ${target.name}: ${pick.toUpperCase()} cleansed`, "#a78bfa");
+        } else {
+            let idx = target.buffs[pick].findIndex(b => b.value < 0);
+            if (idx >= 0) {
+                let removed = target.buffs[pick].splice(idx, 1)[0];
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🛡️ [FG DEBUFF REMOVE] ${target.name}: ${pick.toUpperCase()} ${(removed.value*100).toFixed(0)}% debuff removed`, "#a78bfa");
+            }
+        }
     }
     if (isNew) {
         addBuff(target, "drOffset", 0.20, 999, "FG ≥40% Shield DR Offset");
         addBuff(target, "allDmg",   0.10, 999, "FG ≥40% Shield All Dmg");
         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [FG ≥40%+≥50% SHIELD] ${target.name}: +20% DR Offset (direct) + 10% All Dmg (direct)`, "#ec4899");
     }
+}
+
+// ── BDSM Threshold: fires immediately whenever BDSM reaches ≥100 energy ──────
+// Call this after ANY energy grant to BDSM (round-start, mid-round, or her own turn).
+function checkBDSMThreshold(bdsm) {
+    if (!bdsm || bdsm.name !== "BDSM") return;
+    if (bdsm.energy < 100) return;
+    if (bdsm.bDone) return;
+    if (bdsm.cc && bdsm.cc.silence > 0) return;
+    log(`&nbsp;&nbsp;&nbsp;🛡️ [BDSM THRESHOLD] ≥100 Energy → Backline CI +15% (2r) + ADR +8% (2r)`, "#ec4899");
+    units.forEach(t => {
+        if (!t.isFr) {
+            if (t.curse > 0) {
+                t.curse--;
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✨ [CURSE OFFSET] ${t.name}: BDSM CI +15%`, "#fbbf24");
+            } else {
+                refreshBuff(t, "ci", 0.15, 2, "BDSM CI");
+            }
+            refreshBuff(t, "allDmgReduction", 0.08, 2, "BDSM Threshold ADR");
+            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BDSM THRESHOLD] ${t.name} +8% ADR (2r)`, "#ec4899");
+        }
+    });
+    bdsm.bDone = true;
 }
 
 function triggerBoundlessSepal(bdsm) {
@@ -864,15 +899,12 @@ function triggerBoundlessSepal(bdsm) {
     });
     if (bdsm.boundlessTriggers >= 3) {
         log(`&nbsp;&nbsp;&nbsp;🌸 [BOUNDLESS SEPAL] Limit reached!`, "#ec4899");
-        if (Math.random() < 0.60) {
-            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 Boss STUNNED for 2 rounds (60% proc)`, "#ec4899");
-            }
         boss.ciDebuff = (boss.ciDebuff || 0) + 0.10;
         boss.ciDebuffRounds = 2;
         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BOUNDLESS DEEP SUB] Boss back-line CI -10% for 2 rounds`, "#ec4899");
         units.forEach(a => {
             a.hp = Math.min(100, a.hp + 6);
-            addBuff(a, "atk", 0.06, 3, "Boundless Noble Sub");
+            tryBuff(a, "atk", 0.06, 3, "Boundless Noble Sub");
             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BOUNDLESS NOBLE SUB] ${a.name} +6% HP, +6% ATK (3r)`, "#ec4899");
         });
     }
@@ -1109,6 +1141,34 @@ function deleteBuild(name) {
     renderBuildsList();
 }
 
+function saveBuild(rank) {
+    const r = window._lastOptResults && window._lastOptResults[rank];
+    if (!r) { alert('No optimizer result found. Please run the optimizer first.'); return; }
+    const heroNames = window._lastOptHeroes || [];
+    const defaultName = `#${rank+1}: ${r.slotAssign.slice(0,2).map(hi=>heroNames[hi]).join('+')} (${Math.round(r.phase6Dmg ?? r.avgDmg).toLocaleString()})`;
+    const name = prompt('Save this optimizer build as:', defaultName);
+    if (!name || !name.trim()) return;
+    const builds = getBuilds();
+    builds[name.trim()] = {
+        state: collectFullState(),
+        savedAt: new Date().toLocaleString(),
+        fromOptimizer: true,
+        rank: rank + 1,
+        avgDmg: Math.round(r.phase6Dmg ?? r.avgDmg),
+        optResult: r,
+        heroNames
+    };
+    setBuilds(builds);
+    renderBuildsList();
+    const btns = document.querySelectorAll(`[data-save-rank="${rank}"]`);
+    btns.forEach(b => {
+        b.textContent = '✓ Saved!';
+        b.style.color = '#4ade80';
+        b.style.borderColor = '#4ade80';
+        setTimeout(() => { b.textContent = '💾 Save Build'; b.style.color = '#94a3b8'; b.style.borderColor = '#334155'; }, 2000);
+    });
+}
+
 function renderBuildsList() {
     const builds = getBuilds();
     const list   = document.getElementById('savedBuildsList');
@@ -1271,7 +1331,7 @@ function runOne(ov = null) {
         });
     }
 
-    boss = { abyssalCorruption: 0, bleed: [], spdDebuff: 0, spiritMirrorRound: 0, atkDebuff: 0, atkDebuffRounds: 0, armorDebuff: 0, armorDebuffRounds: 0, lethalIncense: false, lethalIncenseRounds: 0, veilOfMist: false, veilOfMistRounds: 0, healReduction: 0, healReductionRounds: 0, atkSteal: 0, atkStealRounds: 0, shrink: false, shrinkRounds: 0, burn: 0, watcherMark: 0 };
+    boss = { abyssalCorruption: 0, bleed: [], spdDebuff: 0, spiritMirrorRound: 0, atkDebuff: 0, atkDebuffRounds: 0, armorDebuff: 0, armorDebuffRounds: 0, lethalIncense: false, lethalIncenseRounds: 0, veilOfMist: false, veilOfMistRounds: 0, healReduction: 0, healReductionRounds: 0, lfaAtkSteal: 0, heroAtkSteal: 0, shrink: false, shrinkRounds: 0, burn: 0, watcherMark: 0 };
     let pet = { energy: 0 };
 
     for (let s = 0; s < 3; s++) {
@@ -1476,6 +1536,7 @@ function runOne(ov = null) {
             u.boundlessTriggers = 0;
             u.mirrorMagicWingsUsed = false;
             u.dreamMagicWingsReactions = 0;
+            if (u.name === "LBRM") u.lbrmTransUsed = false;
             if (u.franticGluttony) {
                 u.franticGluttonyRounds--;
                 if (u.franticGluttonyRounds <= 0) {
@@ -1491,6 +1552,10 @@ function runOne(ov = null) {
 
         units.forEach(u => {
             u.bDone = false;
+        });
+        // Fire BDSM threshold immediately at round start (e.g. DB start, leftover energy ≥100)
+        { const bdsm = units.find(u => u.name === "BDSM"); if (bdsm) checkBDSMThreshold(bdsm); }
+        units.forEach(u => {
             if (u.name === "STV") {
                 if (u.trans >= 12) {
                     u.trans -= 12;
@@ -1540,22 +1605,8 @@ function runOne(ov = null) {
                 log(`&nbsp;&nbsp;&nbsp;⚠️ CC ACTIVE: ${u.cc.fear>0?'FEAR ':''}${u.cc.silence>0?'SILENCE ':''}${u.cc.seal>0?'SEAL':''}`, "#ef4444");
             }
 
-            if (u.name === "BDSM" && u.energy >= 100 && !u.bDone && !silenced) {
-                log(`&nbsp;&nbsp;&nbsp;🛡️ [BDSM THRESHOLD] Backline CI +15% (2r) + ADR +8% (2r)`, "#ec4899");
-                units.forEach(t => {
-                    if (!t.isFr) {
-                        if (t.curse > 0) {
-                            t.curse--;
-                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✨ [CURSE OFFSET] ${t.name}: BDSM Threshold CI +15%`, "#fbbf24");
-                        } else {
-                            refreshBuff(t, "ci", 0.15, 2, "BDSM Threshold CI");
-                        }
-                        refreshBuff(t, "allDmgReduction", 0.08, 2, "BDSM Threshold ADR");
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BDSM THRESHOLD] ${t.name} +8% ADR (2r)`, "#ec4899");
-                    }
-                });
-                u.bDone = true;
-            }
+            // BDSM threshold fires immediately on her turn if she has ≥100 energy
+            if (u.name === "BDSM") checkBDSMThreshold(u);
 
             let didHitBoss = false;
             let usedBasic = false;
@@ -1568,6 +1619,7 @@ function runOne(ov = null) {
                 units.forEach(target => {
                     if (target.name === "BDSM" && u.name !== "BDSM" && target.cc.seal <= 0) {
                         if (checkC(target, "BDSM Passive Energy", "+3")) target.energy += 3;
+                        checkBDSMThreshold(target);
                         if (u.franticGluttony) {
                             let lostHp = 100 - target.hp;
                             let heal = lostHp * 0.10;
@@ -1596,7 +1648,7 @@ function runOne(ov = null) {
                         let mult = isSM ? 2 : 1;
                         tryBuff(a, "atk",   0.10 * mult, 2, "STV Soulcall");
                         tryBuff(a, "dr",    0.10 * mult, 2, "STV Soulcall");
-                        refreshBuff(a, "ci", 0.10 * mult, 2, "STV Soulcall");
+                        tryBuff(a, "ci", 0.10 * mult, 2, "STV Soulcall");
                         tryBuff(a, "armor", 0.10 * mult, 2, "STV Soulcall");
                         tryBuff(a, "spd",   (isSM ? 0.60 : 0.30), 2, "STV Soulcall SPD");
                         if (isSM) log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [SM BONUS] ${a.name} gets 2× buffs from Soulcall`, "#a78bfa");
@@ -1629,6 +1681,7 @@ function runOne(ov = null) {
                     units.filter(a => a !== u).forEach(a => { grantFG(a, u); });
                     if (Math.random() < 0.4) {
                         units.forEach(a => { if (checkC(a, "BDSM Active Team Energy", "+10")) a.energy += 10; });
+                        { const bdsm = units.find(u => u.name === "BDSM"); if (bdsm) checkBDSMThreshold(bdsm); }
                     }
                     if (u.hasCoreOfOrigin) { fireBDSMCoreLiberation(u); }
                     const bdsmCCTypes = ["silence","fear","seal"];
@@ -1670,7 +1723,7 @@ function runOne(ov = null) {
                         }
                         if (type === "Magnification") {
                             target.dreamMagicMagnification = true;
-                            tryBuff(target, "allDmg", 0.12, dmDur, "Dream Magic Magnification");
+                            addBuff(target, "allDmg", 0.12, dmDur, "Dream Magic Magnification");
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${target.name} → Dream Magic Magnification (+12%allDmg, ${dmDur}r)`, "#f0abfc");
                         }
                         if (type === "Protection") {
@@ -1711,8 +1764,8 @@ function runOne(ov = null) {
                     trackStat(u, "damageDealt", hit5);
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA SOUL SHIVER] Hit 5: ${hit5}% ATK (always)`, "#c084fc");
                     if (checkC(u, "LFA DKM ATK Steal")) {
-                        boss.atkSteal = (boss.atkSteal || 0) + 0.30;
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [DKM ATK STEAL] -${(boss.atkSteal*100).toFixed(0)}% boss ATK (cumulative, curse-offsettable)`, "#c084fc");
+                        boss.lfaAtkSteal = (boss.lfaAtkSteal || 0) + 0.30;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [DKM ATK STEAL] LFA steals -${(boss.lfaAtkSteal*100).toFixed(0)}% boss ATK (cumulative, curse-offsettable)`, "#c084fc");
                     }
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA TOTAL] ${hits12 + hits34 + dkmBonus + hit5}% ATK total this active`, "#c084fc");
                     // ── Damage Calculator ─────────────────────────────────────
@@ -1860,6 +1913,8 @@ function runOne(ov = null) {
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🎵 [DB] ${a.name} at full energy: +9 SPD (4r)`, "#38bdf8");
                         }
                     });
+                    // BDSM may have crossed 100 from DB grant
+                    { const bdsm = units.find(u => u.name === "BDSM"); if (bdsm) checkBDSMThreshold(bdsm); }
                 }
                 if ((u.dreamMagicMagnification || u.mirrorMagicMagnification)) {
                     trackStat(u, "damageDealt", 3000);
@@ -1879,7 +1934,7 @@ function runOne(ov = null) {
                         u.hp = Math.max(0, u.hp - 60);
                         units.filter(a => !a.isFr || a === u).forEach(a => {
                             a.shield = Math.min(100, (a.shield || 0) + 40);
-                            refreshBuff(a, "ci", 0.15, 2, "BDSM Infuse with Flavor");
+                            if (a.curse > 0) { a.curse--; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✨ [CURSE OFFSET] ${a.name}: BDSM CI +15%`, "#fbbf24"); } else { refreshBuff(a, "ci", 0.15, 2, "BDSM CI"); };
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [INFUSE] ${a.name} Shield +40% MaxHP, CI +15% (2r)`, "#ec4899");
                         });
                         triggerBoundlessSepal(u);
@@ -1900,6 +1955,7 @@ function runOne(ov = null) {
                     let bdsm = units.find(b => b.name === "BDSM");
                     if (bdsm) {
                         if (checkC(bdsm, "BDSM Passive Energy (FG Basic)", "+3")) bdsm.energy += 3;
+                        checkBDSMThreshold(bdsm);
                         let lostHp = 100 - bdsm.hp;
                         let heal = lostHp * 0.10;
                         bdsm.hp = Math.min(100, bdsm.hp + heal);
@@ -1916,7 +1972,7 @@ function runOne(ov = null) {
                     }
                     units.filter(a => a.isFr).forEach(a => {
                         tryBuff(a, "dr", 0.10, 2, "STV Ferrywoman Front");
-                        refreshBuff(a, "ci", 0.10, 2, "STV Ferrywoman Front");
+                        tryBuff(a, "ci", 0.10, 2, "STV Ferrywoman Front");
                     });
                     units.filter(a => !a.isFr).forEach(a => tryBuff(a, "atk", 0.10, 2, "STV Ferrywoman Back"));
                     if (Math.random() < 0.80) {
@@ -2014,6 +2070,7 @@ function runOne(ov = null) {
                     triggerBoundlessSepal(u);
                     if (Math.random() < 0.5) {
                         if (checkC(u, "BDSM Noble Sub", "+20")) u.energy += 20;
+                        if (u.name === "BDSM") checkBDSMThreshold(u);
                         log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM NOBLE SUB] +20 Energy (offsettable)`, "#ec4899");
                     }
                 }
@@ -2038,7 +2095,7 @@ function runOne(ov = null) {
                         u.hp = Math.max(0, u.hp - 60);
                         units.filter(a => !a.isFr || a === u).forEach(a => {
                             a.shield = Math.min(100, (a.shield || 0) + 40);
-                            refreshBuff(a, "ci", 0.15, 2, "BDSM Infuse with Flavor");
+                            if (a.curse > 0) { a.curse--; log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✨ [CURSE OFFSET] ${a.name}: BDSM CI +15%`, "#fbbf24"); } else { refreshBuff(a, "ci", 0.15, 2, "BDSM CI"); };
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [INFUSE] ${a.name} Shield +40% MaxHP, CI +15% (2r)`, "#ec4899");
                         });
                         triggerBoundlessSepal(u);
@@ -2055,38 +2112,72 @@ function runOne(ov = null) {
                 log(`🚫 ACTION: SKIPPED (${u.cc.fear > 0 ? "Fear" : u.cc.silence > 0 ? "Silence+NoEnergy" : "Unknown"})`, "#ef4444");
             }
 
+            // LBRM 6-stack transition (fires at 6 stacks, once per round)
+            if (u.name === "LBRM" && u.trans >= 6 && !u.lbrmTransUsed) {
+                u.trans -= 6;
+                u.lbrmTransUsed = true;
+                log(`&nbsp;&nbsp;&nbsp;📎 [LBRM] 6-Stack Transition`, "#f0abfc");
+                trackStat(u, "damageDealt", 3000);
+                log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANSITION] 30% Max HP dmg to frontline (capped 3000%)`, "#f0abfc");
+                const transEffect = Math.floor(Math.random() * 3);
+                if (transEffect === 0) {
+                    units.filter(a => a.dreamMagicWings || a.mirrorMagicWings).forEach(a => {
+                        tryBuff(a, "atk", 0.20, 2, "LBRM Trans Wings ATK");
+                        a.ccRemovalBonus = Math.min(2, (a.ccRemovalBonus || 0) + 1);
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 1] ${a.name} (Wings) +20% ATK 2r, +1 CC removal attempt (total: ${a.ccRemovalBonus})`, "#f0abfc");
+                    });
+                } else if (transEffect === 1) {
+                    units.filter(a => a.dreamMagicMagnification || a.mirrorMagicMagnification).forEach(a => {
+                        addBuff(a, "allDmgReduction", 0.10, 2, "LBRM Trans Magnification DR");
+                        trackStat(a, "healingDone", 33);
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 2] ${a.name} (Magnification) +10% allDmgReduction 2r, +33% HP`, "#f0abfc");
+                    });
+                } else {
+                    units.filter(a => a.dreamMagicProtection || a.mirrorMagicProtection).forEach(a => {
+                        a.beeSugarCoat = true;
+                        tryBuff(a, "ci", 0.50, 999, "Bee Sugar-coat CI");
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 3] ${a.name} (Protection) Bee Sugar-coat +50% CI`, "#f0abfc");
+                    });
+                }
+                units.forEach(a => tryBuff(a, "armor", 0.35, 2, "LBRM Glowed Glory"));
+                const lbrmMaxAtk = units.find(a => a.isM) || units[0];
+                addBuff(lbrmMaxAtk, "allDmg", 0.15, 2, "LBRM Acheron Barque");
+                units.filter(a => !a.isFr).forEach(a => { addBuff(a, "allDmg", 0.10, 3, "LBRM Sun Halo"); });
+                boss.atkDebuff = (boss.atkDebuff || 0) + 0.10; boss.atkDebuffRounds = 2;
+                log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM PIVOTS] Glowed Glory armor+35% | Acheron Barque ${lbrmMaxAtk.name} +15%allDmg 2r | Comet Hop boss ATK-10% | Sun Halo backline +10%allDmg 3r`, "#f0abfc");
+            }
+
             // 12-stack transitions
             if (u.trans >= 12) {
                 u.trans -= 12;
-                log(`&nbsp;&nbsp;&nbsp;💎 12-Stack Transition`);
-                units.forEach(a => {
-                    if (u.name === "SQH") {
-                        // Moon Abyss + Comet Hop: all heroes including self
+                if (u.name === "SQH") {
+                    log(`&nbsp;&nbsp;&nbsp;💎 [SQH] 12-Stack Transition`);
+                    units.forEach(a => {
                         tryBuff(a, "atk",    0.10, 2, "SQH Transition (Moon Abyss)");
                         addBuff(a, "allDmg", 0.10, 2, "SQH Transition (Moon Abyss)");
                         addBuff(a, "allDmgReduction", 0.20, 2, "SQH Transition (Moon Abyss)");
                         trackStat(a, "healingDone", 50);
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👑 [SQH MOON ABYSS] ${a.name} +50% Max HP healed`, "#f59e0b");
                         tryBuff(a, "dr", 0.20, 2, "SQH Comet Hop");
-                    }
-                    if (u.name === "SQH") {
-                        // Glowed Glory: +20 energy to ALL allies including self
                         if (checkC(a, "SQH Glowed Glory", "+20")) a.energy += 20;
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👑 [SQH GLOWED GLORY] ${a.name} +20 Energy (offsettable)`, "#f59e0b");
-                        // Sun Halo + Acheron Barque: self only
                         if (a === u) {
                             addBuff(u, "allDmg", 0.15, 2, "SQH Sun Halo");
                             boss.spdDebuff = (boss.spdDebuff || 0) + 20;
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👑 [SQH ACHERON BARQUE] Boss SPD -20 (total: -${boss.spdDebuff})`, "#f59e0b");
                         }
-                    }
-                    if (u.name === "BDSM") {
+                    });
+                }
+                if (u.name === "BDSM") {
+                    log(`&nbsp;&nbsp;&nbsp;💎 [BDSM] 12-Stack Transition`);
+                    units.forEach(a => {
                         if (a.franticGluttony) {
-                            addBuff(a, "atk", 0.25, 3, "BDSM Moon Abyss");
+                            tryBuff(a, "atk", 0.25, 3, "BDSM Moon Abyss");
                             tryBuff(a, "cd",  0.25, 3, "BDSM Moon Abyss");
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BDSM MOON ABYSS] ${a.name} (FG) +25% ATK, +25% CD (3r, direct)`, "#ec4899");
                         }
                         if (checkC(a, "BDSM Glowed Glory", "+20")) a.energy += 20;
+                        checkBDSMThreshold(a);
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BDSM GLOWED GLORY] ${a.name} +20 Energy (offsettable)`, "#ec4899");
                         if (a.isM) { addBuff(a, "allDmg", 0.15, 2, "BDSM Acheron Barque"); }
                         if (a === units[0]) {
@@ -2095,49 +2186,21 @@ function runOne(ov = null) {
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BDSM COMET HOP] Boss All-Damage Dealt -10% for 2 rounds`, "#ec4899");
                         }
                         if (!a.isFr) { addBuff(a, "allDmg", 0.10, 2, "BDSM Sun Halo"); }
-                    }
-                    if (u.name === "LBRM") {
-                        trackStat(u, "damageDealt", 3000);
-                        log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANSITION] 30% Max HP dmg to frontline (capped 3000%)`, "#f0abfc");
-                        let transEffect = Math.floor(Math.random() * 3);
-                        if (transEffect === 0) {
-                            units.filter(a => a.dreamMagicWings || a.mirrorMagicWings).forEach(a => {
-                                tryBuff(a, "atk", 0.20, 2, "LBRM Trans Wings ATK");
-                                a.ccRemovalBonus = Math.min(2, (a.ccRemovalBonus || 0) + 1);
-                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 1] ${a.name} (Wings) +20% ATK 2r, +1 CC removal attempt (total: ${a.ccRemovalBonus})`, "#f0abfc");
-                            });
-                        } else if (transEffect === 1) {
-                            units.filter(a => a.dreamMagicMagnification || a.mirrorMagicMagnification).forEach(a => {
-                                addBuff(a, "allDmgReduction", 0.10, 2, "LBRM Trans Magnification DR");
-                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 2] ${a.name} (Magnification) +10% allDmgReduction 2r`, "#f0abfc");
-                            });
-                        } else {
-                            units.filter(a => a.dreamMagicProtection || a.mirrorMagicProtection).forEach(a => {
-                                a.beeSugarCoat = true;
-                                refreshBuff(a, "ci", 0.50, 999, "Bee Sugar-coat CI");
-                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 3] ${a.name} (Protection) Bee Sugar-coat +50% CI 4r`, "#f0abfc");
-                            });
-                        }
-                        units.forEach(a => tryBuff(a, "armor", 0.35, 2, "LBRM Glowed Glory"));
-                        let lbrmMaxAtk = units.find(a => a.isM) || units[0];
-                        tryBuff(lbrmMaxAtk, "allDmg", 0.15, 2, "LBRM Acheron Barque");
-                        units.filter(a => !a.isFr).forEach(a => { addBuff(a, "allDmg", 0.10, 3, "LBRM Sun Halo"); });
-                        boss.atkDebuff = (boss.atkDebuff || 0) + 0.10; boss.atkDebuffRounds = 2;
-                        log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM PIVOTS] Glowed Glory armor+35% | Acheron Barque ${lbrmMaxAtk.name} +15%allDmg 2r | Comet Hop boss ATK-10% | Sun Halo backline +10%allDmg 3r`, "#f0abfc");
-                    }
-                    if (u.name === "LFA") {
-                        trackStat(u, "damageDealt", 3000);
-                        log(`&nbsp;&nbsp;&nbsp;👿 [LFA MOON ABYSS] 1500% ATK × 2 = 3000% ATK damage`, "#c084fc");
-                        boss.atkDebuff = (boss.atkDebuff || 0) + 0.50; boss.atkDebuffRounds = 3;
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA MOON ABYSS] Boss ATK -50% for 3 rounds`, "#c084fc");
-                        trackStat(u, "damageDealt", 1000);
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA GLOWED GLORY] +1000% ATK damage`, "#c084fc");
-                        boss.atkDebuff = (boss.atkDebuff || 0) + 0.15; boss.atkDebuffRounds = Math.max(boss.atkDebuffRounds || 0, 2);
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA ACHERON BARQUE] Boss ATK -15% (2r)`, "#c084fc");
-                        refreshBuff(u, "ci", 0.20, 2, "LFA Comet Hop");
-                        addBuff(u, "allDmg", 0.15, 2, "LFA Sun Halo");
-                    }
-                });
+                    });
+                }
+                if (u.name === "LFA") {
+                    log(`&nbsp;&nbsp;&nbsp;💎 [LFA] 12-Stack Transition`);
+                    trackStat(u, "damageDealt", 3000);
+                    log(`&nbsp;&nbsp;&nbsp;👿 [LFA MOON ABYSS] 1500% ATK × 2 = 3000% ATK damage`, "#c084fc");
+                    boss.atkDebuff = (boss.atkDebuff || 0) + 0.50; boss.atkDebuffRounds = 3;
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA MOON ABYSS] Boss ATK -50% for 3 rounds`, "#c084fc");
+                    trackStat(u, "damageDealt", 1000);
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA GLOWED GLORY] +1000% ATK damage`, "#c084fc");
+                    boss.atkDebuff = (boss.atkDebuff || 0) + 0.15; boss.atkDebuffRounds = Math.max(boss.atkDebuffRounds || 0, 2);
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👿 [LFA ACHERON BARQUE] Boss ATK -15% (2r)`, "#c084fc");
+                    tryBuff(u, "ci", 0.20, 2, "LFA Comet Hop");
+                    addBuff(u, "allDmg", 0.15, 2, "LFA Sun Halo");
+                }
             }
 
             // DGN basic
@@ -2185,8 +2248,7 @@ function runOne(ov = null) {
         let pupilUnits = units.filter(u => u.hasPupil);
 
         log(`&nbsp;&nbsp;&nbsp;☄️ BOSS ACTIVE: CATASTROPHIC ROAR (3000% ATK × 3, +2 Cal & Curse, dodge applies)`, "#ef4444");
-        boss.atkSteal = (boss.atkSteal || 0) + 0.08;
-        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [CATASTROPHIC ROAR] Boss steals 8% ATK (3r), enemy Armor -100%`, "#ef4444");
+        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [CATASTROPHIC ROAR] Boss steals 8% ATK per hero hit (cumulative, 3r)`, "#ef4444");
          // DGN Double Nature counter triggers on boss active
          { const dgn = units.find(u => u.name === "DGN" && u.cc.seal <= 0); if (dgn) triggerDGNDoubleNature(dgn, r); }
         units.forEach(u => {
@@ -2207,9 +2269,13 @@ function runOne(ov = null) {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${u.name} +2 Calamity (now ${u.calamity}) & +2 Curse (now ${u.curse})`, "#ef4444");
                 trigCal(u);
 
+                // Boss steals 8% ATK from each hero hit (cumulative)
+                boss.heroAtkSteal = (boss.heroAtkSteal || 0) + 0.08;
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [ATK STEAL] Boss steals 8% ATK from ${u.name} (total stolen: +${(boss.heroAtkSteal*100).toFixed(0)}%)`, "#ef4444");
 
                 u.energy += 10;
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚡ ${u.name} hit by boss active: +10 Energy (direct)`, "#38bdf8");
+                if (u.name === "BDSM") checkBDSMThreshold(u);
 
                 fireSQHQueensGuard(u);
 
@@ -2312,6 +2378,7 @@ function runOne(ov = null) {
             if (u.cc.seal > 0) return;
             // ── Global Surge fires first, before artifact EoR effects ──
             if (checkC(u, "Global Surge", "+50")) u.energy += 50;
+            if (u.name === "BDSM") checkBDSMThreshold(u);
             if (u.art === "Spiritual Mirror") {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SPIRITUAL MIRROR] EoR: +15 energy & +6% HP to all allies`, "#38bdf8");
                 units.forEach(a => {
@@ -2319,12 +2386,13 @@ function runOne(ov = null) {
                     a.hp = Math.min(100, a.hp + 6);
                     trackStat(a, "healingDone", 6);
                 });
+                { const bdsm = units.find(u => u.name === "BDSM"); if (bdsm) checkBDSMThreshold(bdsm); }
             }
 
             // ── SCISSORS: replicate boss ATK & HD to self + same-line allies only ──
             if (u.art === "Scissors") {
-                let totalBossATK = (boss.atkBuff || 0) + (boss.atkSteal || 0);
-                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ [SCISSORS] Boss total ATK: +${(totalBossATK*100).toFixed(0)}% (atkBuff ${((boss.atkBuff||0)*100).toFixed(0)}% + atkSteal ${((boss.atkSteal||0)*100).toFixed(0)}%) → 30% replicated to self + same-line allies`, "#38bdf8");
+                let totalBossATK = (boss.atkBuff || 0) + (boss.heroAtkSteal || 0);
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ [SCISSORS] Boss total ATK: +${(totalBossATK*100).toFixed(0)}% (self-buff ${((boss.atkBuff||0)*100).toFixed(0)}% + hero ATK stolen ${((boss.heroAtkSteal||0)*100).toFixed(0)}%) → 30% replicated to self + same-line allies`, "#38bdf8");
                 // Only buff self + allies on the same line (frontline or backline)
                 let scissorsTargets = units.filter(a => a.isFr === u.isFr);
                 scissorsTargets.forEach(a => {
@@ -2359,6 +2427,7 @@ function runOne(ov = null) {
                 let specAllies = units.filter(a => a !== u);
                 let randSA = specAllies[Math.floor(Math.random() * specAllies.length)];
                 if (checkC(randSA, "Specter EoR Ally", "+50")) randSA.energy += 50;
+                { const bdsm = units.find(u => u.name === "BDSM"); if (bdsm) checkBDSMThreshold(bdsm); }
             }
         });
 
@@ -2380,9 +2449,9 @@ function runOne(ov = null) {
                     let buffTypes = Object.keys(u.buffs).filter(t => u.buffs[t].filter(b => b.value > 0).length > 0);
                     if (buffTypes.length > 0) {
                         let pick = buffTypes[Math.floor(Math.random() * buffTypes.length)];
-                        let idx = u.buffs[pick].findIndex(b => b.value > 0);
-                        let removed = u.buffs[pick].splice(idx, 1)[0];
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [INVASION] ${u.name} (25% proc): ${pick.toUpperCase()} +${(removed.value*100).toFixed(1)}% buff removed`, "#ef4444");
+                        let totalVal = u.buffs[pick].filter(b => b.value > 0).reduce((s, b) => s + b.value, 0);
+                        u.buffs[pick] = u.buffs[pick].filter(b => b.value <= 0);
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [INVASION] ${u.name} (25% proc): ALL ${pick.toUpperCase()} buffs removed (+${(totalVal*100).toFixed(1)}% total)`, "#ef4444");
                     }
                 }
             } else {
@@ -2432,7 +2501,9 @@ function runOne(ov = null) {
         // ── Boss removes 3 random debuffs ────────────────────────────────────
         {
             const activeDebuffs = [];
-            if ((boss.atkDebuff || 0) > 0 || (boss.atkSteal || 0) > 0) activeDebuffs.push("atk");
+            if ((boss.atkDebuff || 0) > 0) activeDebuffs.push("atk");
+            if ((boss.heroAtkSteal || 0) > 0) activeDebuffs.push("heroAtkSteal");
+            if ((boss.lfaAtkSteal || 0) > 0) activeDebuffs.push("lfaAtkSteal");
             if ((boss.armorDebuff || 0) > 0) activeDebuffs.push("armor");
             if ((boss.drDebuff || 0) > 0) activeDebuffs.push("dr");
             if ((boss.ciDebuff || 0) > 0) activeDebuffs.push("ci");
@@ -2452,7 +2523,9 @@ function runOne(ov = null) {
             if (toRemove.length > 0) {
                 log(`&nbsp;&nbsp;&nbsp;💀 [BOSS CLEANSE] Removes ${toRemove.length} debuff(s): ${toRemove.join(", ")}`, "#ef4444");
                 toRemove.forEach(d => {
-                    if (d === "atk")        { boss.atkDebuff = 0; boss.atkSteal = 0; boss.atkDebuffRounds = 0; }
+                    if (d === "atk")           { boss.atkDebuff = 0; boss.atkDebuffRounds = 0; }
+                    if (d === "heroAtkSteal")   { boss.heroAtkSteal = 0; }
+                    if (d === "lfaAtkSteal")    { boss.lfaAtkSteal = 0; }
                     if (d === "armor")      { boss.armorDebuff = 0; boss.armorDebuffRounds = 0; }
                     if (d === "dr")         { boss.drDebuff = 0; boss.drDebuffRounds = 0; }
                     if (d === "ci")         { boss.ciDebuff = 0; boss.ciDebuffRounds = 0; }
@@ -2484,7 +2557,8 @@ function runOne(ov = null) {
         if (boss.ciDebuffRounds > 0) { boss.ciDebuffRounds--; if (boss.ciDebuffRounds <= 0) { boss.ciDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM] Boss CI debuff expired`, "#64748b"); } }
         if (boss.allDmgReductionDebuffRounds > 0) { boss.allDmgReductionDebuffRounds--; if (boss.allDmgReductionDebuffRounds <= 0) { boss.allDmgReductionDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM] Boss AllDmgReduction debuff expired`, "#64748b"); } }
         if (boss.allDmgDealtDebuffRounds > 0) { boss.allDmgDealtDebuffRounds--; if (boss.allDmgDealtDebuffRounds <= 0) { boss.allDmgDealtDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM] Boss AllDmgDealt debuff expired`, "#64748b"); } }
-        if (boss.atkSteal > 0) { log(`&nbsp;&nbsp;&nbsp;👿 [LFA DKM] Boss ATK stolen this fight: -${(boss.atkSteal*100).toFixed(0)}% ATK (permanent)`, "#c084fc"); }
+        if (boss.lfaAtkSteal > 0) { log(`&nbsp;&nbsp;&nbsp;👿 [LFA DKM] Boss ATK stolen: -${(boss.lfaAtkSteal*100).toFixed(0)}% (cumulative, permanent)`, "#c084fc"); }
+        if (boss.heroAtkSteal > 0) { log(`&nbsp;&nbsp;&nbsp;☠️ [CATASTROPHIC ROAR] Boss has stolen ${(boss.heroAtkSteal*100).toFixed(0)}% ATK from heroes (cumulative)`, "#ef4444"); }
         if (boss.atkDebuffRounds > 0) { boss.atkDebuffRounds--; if (boss.atkDebuffRounds <= 0) { boss.atkDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV] Boss ATK debuff expired`, "#64748b"); } }
         if (boss.armorDebuffRounds > 0) { boss.armorDebuffRounds--; if (boss.armorDebuffRounds <= 0) { boss.armorDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV] Boss Armor debuff expired`, "#64748b"); } }
         if (boss.spdDebuffRounds > 0) { boss.spdDebuffRounds--; if (boss.spdDebuffRounds <= 0) { boss.spdDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV] Boss SPD debuff expired`, "#64748b"); } }
@@ -2566,10 +2640,14 @@ function sim(multi) {
                     baseCI: u.baseCI, _dmgSamples: []
                 };
                 let s = stats[u.name];
-                let atkExtra = (u.name === "LFA" && res.boss) ? (res.boss.atkSteal || 0) : 0;
+                let atkExtra = (u.name === "LFA" && res.boss) ? (res.boss.lfaAtkSteal || 0) : 0;
                 let atk = getBuffTotal(u, "atk") + atkExtra;
-                let ad  = getBuffTotal(u, "allDmg");
-                let hd  = getBuffTotal(u, "hd");
+                // Include dc base inputs so these columns match what actually went into the damage formula
+                const _dc = getDmgCalcInputs();
+                const _dcAllDmg = _dc ? _dc.alldmg / 100 : 0;
+                const _dcHD     = _dc ? _dc.holy   / 100 : 0;
+                let ad  = getBuffTotal(u, "allDmg") + _dcAllDmg;
+                let hd  = getBuffTotal(u, "hd")     + _dcHD;
                 s.acts += u.acts; s.lost += u.turnsLost;
                 s.finalATK += atk; s.minATK = Math.min(s.minATK, atk); s.maxATK = Math.max(s.maxATK, atk);
                 s.finalAllDmg += ad; s.minAllDmg = Math.min(s.minAllDmg, ad); s.maxAllDmg = Math.max(s.maxAllDmg, ad);
@@ -2620,7 +2698,7 @@ function sim(multi) {
         </div>`;
         html += `<h3>AVERAGES + RANGES (${N} FIGHTS)</h3>`;
         html += `<p><b>Boss Holy Damage Stacks:</b> avg <span style="color:var(--accent)">${(totalHD/N).toFixed(2)}</span> stacks (+${(totalHD/N*12.5).toFixed(1)}% HD) &nbsp;|&nbsp; range <small style="color:#64748b">[${minHD} – ${maxHD} stacks / +${(minHD*12.5).toFixed(1)}% – +${(maxHD*12.5).toFixed(1)}% HD]</small></p>`;
-        html += `<table><tr><th>Hero</th><th>Base CI</th><th>Avg Actives</th><th>Avg CC Lost</th><th>Final ATK (avg [min–max])</th><th>Final allDmg (avg [min–max])</th><th>Peak CI during fight (avg [min–max])</th><th>Avg mid-fight CI</th><th>DR R6-15 (avg [min–max])</th><th>ADR R6-15 (avg [min–max])</th><th>Final HD (avg [min–max])</th></tr>`;
+        html += `<table><tr><th>Hero</th><th>Base CI</th><th>Avg Actives</th><th>Avg CC Lost</th><th>Final ATK buff (avg [min–max])</th><th>Total allDmg (base+buffs) (avg [min–max])</th><th>Peak CI during fight (avg [min–max])</th><th>Avg mid-fight CI</th><th>DR R6-15 (avg [min–max])</th><th>ADR R6-15 (avg [min–max])</th><th>Total HD (base+buffs) (avg [min–max])</th></tr>`;
         for (let n in stats) {
             let s = stats[n];
             html += `<tr>
@@ -3389,6 +3467,7 @@ function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
         const rangeStr = (r.minDmg != null && r.maxDmg != null)
             ? `<div style="color:#64748b;font-size:10px;margin-top:2px">Range: ${fmt(r.minDmg)} – ${fmt(r.maxDmg)}</div>`
             : '';
+        const saveBtn = `<button data-save-rank="${rank}" onclick="saveBuild(${rank})" style="margin-top:6px;padding:3px 10px;background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:4px;font-size:11px;cursor:pointer" onmouseover="this.style.borderColor='#a78bfa';this.style.color='#a78bfa'" onmouseout="this.style.borderColor='#334155';this.style.color='#94a3b8'">💾 Save Build</button>`;
         html += `<tr style="background:${rowBg};border-bottom:1px solid #1e293b">
             <td style="padding:8px;color:#64748b;font-weight:bold">${rank+1}</td>
             <td style="padding:8px;white-space:nowrap">
@@ -3433,6 +3512,7 @@ function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
                         </table>
                     </div>`;
                 })()}
+                ${saveBtn}
             </td>
         </tr>`;
     });
@@ -3442,7 +3522,12 @@ function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
         Phase 1: art×speed×voidCI (3 fights) → Phase 2: slot arrangements → Phase 2.5: re-test positions → Phases 3-5: progressive 300-fight refinement → Phase 6: crit sweep (0-100%, 30 fights each) then 100 fights at optimal crit. Final ranking by Phase 6 damage. Red = frontline, grey = backline.
     </p></div>`;
 
+    window._lastOptResults = results;
+    window._lastOptHeroes  = heroNames;
+    window._lastOptMIdx    = mIdx;
+    window._lastOptHeroCIs = heroCIs;
     document.getElementById('optOutput').innerHTML = html;
+    renderBuildsList();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
