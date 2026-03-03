@@ -399,6 +399,7 @@ function buildCardHTML(i, d) {
               <label style="font-size:11px;color:#c084fc;font-weight:600;">⬡ Core of Origin</label>
               <select id="core${i}" onchange="onCoreChange(${i})" style="margin-top:3px;width:100%;background:#0b0e14;color:#c084fc;border:1px solid #7c3aed88;border-radius:4px;font-size:11px;padding:2px 4px;">
                   <option value="none">None</option>
+                  <option value="Core Liberation">Core Liberation</option>
               </select>
           </div>
           <div id="dmgCalc${i}" style="display:${i===0?'block':'none'};margin-top:10px;padding-top:10px;border-top:1px solid #334155;">
@@ -757,8 +758,16 @@ function trigCal(u) {
     }
 }
 
+function fireSQHQueensGuard(hitUnit) {
+    if (!hitUnit.queensGuard) return;
+    const sqh = units.find(u => u.name === "SQH" && u.hasCoreOfOrigin && u.cc.seal <= 0);
+    if (!sqh) return;
+    log(`&nbsp;&nbsp;&nbsp;⬡ [CORE OF ORIGIN — SQH CORE LIBERATION] ${hitUnit.name} hit → +20% Crit 3r`, "#c084fc");
+    addBuff(hitUnit, "crit", 0.20, 3, "Queens Guard Crit");
+}
+
 function fireBDSMCoreLiberation(u) {
-    log(`&nbsp;&nbsp;&nbsp;⬡ [CORE OF ORIGIN — CORE LIBERATION] ${u.name} activates`, "#c084fc");
+    log(`&nbsp;&nbsp;&nbsp;⬡ [CORE OF ORIGIN — BDSM CORE LIBERATION] ${u.name} activates`, "#c084fc");
     for (let tick = 0; tick < 5; tick++) { units.forEach(a => { trackStat(a, "healingDone", 500); }); }
     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⬡ [CORE LIB ≥30%] 5 ticks: all allies +2500% ATK healing total`, "#c084fc");
     // CI ticks — clear old stacks then apply fresh 5
@@ -2441,23 +2450,33 @@ function sim(multi) {
     const out = document.getElementById('output'); out.innerHTML = ""; silent = multi;
     if (!multi) {
         _logBuf = [];
-        const simStart = performance.now();
         const progEl = document.getElementById('simProgress');
-        if (progEl) { progEl.style.display = 'block'; progEl.textContent = 'Simulating...'; }
+        const fullBtn = document.querySelector('button[onclick="sim(false)"]');
+        if (progEl) { progEl.style.display = 'block'; progEl.textContent = 'Please wait...'; }
+        if (fullBtn) fullBtn.disabled = true;
         requestAnimationFrame(() => {
             runOne();
             flushLog();
-            const elapsed = ((performance.now() - simStart) / 1000).toFixed(2);
-            if (progEl) { progEl.style.display = 'none'; }
+            if (progEl) progEl.style.display = 'none';
+            if (fullBtn) fullBtn.disabled = false;
             document.getElementById('output').scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
         return;
     } else {
         const N = 1000;
+        const CHUNK = 50; // fights per frame
+        let i = 0;
         let stats = {}, totalHD = 0, minHD = Infinity, maxHD = -Infinity;
         let totalWM = 0, minWM = Infinity, maxWM = -Infinity;
         let totalAS = 0, minAS = Infinity, maxAS = -Infinity;
-        for (let i = 0; i < N; i++) {
+        const progEl = document.getElementById('simProgress');
+        const batchBtn = document.querySelector('button[onclick="sim(true)"]');
+        if (batchBtn) batchBtn.disabled = true;
+        if (progEl) { progEl.style.display = 'block'; progEl.textContent = 'Please wait — Fight 0 / 1000'; }
+
+        function runBatchChunk() {
+            const end = Math.min(i + CHUNK, N);
+            for (; i < end; i++) {
             let res = runOne();
             totalHD += res.hd;
             minHD = Math.min(minHD, res.hd);
@@ -2467,7 +2486,7 @@ function sim(multi) {
             const as_ = res.boss.abyssalCorruption || 0;
             totalAS += as_; minAS = Math.min(minAS, as_); maxAS = Math.max(maxAS, as_);
             res.units.forEach(u => {
-                if (!stats[u.name]) stats[u.name] = {
+            if (!stats[u.name]) stats[u.name] = {
                     acts:0, lost:0,
                     finalATK:0, minATK:Infinity, maxATK:-Infinity,
                     finalAllDmg:0, minAllDmg:Infinity, maxAllDmg:-Infinity,
@@ -2511,7 +2530,15 @@ function sim(multi) {
                 s.minDR  = Math.min(s.minDR,  u.minDR  === Infinity  ? 0 : u.minDR);  s.maxDR  = Math.max(s.maxDR,  u.maxDR  === -Infinity ? 0 : u.maxDR);  s.avgDR  += u.drSamples  > 0 ? u.drTotal  / u.drSamples  : 0;
                 s.minADR = Math.min(s.minADR, u.minADR === Infinity  ? 0 : u.minADR); s.maxADR = Math.max(s.maxADR, u.maxADR === -Infinity ? 0 : u.maxADR); s.avgADR += u.adrSamples > 0 ? u.adrTotal / u.adrSamples : 0;
             });
-        }
+            }
+            if (i < N) {
+                if (progEl) progEl.textContent = `Please wait — Fight ${i} / ${N} (${Math.round(i/N*100)}%)`;
+                requestAnimationFrame(runBatchChunk);
+                return;
+            }
+            // All done
+            if (progEl) progEl.style.display = 'none';
+            if (batchBtn) batchBtn.disabled = false;
         function pct(v) { return `${(v*100).toFixed(1)}%`; }
         function dmgRange(avg, mn, mx) {
             const fmt = v => Math.round(v).toLocaleString();
@@ -2670,8 +2697,11 @@ function sim(multi) {
         }
         // dmgLine at top, then table, then chart
         out.innerHTML = dmgLine + html + `</table>` + roundChartHtml;
-    }
-}
+        } // end runBatchChunk
+        requestAnimationFrame(runBatchChunk);
+    } // end else
+} // end sim
+
 // ═══════════════════════════════════════════════════════════════════════════
 // OPTIMIZER
 // ═══════════════════════════════════════════════════════════════════════════
@@ -3900,7 +3930,7 @@ function buildDmgHistogramHTML(samples, magCounts) {
 }
 
 // Core of Origin data
-const HERO_CORES = { 'BDSM': 'Core Liberation' };
+const HERO_CORES = { 'BDSM': 'Core Liberation', 'SQH': 'Core Liberation' };
 
 function updateCoreOfOriginRow(i) {
     const hero = document.getElementById(`h${i}`)?.value || '';
@@ -3908,14 +3938,13 @@ function updateCoreOfOriginRow(i) {
     const sel  = document.getElementById(`core${i}`);
     if (!row || !sel) return;
     const coreName = HERO_CORES[hero];
+    // Show/hide each option based on whether it belongs to this hero
+    Array.from(sel.options).forEach(opt => {
+        if (opt.value === 'none') return;
+        opt.style.display = (opt.value === coreName) ? '' : 'none';
+    });
     if (coreName) {
         row.style.display = 'block';
-        // Rebuild options if needed
-        if (sel.options.length < 2) {
-            const opt = document.createElement('option');
-            opt.value = coreName; opt.textContent = coreName;
-            sel.appendChild(opt);
-        }
     } else {
         row.style.display = 'none';
         sel.value = 'none';
