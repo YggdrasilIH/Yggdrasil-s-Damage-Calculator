@@ -105,6 +105,7 @@
   <div style="position:relative;">
     <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
       <h1 style="margin:0;font-size:17px;font-weight:800;letter-spacing:0.04em;background:linear-gradient(90deg,#38bdf8,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Star Expedition Simulator</h1>
+      <span style="font-size:10px;color:#475569;font-weight:600;letter-spacing:0.06em;margin-left:8px;background:#1e293b;padding:2px 7px;border-radius:10px;border:1px solid #334155;align-self:center;">v1.1.1</span>
       <span style="font-size:11px;color:#64748b;font-style:italic;">by Yggdrasil</span>
     </div>
     <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">
@@ -200,6 +201,7 @@
 <!-- ═══ ACTION BUTTONS ═══ -->
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;max-width:860px;">
     <button onclick="sim(false)" style="padding:12px;font-size:13px;">📋 Simulate (Full Log)</button>
+    <span id="simProgress" style="display:none;color:#94a3b8;font-size:12px;margin-left:8px">Simulating...</span>
     <button onclick="sim(true)" style="padding:12px;font-size:13px;">📊 Statistical Batch (1000)</button>
 </div>
 
@@ -349,7 +351,7 @@ function buildCardHTML(i, d) {
         </div>
         <div class="card-vert-label" id="card-vert${i}" onclick="toggleCard(${i})"></div>
         <div class="card-body" id="card-body${i}">
-          <select id="h${i}" onchange="updateDCLabel();updateCardCI(${i});refreshLowHPDropdowns();updateCardSummary(${i})" style="margin-top:6px">${HEROES.map(h=>`<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
+          <select id="h${i}" onchange="updateDCLabel();updateCardCI(${i});refreshLowHPDropdowns();updateCardSummary(${i});updateCoreOfOriginRow(${i})" style="margin-top:6px">${HEROES.map(h=>`<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
           <select id="a${i}" onchange="updateCardCI(${i});updateCardSummary(${i})">${ARTS.map(a=>`<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
           <div style="display:flex;gap:5px;margin-top:4px;">
               <div style="flex:1">
@@ -393,6 +395,12 @@ function buildCardHTML(i, d) {
           </div>
           <label style="margin-top:4px;display:block;font-size:11px"><input type="radio" name="max" value="${i}" ${i===0?'checked':''} onchange="updateDCLabel();updateDmgCalcVisibility()"> Highest ATK</label>
           <label style="margin-top:4px;display:block;font-size:11px;color:#a78bfa"><input type="checkbox" id="upgPurify${i}"> ✦ Upgraded Control Purify</label>
+          <div id="coreOfOriginRow${i}" style="display:none;margin-top:6px;padding:5px 7px;background:#1e0a2e;border:1px solid #7c3aed55;border-radius:5px;">
+              <label style="font-size:11px;color:#c084fc;font-weight:600;">⬡ Core of Origin</label>
+              <select id="core${i}" onchange="onCoreChange(${i})" style="margin-top:3px;width:100%;background:#0b0e14;color:#c084fc;border:1px solid #7c3aed88;border-radius:4px;font-size:11px;padding:2px 4px;">
+                  <option value="none">None</option>
+              </select>
+          </div>
           <div id="dmgCalc${i}" style="display:${i===0?'block':'none'};margin-top:10px;padding-top:10px;border-top:1px solid #334155;">
             <div style="color:#facc15;font-size:11px;font-weight:bold;margin-bottom:6px;">⚔️ Damage Calculator</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
@@ -474,6 +482,7 @@ function collectCardData(i) {
         stellar:    document.getElementById(`stellar${i}`)?.checked,
         maxAtk:     document.querySelector(`input[name="max"][value="${i}"]`)?.checked,
         upgPurify:  document.getElementById(`upgPurify${i}`)?.checked,
+        core:       document.getElementById(`core${i}`)?.value || 'none',
     };
 }
 
@@ -496,6 +505,7 @@ function applyCardData(i, d) {
     chk(`silImm${i}`, d.silImm);
     chk(`stellar${i}`, d.stellar);
     chk(`upgPurify${i}`, d.upgPurify);
+    if (d.core !== undefined) { const csel = document.getElementById(`core${i}`); if (csel) csel.value = d.core || 'none'; }
     // Radio: max ATK — only set if that card originally held it
     if (d.maxAtk) {
         document.querySelectorAll('input[name="max"]').forEach(r => r.checked = false);
@@ -631,12 +641,21 @@ window.addEventListener('load', () => {
         toggleCard(i);
     }
     updateTeamBonusDisplay();
+    for (let i = 0; i < 6; i++) updateCoreOfOriginRow(i);
 });
 
 let units = [], boss = {}, silent = false, bossHDStacks = 0, bossHPTier = "above70";
 
+let _logBuf = [];
+let _logRendering = false;
 function log(msg, color="#fff") {
-    if (!silent) document.getElementById('output').innerHTML += `<div style="color:${color}">${msg}</div>`;
+    if (!silent) _logBuf.push(`<div style="color:${color}">${msg}</div>`);
+}
+function flushLog() {
+    if (_logBuf.length === 0) return;
+    const out = document.getElementById('output');
+    out.innerHTML = _logBuf.join('');
+    _logBuf = [];
 }
 
 function checkC(u, type, amount="") {
@@ -736,6 +755,34 @@ function trigCal(u) {
         });
         u.calamity = 0;
     }
+}
+
+function fireBDSMCoreLiberation(u) {
+    log(`&nbsp;&nbsp;&nbsp;⬡ [CORE OF ORIGIN — CORE LIBERATION] ${u.name} activates`, "#c084fc");
+    for (let tick = 0; tick < 5; tick++) { units.forEach(a => { trackStat(a, "healingDone", 500); }); }
+    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⬡ [CORE LIB ≥30%] 5 ticks: all allies +2500% ATK healing total`, "#c084fc");
+    // CI ticks — clear old stacks then apply fresh 5
+    units.forEach(a => { a.buffs.ci = a.buffs.ci.filter(b => !b.source.startsWith("Core Liberation CI")); });
+    for (let tick = 0; tick < 5; tick++) {
+        units.forEach(a => {
+            if (a.curse > 0) { a.curse--; }
+            else { addBuffSilent(a, "ci", 0.045, 2, `Core Liberation CI tick ${tick+1}`); }
+        });
+    }
+    units.forEach(a => {
+        let applied = a.buffs.ci.filter(b => b.source.startsWith("Core Liberation CI")).length;
+        let total = getBuffTotal(a, "ci");
+        if (applied > 0) log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⬡ [CORE LIB ≥40%] ${a.name} +${(applied*4.5).toFixed(1)}% CI (${applied} ticks, 2r) | Eff. CI: ${((a.baseCI+total)*100).toFixed(0)}%`, "#c084fc");
+    });
+    // allDmg ticks
+    for (let tick = 0; tick < 5; tick++) {
+        units.forEach(a => { addBuffSilent(a, "allDmg", 0.045, 2, `Core Liberation allDmg tick ${tick+1}`); });
+    }
+    units.forEach(a => {
+        let applied = a.buffs.allDmg.filter(b => b.source.startsWith("Core Liberation allDmg")).length;
+        let total = getBuffTotal(a, "allDmg");
+        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⬡ [CORE LIB ≥50%] ${a.name} +${(applied*4.5).toFixed(1)}% allDmg (${applied} ticks, 2r) | Total allDmg: +${(total*100).toFixed(0)}%`, "#c084fc");
+    });
 }
 
 function grantFG(target, bdsm) {
@@ -1096,7 +1143,7 @@ function runOne(ov = null) {
             energy: (art === "Demon Bell" || art === "Spiritual Mirror") ? 100 : 50,
             curse: 0, calamity: 0, trans: 0, acts: 0, turnsLost: 0,
             cc: { silence:0, fear:0, seal:0 },
-            imm: is11 ? ["silence","fear","seal"][Math.floor(Math.random()*3)] : "none",
+            imm: "none", // placeholder, overridden below
             upgradedPurify: (ov && ov.heroes) ? (ov.heroes[i].upgradedPurify || false) : (document.getElementById(`upgPurify${i}`)?.checked || false),
             art: art,
             spd: heroSpd,
@@ -1115,6 +1162,8 @@ function runOne(ov = null) {
             fearImm: (() => { const ci = (ov&&ov.heroes) ? ov.heroes[i].cardIdx : i; return document.getElementById(`fearImm${ci}`)?.checked||false; })(),
             sealImm: (() => { const ci = (ov&&ov.heroes) ? ov.heroes[i].cardIdx : i; return document.getElementById(`sealImm${ci}`)?.checked||false; })(),
             silImm:  (() => { const ci = (ov&&ov.heroes) ? ov.heroes[i].cardIdx : i; return document.getElementById(`silImm${ci}`)?.checked||false; })(),
+            // Island 11: remove one existing immunity and grant a random one from the non-immune CCs
+            // Applied post-construction below
 
             hasPupil: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? document.getElementById(`pupil${ov.heroes[i].cardIdx}`).checked : document.getElementById(`pupil${i}`).checked,
             isM: (ov && ov.heroes && ov.heroes[i].cardIdx != null) ? (ov.heroes[i].cardIdx === mIdx) : (i === mIdx), isFr: heroIsFr, bDone: false,
@@ -1134,6 +1183,11 @@ function runOne(ov = null) {
             shield: 0,
             infuseUsed: false,
             boundlessTriggers: 0,
+            hasCoreOfOrigin: (() => {
+                const ci = (ov&&ov.heroes) ? ov.heroes[i].cardIdx : i;
+                const cval = document.getElementById(`core${ci}`)?.value || 'none';
+                return cval !== 'none';
+            })(),
             hp: 100,
             stygianMark: false,
             stygianMarkStack: 0,
@@ -1208,12 +1262,13 @@ function runOne(ov = null) {
 
     units.forEach(u => {
         if (u.name === "SQH") {
-            log(`👑 [SQH ROYAL GUARD] Granting +24% All-Damage to all allies at battle start`, "#f59e0b");
+            log(`👑 [SQH QUEEN'S GUARD] Granting +24% All-Damage to all allies at battle start`, "#f59e0b");
             units.filter(a => a !== u).forEach(a => {
-                addBuff(a, "allDmg", 0.24, 999, "SQH Royal Guard");
-                addBuff(a, "allDmgReduction", 0.08, 999, "SQH Royal Guard ADR");
+                a.queensGuard = true;
+                addBuff(a, "allDmg", 0.24, 999, "SQH Queens Guard");
+                addBuff(a, "allDmgReduction", 0.08, 999, "SQH Queens Guard ADR");
             });
-            log(`👑 [SQH ROYAL GUARD] All allies +24% allDmg, +8% ADR (permanent)`, "#f59e0b");
+            log(`👑 [SQH QUEEN'S GUARD] All allies +24% allDmg, +8% ADR (permanent) | All marked with Queen's Guard`, "#f59e0b");
         }
     });
 
@@ -1229,6 +1284,38 @@ function runOne(ov = null) {
     // ═══════════════════════════════════════════════════════
     // BATTLE START CI BONUSES (permanent, non-offsettable)
     // ═══════════════════════════════════════════════════════
+    // ── Island 11: for each hero, remove one existing CC immunity, grant a random one from the remainder ──
+    if (is11) {
+        units.forEach(u => {
+            const existing = ['fear','seal','silence'].filter(cc =>
+                (cc==='fear' && u.fearImm) || (cc==='seal' && u.sealImm) || (cc==='silence' && u.silImm)
+            );
+            const nonImmune = ['fear','seal','silence'].filter(cc => !existing.includes(cc));
+            if (existing.length > 0 && nonImmune.length > 0) {
+                // Remove one random existing immunity
+                const remove = existing[Math.floor(Math.random() * existing.length)];
+                if (remove==='fear') u.fearImm = false;
+                else if (remove==='seal') u.sealImm = false;
+                else u.silImm = false;
+                // Grant one random non-immune CC as new immunity
+                const grant = nonImmune[Math.floor(Math.random() * nonImmune.length)];
+                if (grant==='fear') u.fearImm = true;
+                else if (grant==='seal') u.sealImm = true;
+                else u.silImm = true;
+                u.imm = grant;
+                log(`&nbsp;&nbsp;&nbsp;🏝️ [ISL11] ${u.name}: removed ${remove} immunity → granted ${grant} immunity`, "#a78bfa");
+            } else if (existing.length === 0) {
+                // No existing immunities — grant a random one
+                const grant = ['fear','seal','silence'][Math.floor(Math.random()*3)];
+                if (grant==='fear') u.fearImm = true;
+                else if (grant==='seal') u.sealImm = true;
+                else u.silImm = true;
+                u.imm = grant;
+                log(`&nbsp;&nbsp;&nbsp;🏝️ [ISL11] ${u.name}: no prior immunity → granted ${grant} immunity`, "#a78bfa");
+            }
+        });
+    }
+
     log(``, "#fff");
     log(`⚔️ ═══ BATTLE START CI BONUSES ═══`, "#facc15");
     units.forEach(u => {
@@ -1482,33 +1569,7 @@ function runOne(ov = null) {
                     if (Math.random() < 0.4) {
                         units.forEach(a => { if (checkC(a, "BDSM Active Team Energy", "+10")) a.energy += 10; });
                     }
-                    log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM CORE LIBERATION] 5 allies all thresholds met`, "#ec4899");
-                    for (let tick = 0; tick < 5; tick++) { units.forEach(a => { trackStat(a, "healingDone", 500); }); }
-                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [CORE LIB ≥30%] 5 ticks: all allies +2500% ATK healing total`, "#ec4899");
-                    // 5 CI ticks — refresh (clear old CL CI stacks first, then apply fresh 5)
-                    units.forEach(a => {
-                        a.buffs.ci = a.buffs.ci.filter(b => !b.source.startsWith("Core Liberation CI"));
-                    });
-                    for (let tick = 0; tick < 5; tick++) {
-                        units.forEach(a => {
-                            if (a.curse > 0) { a.curse--; } // curse offsets each tick individually
-                            else { addBuffSilent(a, "ci", 0.045, 2, `Core Liberation CI tick ${tick+1}`); }
-                        });
-                    }
-                    units.forEach(a => {
-                        let applied = a.buffs.ci.filter(b => b.source.startsWith("Core Liberation CI")).length;
-                        let total = getBuffTotal(a, "ci");
-                        if (applied > 0) log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [CORE LIB ≥40%] ${a.name} +${(applied*4.5).toFixed(1)}% CI (${applied} ticks refreshed, 2r) | Eff. CI: ${((a.baseCI+total)*100).toFixed(0)}%`, "#ec4899");
-                    });
-                    // 5 allDmg ticks — apply silently then log summary per hero
-                    for (let tick = 0; tick < 5; tick++) {
-                        units.forEach(a => { addBuffSilent(a, "allDmg", 0.045, 2, `Core Liberation allDmg tick ${tick+1}`); });
-                    }
-                    units.forEach(a => {
-                        let applied = a.buffs.allDmg.filter(b => b.source.startsWith("Core Liberation allDmg")).length;
-                        let total = getBuffTotal(a, "allDmg");
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [CORE LIB ≥50%] ${a.name} +${(applied*4.5).toFixed(1)}% allDmg (${applied} ticks, 2r) | Total allDmg: +${(total*100).toFixed(0)}%`, "#ec4899");
-                    });
+                    if (u.hasCoreOfOrigin) { fireBDSMCoreLiberation(u); }
                     const bdsmCCTypes = ["silence","fear","seal"];
                     units.forEach(a => {
                         let activeCC = bdsmCCTypes.filter(t => a.cc[t] > 0);
@@ -2088,6 +2149,8 @@ function runOne(ov = null) {
                 u.energy += 10;
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚡ ${u.name} hit by boss active: +10 Energy (direct)`, "#38bdf8");
 
+                fireSQHQueensGuard(u);
+
                 let specterWearer = units.find(s => s.hasS);
                 if (specterWearer && specterWearer.cc.seal <= 0) {
                     log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🔮 ${u.name} Specter bonus: +10 Energy (boss hit)`, "#f472b6");
@@ -2174,6 +2237,8 @@ function runOne(ov = null) {
 
         units.forEach(u => {
             if (u.cc.seal > 0) return;
+            // ── Global Surge fires first, before artifact EoR effects ──
+            if (checkC(u, "Global Surge", "+50")) u.energy += 50;
             if (u.art === "Spiritual Mirror") {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SPIRITUAL MIRROR] EoR: +15 energy & +6% HP to all allies`, "#38bdf8");
                 units.forEach(a => {
@@ -2222,8 +2287,6 @@ function runOne(ov = null) {
                 let randSA = specAllies[Math.floor(Math.random() * specAllies.length)];
                 if (checkC(randSA, "Specter EoR Ally", "+50")) randSA.energy += 50;
             }
-            // ── Global Surge: each hero gets +50 energy after their own EoR actions ──
-            if (checkC(u, "Global Surge", "+50")) u.energy += 50;
         });
 
         log(`&nbsp;&nbsp;&nbsp;☠️ ABYSSAL INVASION (boss end-of-round)`, "#ef4444");
@@ -2377,7 +2440,18 @@ function runOne(ov = null) {
 function sim(multi) {
     const out = document.getElementById('output'); out.innerHTML = ""; silent = multi;
     if (!multi) {
-        runOne();
+        _logBuf = [];
+        const simStart = performance.now();
+        const progEl = document.getElementById('simProgress');
+        if (progEl) { progEl.style.display = 'block'; progEl.textContent = 'Simulating...'; }
+        requestAnimationFrame(() => {
+            runOne();
+            flushLog();
+            const elapsed = ((performance.now() - simStart) / 1000).toFixed(2);
+            if (progEl) { progEl.style.display = 'none'; }
+            document.getElementById('output').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        return;
     } else {
         const N = 1000;
         let stats = {}, totalHD = 0, minHD = Infinity, maxHD = -Infinity;
@@ -2482,34 +2556,14 @@ function sim(multi) {
             const tot = s.totalEstDmg / N;
             const mHeroName = document.getElementById(`h${parseInt(document.querySelector('input[name="max"]:checked').value)}`)?.value || "LFA";
 
-            // Damage magnitude distribution (like optimizer) — bucket by floor(log10(dmg))
+            // Damage distribution histogram
             const allDmgs = s._dmgSamples || [];
             let magHtml = '';
             if (allDmgs.length > 0) {
                 const magCounts = {};
-                allDmgs.forEach(d => {
-                    if (d > 0) { const m = Math.floor(Math.log10(d)); magCounts[m] = (magCounts[m]||0) + 1; }
-                });
-                const mags = Object.keys(magCounts).map(Number).sort((a,b) => b-a);
-                const total = allDmgs.length;
-                const barColors = ['#4ade80','#a78bfa','#38bdf8','#f59e0b','#f87171'];
-                magHtml = `<div style="margin-top:8px;font-size:11px;color:#64748b">
-                    <span style="color:#94a3b8;font-weight:bold">Damage Distribution:</span>
-                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">` +
-                    mags.map((mag, idx) => {
-                        const count = magCounts[mag];
-                        const p = (count/total*100).toFixed(1);
-                        const barW = Math.round(count/total*80);
-                        const col = barColors[idx % barColors.length];
-                        return `<div style="background:#1e293b;padding:5px 8px;border-radius:4px;min-width:80px;">
-                            <div style="color:${col};font-weight:bold">e${mag}</div>
-                            <div style="background:#0b0e14;border-radius:2px;height:4px;margin:3px 0;width:80px">
-                                <div style="background:${col};height:4px;border-radius:2px;width:${barW}px"></div>
-                            </div>
-                            <div style="color:#94a3b8">${p}% <span style="color:#64748b">(${count})</span></div>
-                        </div>`;
-                    }).join('') +
-                    `</div></div>`;
+                allDmgs.forEach(d => { if (d > 0) { const m = Math.floor(Math.log10(d)); magCounts[m] = (magCounts[m]||0) + 1; } });
+                magHtml = `<div style="margin-top:8px;font-size:11px;color:#64748b"><span style="color:#94a3b8;font-weight:bold">Damage Distribution:</span>` +
+                    buildDmgHistogramHTML(allDmgs, magCounts) + `</div>`;
             }
 
             dmgLine = `<div style="margin-bottom:14px;padding:14px 16px;background:var(--card);border:1px solid #334155;border-radius:8px;font-size:13px;line-height:1.8;">
@@ -3116,8 +3170,8 @@ function runPhase6(builds, heroNames, mIdx, heroCIs, lowhpNames, btn, prog, hero
             silent = false;
             r.phase6Dmg = total / FINAL_N;
             r.dmgDistribution = {};
-            for (const d of distDmgs) {
-                if (d <= 0) continue;
+            r.dmgSamples = distDmgs.filter(d => d > 0);
+            for (const d of r.dmgSamples) {
                 const mag = Math.floor(Math.log10(d));
                 r.dmgDistribution[mag] = (r.dmgDistribution[mag] || 0) + 1;
             }
@@ -3203,21 +3257,7 @@ function finishOptimizer(results, heroNames, mIdx, heroCIs, lowhpNames) {
                 ${r.phase6Dmg != null ? `<div style="color:#a78bfa;font-size:11px">Optimal Crit: ${r.optimalCrit}%</div>` : ''}
                 ${r.phase6Dmg != null ? `<div style="color:#64748b;font-size:10px">Phase 5 avg: ${fmt(r.avgDmg)}</div>` : ''}
                 ${rangeStr}
-                ${(() => {
-                    if (!r.dmgDistribution || Object.keys(r.dmgDistribution).length === 0) return '';
-                    const total = Object.values(r.dmgDistribution).reduce((a,b)=>a+b,0);
-                    const mags = Object.keys(r.dmgDistribution).map(Number).sort((a,b)=>b-a);
-                    return '<div style="margin-top:4px">' +
-                        mags.map(mag => {
-                            const count = r.dmgDistribution[mag];
-                            const pct = (count/total*100).toFixed(0);
-                            const bar = Math.round(count/total*30);
-                            const barStr = '█'.repeat(bar) + '░'.repeat(30-bar);
-                            const col = mag >= 23 ? '#4ade80' : mag >= 22 ? '#a78bfa' : mag >= 21 ? '#38bdf8' : '#94a3b8';
-                            return '<div style="font-size:10px;color:'+col+';font-family:monospace">e'+mag+': '+pct+'% ('+count+'/'+total+')</div>';
-                        }).join('') +
-                    '</div>';
-                })()}
+                ${(r.dmgSamples && r.dmgSamples.length > 0) ? buildDmgHistogramHTML(r.dmgSamples, r.dmgDistribution) : ''}
             </td>
             <td style="padding:8px;color:#e2e8f0;white-space:nowrap">${actingOrder}</td>
             <td style="padding:8px;line-height:2">
@@ -3803,6 +3843,105 @@ function updateAllCardCI() {
     for (let i = 0; i < 6; i++) updateCardCI(i);
 }
 
+function buildDmgHistogramHTML(samples, magCounts) {
+    // Fine histogram SVG
+    const valid = samples.filter(d => d > 0);
+    if (valid.length === 0) return '';
+    const mn = Math.min(...valid), mx = Math.max(...valid);
+    const BINS = 40;
+    const bw = (mx - mn) / BINS || 1;
+    const bins = Array(BINS).fill(0);
+    valid.forEach(d => {
+        const bi = Math.min(BINS - 1, Math.floor((d - mn) / bw));
+        bins[bi]++;
+    });
+    const maxB = Math.max(...bins);
+    const W = 320, H = 80, PAD = {l:4, r:4, t:4, b:18};
+    const cW = W - PAD.l - PAD.r, cH = H - PAD.t - PAD.b;
+    const barW = cW / BINS;
+    const toY = v => PAD.t + cH - (v / maxB) * cH;
+    const colOf = i => {
+        const d = mn + (i + 0.5) * bw;
+        const m = Math.floor(Math.log10(d));
+        return m >= 23 ? '#4ade80' : m >= 22 ? '#a78bfa' : m >= 21 ? '#38bdf8' : '#94a3b8';
+    };
+    const bars = bins.map((v, i) => {
+        const x = PAD.l + i * barW;
+        const y = toY(v);
+        const h = PAD.t + cH - y;
+        if (v === 0) return '';
+        return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(barW-0.5).toFixed(1)}" height="${h.toFixed(1)}" fill="${colOf(i)}" opacity="0.85"/>`;
+    }).join('');
+    // X labels: min and max
+    const fmtD = d => {
+        if (d >= 1e23) return (d/1e23).toFixed(1)+'e23';
+        if (d >= 1e22) return (d/1e22).toFixed(1)+'e22';
+        if (d >= 1e21) return (d/1e21).toFixed(1)+'e21';
+        return (d/1e20).toFixed(1)+'e20';
+    };
+    const svg = `<svg width="${W}" height="${H}" style="display:block;overflow:visible">
+        <rect x="${PAD.l}" y="${PAD.t}" width="${cW}" height="${cH}" fill="#0b0e14" rx="2"/>
+        ${bars}
+        <text x="${PAD.l}" y="${H-2}" fill="#475569" font-size="9" text-anchor="start">${fmtD(mn)}</text>
+        <text x="${W-PAD.r}" y="${H-2}" fill="#475569" font-size="9" text-anchor="end">${fmtD(mx)}</text>
+    </svg>`;
+
+    // Magnitude badges (existing style)
+    const total = valid.length;
+    const mags = Object.keys(magCounts).map(Number).sort((a,b)=>b-a);
+    const badges = mags.map(mag => {
+        const count = magCounts[mag];
+        const pct = (count/total*100).toFixed(0);
+        const col = mag >= 23 ? '#4ade80' : mag >= 22 ? '#a78bfa' : mag >= 21 ? '#38bdf8' : '#94a3b8';
+        return `<span style="font-size:10px;color:${col};font-family:monospace;background:#1e293b;padding:1px 5px;border-radius:3px">e${mag}: ${pct}% <span style="color:#475569">(${count})</span></span>`;
+    }).join('');
+
+    return `<div style="margin-top:6px">${svg}<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${badges}</div></div>`;
+}
+
+// Core of Origin data
+const HERO_CORES = { 'BDSM': 'Core Liberation' };
+
+function updateCoreOfOriginRow(i) {
+    const hero = document.getElementById(`h${i}`)?.value || '';
+    const row  = document.getElementById(`coreOfOriginRow${i}`);
+    const sel  = document.getElementById(`core${i}`);
+    if (!row || !sel) return;
+    const coreName = HERO_CORES[hero];
+    if (coreName) {
+        row.style.display = 'block';
+        // Rebuild options if needed
+        if (sel.options.length < 2) {
+            const opt = document.createElement('option');
+            opt.value = coreName; opt.textContent = coreName;
+            sel.appendChild(opt);
+        }
+    } else {
+        row.style.display = 'none';
+        sel.value = 'none';
+    }
+}
+
+function onCoreChange(i) {
+    const sel = document.getElementById(`core${i}`);
+    if (sel.value !== 'none') {
+        // Deselect core on all other cards
+        for (let j = 0; j < 6; j++) {
+            if (j === i) continue;
+            const other = document.getElementById(`core${j}`);
+            if (other && other.value !== 'none') other.value = 'none';
+        }
+    }
+}
+
+function getActiveCoreHeroIdx() {
+    for (let i = 0; i < 6; i++) {
+        const sel = document.getElementById(`core${i}`);
+        if (sel && sel.value !== 'none') return i;
+    }
+    return -1;
+}
+
 function updateCardCI(i) {
     const hero = document.getElementById(`h${i}`)?.value || '';
     const lbl  = document.getElementById(`stellarLbl${i}`);
@@ -3811,6 +3950,7 @@ function updateCardCI(i) {
     const el  = document.getElementById(`effCI${i}`);
     if (el) el.textContent = `→ ${eff}%`;
     updateTeamBonusDisplay();
+    for (let i = 0; i < 6; i++) updateCoreOfOriginRow(i);
     for (let j = 0; j < 6; j++) {
         if (j === i) continue;
         const ej = getEffectiveCI(j);
