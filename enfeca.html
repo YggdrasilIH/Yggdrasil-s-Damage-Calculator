@@ -1312,8 +1312,9 @@ function runOne(ov = null) {
           units.forEach(a => {
               const mult = a.art === "Spiritual Mirror" ? 2 : 1;
               setSMBuff(a, "allDmg", 0.045 * mult, "SM allDmg");
-              setSMBuff(a, "dr",     0.030 * mult, "SM DR");
-              log(`&nbsp;&nbsp;&nbsp;🪞 [SM] ${a.name}: allDmg=${(4.5*mult).toFixed(1)}% DR=${(3*mult).toFixed(1)}% (peak)`, "#38bdf8");
+              // 3 offsettable DR stacks: expire after 1, 2, 3 rounds
+              [1, 2, 3].forEach(dur => tryBuff(a, "dr", 0.015 * mult, dur, `SM DR ${dur}r`));
+              log(`&nbsp;&nbsp;&nbsp;🪞 [SM] ${a.name}: allDmg=${(4.5*mult).toFixed(1)}% DR=3×${(1.5*mult).toFixed(1)}% (1r/2r/3r offsettable, peak)`, "#38bdf8");
           });
           boss.ciDebuff = (boss.ciDebuff || 0) + 0.03;
           log(`&nbsp;&nbsp;&nbsp;🪞 [SM] Boss CI -3%`, "#38bdf8");
@@ -2286,20 +2287,17 @@ function runOne(ov = null) {
               log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SPIRITUAL MIRROR] EoR round ${boss.spiritMirrorRound}${isPulseRound ? ' — PULSE (reset to peak)' : ' — decay -1.5%'}`, "#38bdf8");
               units.forEach(a => {
                   const mult = a.art === "Spiritual Mirror" ? 2 : 1;
-                  const step = 0.015 * mult; // 1.5% per round decay
-                  const peak = 0.045 * mult; // 4.5% peak
+                  // allDmg: always decay in-place
                   const curAD = (a.buffs.allDmg.find(b => b.source === "SM allDmg") || {}).value || 0;
-                  const curDR = (a.buffs.dr.find(b => b.source === "SM DR") || {}).value || 0;
-                  let newAD, newDR;
-                  if (isPulseRound) {
-                      newAD = peak; newDR = 0.030 * mult;
-                  } else {
-                      newAD = Math.max(0, curAD - step);
-                      newDR = Math.max(0, curDR - step);
-                  }
+                  const newAD = isPulseRound ? 0.045 * mult : Math.max(0, curAD - 0.015 * mult);
                   setSMBuff(a, "allDmg", newAD, "SM allDmg");
-                  setSMBuff(a, "dr",     newDR, "SM DR");
-                  log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SM] ${a.name}: allDmg=${(newAD*100).toFixed(1)}% DR=${(newDR*100).toFixed(1)}%`, "#38bdf8");
+                  // DR: on pulse, apply fresh 3 offsettable stacks; otherwise let existing stacks expire naturally
+                  if (isPulseRound) {
+                      [1, 2, 3].forEach(dur => tryBuff(a, "dr", 0.015 * mult, dur, `SM DR ${dur}r`));
+                      log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SM] ${a.name}: allDmg=${(newAD*100).toFixed(1)}% DR reset 3×${(1.5*mult).toFixed(1)}% (1r/2r/3r)`, "#38bdf8");
+                  } else {
+                      log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🪞 [SM] ${a.name}: allDmg=${(newAD*100).toFixed(1)}% (DR stacks expiring naturally)`, "#38bdf8");
+                  }
               });
               if (isPulseRound) {
                   boss.ciDebuff = (boss.ciDebuff || 0) + 0.03;
