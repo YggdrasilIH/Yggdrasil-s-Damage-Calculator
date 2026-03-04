@@ -165,14 +165,17 @@
                 <select id="gImp"><option value="none">None</option><option value="foresight" selected>Foresight</option><option value="destiny">Destiny</option></select>
             </label>
             <label style="font-size:12px;display:flex;flex-direction:column;gap:3px;">
-                <span style="color:#94a3b8">Boss HP Tier</span>
-                <select id="bossHP">
-                    <option value="above70" selected>Above 70%</option>
-                    <option value="60-69">60–69%</option>
-                    <option value="50-59">50–59%</option>
-                    <option value="below50">Below 50%</option>
-                </select>
+                <span style="color:#94a3b8">Boss Level <small style="color:#64748b">(1=strongest, 100=weakest)</small></span>
+                <input type="number" id="bossLevel" value="100" min="1" max="100" step="1" oninput="updateBossHPDisplay()">
             </label>
+            <label style="font-size:12px;display:flex;flex-direction:column;gap:3px;">
+                <span style="color:#94a3b8">Boss Current HP % <small style="color:#64748b">(at fight start)</small></span>
+                <input type="number" id="bossCurrentHPPct" value="100" min="1" max="100" step="1">
+            </label>
+            <div style="font-size:11px;color:#64748b;display:flex;flex-direction:column;gap:2px;">
+                <span style="color:#94a3b8;font-size:12px;">Boss Max HP</span>
+                <span id="bossHPDisplay" style="color:#38bdf8;font-weight:bold;font-size:12px;">—</span>
+            </div>
             <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="isl8" checked> Island 8 (+3% allDmg per ally active)</label>
             <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="isl9" checked> Island 9 (allDmgReduction decay + HD ramp)</label>
             <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="isl10" checked> Island 10 (+25% allDmg all at round start)</label>
@@ -413,6 +416,7 @@ function buildCardHTML(i, d) {
               <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Crit %</label><input type="number" id="dc_crit" value="35" style="width:100%"></div>
               <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Crit DMG %</label><input type="number" id="dc_cd" value="150" style="width:100%"></div>
               <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Temple DMG %</label><input type="number" id="dc_temple" value="160" style="width:100%"></div>
+              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Maim % <small style="color:#64748b">(bonus vs low HP)</small></label><input type="number" id="maimPct" value="30" min="0" max="200" style="width:100%"></div>
             </div>
             <div style="display:flex;gap:12px;margin-top:6px;">
               <label style="font-size:11px;"><input type="checkbox" id="dc_defier" checked> Defier</label>
@@ -430,6 +434,8 @@ defaults.forEach((d, i) => {
 
 // Render saved builds list on page load
 renderBuildsList();
+// Show boss HP on load
+setTimeout(updateBossHPDisplay, 0);
 
 // ── Drag-and-drop logic ───────────────────────────────────────────────────
 let dragSrcIndex = null;
@@ -646,6 +652,25 @@ window.addEventListener('load', () => {
 });
 
 let units = [], boss = {}, silent = false, bossHDStacks = 0, bossHPTier = "above70";
+let bossLevel = 100, bossCurrentHPPct = 100, maimPct = 30;
+let bossMaxHP = 5.7912e18; // Level 100 default (weakest = HP[1])
+let bossLiveHP = bossMaxHP;
+function getLiveHPPct() { return bossMaxHP > 0 ? (bossLiveHP / bossMaxHP) * 100 : 100; }
+function updateBossHPTier() {
+    const pct = getLiveHPPct();
+    bossHPTier = pct > 70 ? 'above70' : pct >= 60 ? '60-69' : pct >= 50 ? '50-59' : 'below50';
+}
+function getMaimMult() {
+    const pct = getLiveHPPct();
+    return 1 + (1 - pct / 100) * (maimPct / 100);
+}
+function updateBossHPDisplay() {
+    const lvl = parseInt(document.getElementById('bossLevel')?.value) || 100;
+    const _HP1 = 5.7912e18;
+    const hp = _HP1 * Math.pow(1.2378, 100 - lvl);
+    const el = document.getElementById('bossHPDisplay');
+    if (el) el.textContent = hp.toExponential(3);
+}
 
 let _logBuf = [];
 let _logRendering = false;
@@ -1042,7 +1067,8 @@ function collectFullState() {
         env: {
             seTrainCI: get('seTrainCI'),
             petCI:     get('petCI'),
-            bossHP:    get('bossHP'),
+            bossLevel:        get('bossLevel'),
+            bossCurrentHPPct: get('bossCurrentHPPct'),
             isl8:      chkd('isl8'),
             isl9:      chkd('isl9'),
             isl10:     chkd('isl10'),
@@ -1061,6 +1087,7 @@ function collectFullState() {
             crit:   get('dc_crit'),
             cd:     get('dc_cd'),
             temple: get('dc_temple'),
+            maimPct: get('maimPct'),
             defier: chkd('dc_defier'),
             gk:     chkd('dc_gk'),
         }
@@ -1080,7 +1107,8 @@ function applyFullState(state) {
     if (state.env) {
         set('seTrainCI', state.env.seTrainCI);
         set('petCI',     state.env.petCI);
-        set('bossHP',    state.env.bossHP);
+        set('bossLevel',        state.env.bossLevel);
+        set('bossCurrentHPPct', state.env.bossCurrentHPPct);
         chk('isl8',    state.env.isl8);
         chk('isl9',    state.env.isl9);
         chk('isl10',   state.env.isl10);
@@ -1101,6 +1129,7 @@ function applyFullState(state) {
         set('dc_crit',   state.dc.crit);
         set('dc_cd',     state.dc.cd);
         set('dc_temple', state.dc.temple);
+        set('maimPct',   state.dc.maimPct);
         chk('dc_defier', state.dc.defier);
         chk('dc_gk',     state.dc.gk);
     }
@@ -1108,6 +1137,7 @@ function applyFullState(state) {
     updateDCLabel();
     updateDmgCalcVisibility();
     refreshLowHPDropdowns();
+    updateBossHPDisplay();
 }
 
 function getBuilds() {
@@ -1228,7 +1258,15 @@ function runOne(ov = null) {
     const is8  = document.getElementById('isl8').checked;
     const fearGT = document.getElementById('fearGT').checked;
     const safeMode = document.getElementById('safeMode')?.checked || false;
-    bossHPTier = document.getElementById('bossHP').value;
+    bossLevel = parseInt(document.getElementById('bossLevel').value) || 100;
+    bossCurrentHPPct = Math.min(100, Math.max(1, parseFloat(document.getElementById('bossCurrentHPPct').value) || 100));
+    maimPct = parseFloat(document.getElementById('maimPct').value) || 0;
+    // Level 1 = strongest (HP[1] × 1.2378^99), Level 100 = weakest (HP[1])
+    const _HP1 = 5.7912e18;
+    bossMaxHP = _HP1 * Math.pow(1.2378, 100 - bossLevel);
+    bossLiveHP = bossMaxHP * (bossCurrentHPPct / 100);
+    updateBossHPTier();
+    let fightEndedRound = 15;
     const is10 = document.getElementById('isl10').checked;
     const mIdx = parseInt(document.querySelector('input[name="max"]:checked').value);
 
@@ -1742,7 +1780,7 @@ function runOne(ov = null) {
                     log(`&nbsp;&nbsp;&nbsp;👿 [LFA SOUL SHIVER] Hits 1-2: ${hits12}% ATK (2×1200%, always)`, "#c084fc");
                     // Hit 3-4: only if boss HP < 60%
                     let hits34 = 0;
-                    if (bossHPTier === "below50" || bossHPTier === "50-59") {
+                    if (getLiveHPPct() < 60) {
                         hits34 = 2400;
                         trackStat(u, "damageDealt", hits34);
                         trackStat(u, "healingDone", hits34 * 1.20);
@@ -1775,20 +1813,20 @@ function runOne(ov = null) {
                         const corrMult    = 1 + 0.24 * (boss.abyssalCorruption || 0);
                         const critMult    = 1.5 * cdCapped * 2 * corrMult;
                         const gkMult      = dc.gk ? 2.0 : 1.0;
-                        const defMult     = (dc.defier && bossHPTier === "above70") ? 1.3 : 1.0;
                         const templeMult  = 1 + dc.temple / 100; // e.g. 150% → dc.temple=150 → templeMult=2.5
                         const shrinkMult  = boss.shrink ? 1.4 : 1.0;
                         const allDmgMult  = 1 + allDmgBuff + dc.alldmg / 100; // dc.alldmg raw %, allDmgBuff already decimal
 
                         // Per-hit base formula (one hit of X% multiplier)
                         function calcHit(multPct) {
+                            const _defMult = (dc.defier && getLiveHPPct() > 70) ? 1.3 : 1.0;
                             const base = dc.atk
                                 * (1 + atkBuff)
                                 * ((multPct + (dc.skill + antlersSkill) / 100))
                                 * (1 + precCapped * 0.3)
                                 * (1 + (dc.holy / 100) * 0.7)
                                 * allDmgMult
-                                * gkMult * defMult * templeMult * shrinkMult;
+                                * gkMult * _defMult * templeMult * shrinkMult;
                             const isCrit = Math.random() < (dc.crit / 100);
                             return isCrit ? base * critMult : base;
                         }
@@ -1800,71 +1838,106 @@ function runOne(ov = null) {
                         const antlersSkill    = (ov && ov.fromOptimizer) ? (u.art === "Antlers" ? 300 : u.art === "Antiwarrior" ? 50 : 0) : 0; // optimizer only
                         const watcherMarkMult  = 1 + (boss.watcherMark || 0); // e.g. 300% → ×4
                         const burnBonusMult    = (boss.burn > 0) ? 1 + getBuffTotal(u, "burnBonus") : 1.0; // only vs burn targets
+                        let bossDeadMidActive = false;
                         function calcHitTracked(multPct) {
+                            if (bossDeadMidActive) return 0;
+                            const _defMult = (dc.defier && getLiveHPPct() > 70) ? 1.3 : 1.0;
+                            const _maimMult = getMaimMult();
                             const base = dc.atk
                                 * (1 + atkBuff)
                                 * (multPct + dc.skill / 100)
                                 * (1 + precCapped * 0.3)
                                 * (1 + holyBuff * 0.7)
-                                * allDmgMult * gkMult * defMult * templeMult * shrinkMult
+                                * allDmgMult * gkMult * _defMult * templeMult * shrinkMult
                                 * antiwarriorMult * watcherMarkMult * burnBonusMult;
                             const isCrit = Math.random() < (critBuff + 0.10); // LFA active +10% crit
                             if (!isCrit) anyCritMiss = true;
-                            return isCrit ? base * critMult : base;
+                            const hitDmg = (isCrit ? base * critMult : base) * _maimMult;
+                            bossLiveHP -= hitDmg;
+                            updateBossHPTier();
+                            if (bossLiveHP <= 0) { bossDeadMidActive = true; bossLiveHP = 0; }
+                            return hitDmg;
                         }
-                        const modMult = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
+                        // modMult is computed fresh before each secondary component so Defier + Maim both re-check live HP%
+                        function getModMult() {
+                            return allDmgMult * gkMult * ((dc.defier && getLiveHPPct() > 70) ? 1.3 : 1.0) * templeMult * shrinkMult * getMaimMult();
+                        }
                         let hitLog = []; let totalDmg = 0;
                         let srcHits = 0, srcDKM = 0, srcLethal = 0, srcBS = 0, srcAddl = 0;
 
                         // Hits 1-2 (always)
                         for (let h = 1; h <= 2; h++) {
+                            if (bossDeadMidActive) { hitLog.push(`Hit ${h}: skipped (boss dead)`); continue; }
                             const d = calcHitTracked(12); totalDmg += d; hits14Sum += d;
-                            hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`);
+                            hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}${bossDeadMidActive?' [BOSS KILLED]':''}`);
                         }
-                        // Hits 3-4 (boss below 60%)
-                        if (bossHPTier === 'below50' || bossHPTier === '50-59') {
-                            for (let h = 3; h <= 4; h++) {
+                        // Hits 3-4 (boss below 60% at time of hit)
+                        for (let h = 3; h <= 4; h++) {
+                            if (bossDeadMidActive) { hitLog.push(`Hit ${h}: skipped (boss dead)`); continue; }
+                            if (getLiveHPPct() < 60) {
                                 const d = calcHitTracked(12); totalDmg += d; hits14Sum += d;
-                                hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}`);
+                                hitLog.push(`Hit ${h}: ${Math.round(d).toLocaleString()}${bossDeadMidActive?' [BOSS KILLED]':''}`);
+                            } else {
+                                hitLog.push(`Hit ${h}: skipped (boss HP≥60% at this moment)`);
                             }
                         }
                         srcHits += totalDmg; // hits 1-4 damage before DKM and hit 5
 
-                        // DKM: 120% of fully calculated hits 1-4 × modMult
-                        const dkmDmgCalc = hits14Sum * 1.20 * modMult;
-                        srcDKM = dkmDmgCalc;
-                        totalDmg += dkmDmgCalc;
-                        hitLog.push(`DKM (120% of hits 1-4 × modMult): ${Math.round(dkmDmgCalc).toLocaleString()}`);
+                        // DKM: 120% of fully calculated hits 1-4 × modMult (re-checked) × maim
+                        if (!bossDeadMidActive) {
+                            const dkmDmgCalc = hits14Sum * 1.20 * getModMult();
+                            srcDKM = dkmDmgCalc;
+                            totalDmg += dkmDmgCalc;
+                            bossLiveHP -= dkmDmgCalc; updateBossHPTier();
+                            if (bossLiveHP <= 0) { bossDeadMidActive = true; bossLiveHP = 0; }
+                            hitLog.push(`DKM (120% of hits 1-4 × modMult × maim): ${Math.round(dkmDmgCalc).toLocaleString()}${bossDeadMidActive?' [BOSS KILLED]':''}`);
+                        } else {
+                            hitLog.push(`DKM: skipped (boss dead)`);
+                        }
 
-                        // Hit 5 (always)
-                        const d5 = calcHitTracked(12); totalDmg += d5; srcHits += d5;
-                        hitLog.push(`Hit 5: ${Math.round(d5).toLocaleString()}`);
+                        // Hit 5 (always, if boss alive)
+                        if (!bossDeadMidActive) {
+                            const d5 = calcHitTracked(12); totalDmg += d5; srcHits += d5;
+                            hitLog.push(`Hit 5: ${Math.round(d5).toLocaleString()}${bossDeadMidActive?' [BOSS KILLED]':''}`);
+                        } else {
+                            hitLog.push(`Hit 5: skipped (boss dead)`);
+                        }
 
                         const initialPlusDKM = totalDmg;
 
-                        // ── Lethal Fightback: 18% of (hits 1-5 + DKM) × modMult ─────────────────
-                        const lethalFB = initialPlusDKM * 0.18 * modMult;
-                        srcLethal = lethalFB;
-                        totalDmg += lethalFB;
-                        hitLog.push(`Lethal Fightback (18%): ${Math.round(lethalFB).toLocaleString()}`);
-
-                        // ── Balanced Strike: fires if any hit did NOT crit ────────────────────────
-                        if (anyCritMiss) {
-                            const bsPct = bossHPTier === 'below50' ? 1.95 : 0.45;
-                            srcBS = initialPlusDKM * bsPct * modMult;
-                            totalDmg += srcBS;
-                            hitLog.push(`Balanced Strike (${(bsPct*100).toFixed(0)}%, non-crit): ${Math.round(srcBS).toLocaleString()}`);
+                        // ── Lethal Fightback: 18% of (hits 1-5 + DKM) × modMult (re-checked) × maim ──
+                        if (!bossDeadMidActive) {
+                            const lethalFB = initialPlusDKM * 0.18 * getModMult();
+                            srcLethal = lethalFB;
+                            totalDmg += lethalFB;
+                            bossLiveHP -= lethalFB; updateBossHPTier();
+                            if (bossLiveHP <= 0) { bossDeadMidActive = true; bossLiveHP = 0; }
+                            hitLog.push(`Lethal Fightback (18%): ${Math.round(lethalFB).toLocaleString()}${bossDeadMidActive?' [BOSS KILLED]':''}`);
                         } else {
-                            hitLog.push(`Balanced Strike: skipped (all hits crit)`);
+                            hitLog.push(`Lethal Fightback: skipped (boss dead)`);
                         }
 
-                        // ── Additional Multiplier: 80% proc, not sealed, 10% of all prior ────────
-                        if (u.cc.seal <= 0 && Math.random() < 0.80) {
-                            srcAddl = (initialPlusDKM + lethalFB + srcBS) * 0.10 * modMult;
-                            totalDmg += srcAddl;
-                            hitLog.push(`Additional Multiplier (80% proc, 10%): ${Math.round(srcAddl).toLocaleString()}`);
+                        // ── Balanced Strike: fires if any hit did NOT crit, modMult + HP% both re-checked ──
+                        if (anyCritMiss && !bossDeadMidActive) {
+                            const bsPct = getLiveHPPct() < 50 ? 1.95 : 0.45;
+                            srcBS = initialPlusDKM * bsPct * getModMult();
+                            totalDmg += srcBS;
+                            bossLiveHP -= srcBS; updateBossHPTier();
+                            if (bossLiveHP <= 0) { bossDeadMidActive = true; bossLiveHP = 0; }
+                            hitLog.push(`Balanced Strike (${(bsPct*100).toFixed(0)}%, non-crit, live HP%): ${Math.round(srcBS).toLocaleString()}${bossDeadMidActive?' [BOSS KILLED]':''}`);
                         } else {
-                            hitLog.push(`Additional Multiplier: ${u.cc.seal > 0 ? 'blocked (sealed)' : 'did not proc (20%)'}`);
+                            hitLog.push(`Balanced Strike: ${!anyCritMiss ? 'skipped (all hits crit)' : 'skipped (boss dead)'}`);
+                        }
+
+                        // ── Additional Multiplier: 80% proc, not sealed, 10% of all prior, modMult re-checked ──
+                        if (u.cc.seal <= 0 && Math.random() < 0.80 && !bossDeadMidActive) {
+                            srcAddl = (initialPlusDKM + srcLethal + srcBS) * 0.10 * getModMult();
+                            totalDmg += srcAddl;
+                            bossLiveHP -= srcAddl; updateBossHPTier();
+                            if (bossLiveHP <= 0) { bossDeadMidActive = true; bossLiveHP = 0; }
+                            hitLog.push(`Additional Multiplier (80% proc, 10%): ${Math.round(srcAddl).toLocaleString()}${bossDeadMidActive?' [BOSS KILLED]':''}`);
+                        } else {
+                            hitLog.push(`Additional Multiplier: ${u.cc.seal > 0 ? 'blocked (sealed)' : bossDeadMidActive ? 'skipped (boss dead)' : 'did not proc (20%)'}`);
                         }
 
                         // Accumulate per-source damage on unit
@@ -1874,11 +1947,13 @@ function runOne(ov = null) {
                         u.srcBS     = (u.srcBS     || 0) + srcBS;
                         u.srcAddl   = (u.srcAddl   || 0) + srcAddl;
 
-                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK:${dc.atk.toLocaleString()} | ATKbuff:+${(atkBuff*100).toFixed(0)}% | Skill:+${(dc.skill + antlersSkill).toFixed(0)}%${antlersSkill===300?" (incl +300 Antlers)":antlersSkill===50?" (incl +50 Antiwarrior)":""} | Prec:${dc.prec.toFixed(0)}% | Holy:${(holyBuff*100).toFixed(0)}% (base ${dc.holy.toFixed(0)}%+fight ${(getBuffTotal(u,'hd')*100).toFixed(0)}%) | AllDmg:+${(allDmgMult*100-100).toFixed(0)}% | Crit:${(critBuff*100).toFixed(1)}%@${(cdCapped*100).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Def:${defMult>1?'✓':'✗'} Temple:×${templeMult.toFixed(2)} Shrink:${boss.shrink?'✓':'✗'} AbyssalCorruption:${boss.abyssalCorruption||0}${antiwarriorMult>1?' | Antiwarrior:×1.90':''} | WatcherMark:×${watcherMarkMult.toFixed(2)} | BurnBonus:×${burnBonusMult.toFixed(2)}`, '#facc15');
-                        log('&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA] ATK × (1+ATKbuff) × (hitMult%+Skill%) × (1+min(Prec,150%)×0.3) × (1+Holy×0.7) × (1+AllDmg) × GK × Defier × Temple × Shrink' + (antiwarriorMult>1?' × Antiwarrior(1.9)':'') + ` × WatcherMark(${watcherMarkMult.toFixed(2)})` + ' → ×CritMult if crit', '#94a3b8');
-                        log(`&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA VALUES] ATK:${dc.atk.toLocaleString()} × (1+${(atkBuff*100).toFixed(0)}%) × (12+${dc.skill.toFixed(0)}%) × (1+${(precCapped*100).toFixed(0)}%×0.3=${(1+precCapped*0.3).toFixed(3)}) × (1+${(holyBuff*100).toFixed(0)}%×0.7=${(1+holyBuff*0.7).toFixed(3)}) × ${allDmgMult.toFixed(3)} × ${gkMult} × ${defMult} × ${templeMult.toFixed(3)} × ${shrinkMult}${antiwarriorMult>1?' × 1.9':''} × ${watcherMarkMult.toFixed(2)}(WM) → CritMult: 1.5×${(cdCapped*100).toFixed(0)}%×2×${corrMult.toFixed(2)}=${critMult.toFixed(3)}`, '#94a3b8');
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK:${dc.atk.toLocaleString()} | ATKbuff:+${(atkBuff*100).toFixed(0)}% | Skill:+${(dc.skill + antlersSkill).toFixed(0)}%${antlersSkill===300?" (incl +300 Antlers)":antlersSkill===50?" (incl +50 Antiwarrior)":""} | Prec:${dc.prec.toFixed(0)}% | Holy:${(holyBuff*100).toFixed(0)}% (base ${dc.holy.toFixed(0)}%+fight ${(getBuffTotal(u,'hd')*100).toFixed(0)}%) | AllDmg:+${(allDmgMult*100-100).toFixed(0)}% | Maim:×${getMaimMult().toFixed(3)} | Crit:${(critBuff*100).toFixed(1)}%@${(cdCapped*100).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Defier(dynamic) Temple:×${templeMult.toFixed(2)} Shrink:${boss.shrink?'✓':'✗'} AbyssalCorruption:${boss.abyssalCorruption||0}${antiwarriorMult>1?' | Antiwarrior:×1.90':''} | WatcherMark:×${watcherMarkMult.toFixed(2)} | BurnBonus:×${burnBonusMult.toFixed(2)}`, '#facc15');
+                        log('&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA] ATK × (1+ATKbuff) × (hitMult%+Skill%) × (1+min(Prec,150%)×0.3) × (1+Holy×0.7) × (1+AllDmg) × GK × Defier(per-hit) × Temple × Shrink × Maim' + (antiwarriorMult>1?' × Antiwarrior(1.9)':'') + ` × WatcherMark(${watcherMarkMult.toFixed(2)})` + ' → ×CritMult if crit', '#94a3b8');
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [HIT FORMULA VALUES] ATK:${dc.atk.toLocaleString()} × (1+${(atkBuff*100).toFixed(0)}%) × (12+${dc.skill.toFixed(0)}%) × (1+${(precCapped*100).toFixed(0)}%×0.3=${(1+precCapped*0.3).toFixed(3)}) × (1+${(holyBuff*100).toFixed(0)}%×0.7=${(1+holyBuff*0.7).toFixed(3)}) × ${allDmgMult.toFixed(3)} × ${gkMult} × [Defier:dynamic] × ${templeMult.toFixed(3)} × ${shrinkMult}${antiwarriorMult>1?' × 1.9':''} × ${watcherMarkMult.toFixed(2)}(WM) → CritMult: 1.5×${(cdCapped*100).toFixed(0)}%×2×${corrMult.toFixed(2)}=${critMult.toFixed(3)}`, '#94a3b8');
                         hitLog.forEach(h => log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚔️ ${h}`, '#facc15'));
-                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC TOTAL] ${Math.round(totalDmg).toLocaleString()} damage this active`, '#facc15');                       u.totalEstDmg += totalDmg;
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC TOTAL] ${Math.round(totalDmg).toLocaleString()} damage this active${bossDeadMidActive?' | 💀 BOSS KILLED (Round '+r+')':''}`, '#facc15');
+                        if (bossDeadMidActive) { fightEndedRound = r; log(`💀 BOSS DEFEATED in Round ${r}!`, '#ff4757'); }
+                        u.totalEstDmg += totalDmg;
                     if (u.dmgPerRound) u.dmgPerRound[r-1] = (u.dmgPerRound[r-1]||0) + totalDmg;
                     }
                 }
@@ -2583,9 +2658,12 @@ function runOne(ov = null) {
                 u.dodge = u.baseDodge;
             }
         });
+
+        // Early fight end — boss HP dropped to 0 this round
+        if (bossLiveHP <= 0) { fightEndedRound = r; break; }
     }
 
-    return { units, hd: bossHDStacks, boss, shrinkMissed: shrinkMissedRound };
+    return { units, hd: bossHDStacks, boss, shrinkMissed: shrinkMissedRound, fightEndedRound };
 }
 
 function sim(multi) {
@@ -2611,6 +2689,7 @@ function sim(multi) {
         let stats = {}, totalHD = 0, minHD = Infinity, maxHD = -Infinity;
         let totalWM = 0, minWM = Infinity, maxWM = -Infinity;
         let totalAS = 0, minAS = Infinity, maxAS = -Infinity;
+        let totalFER = 0, minFER = Infinity, maxFER = -Infinity;
         const progEl = document.getElementById('simProgress');
         const batchBtn = document.querySelector('button[onclick="sim(true)"]');
         if (batchBtn) batchBtn.disabled = true;
@@ -2627,6 +2706,8 @@ function sim(multi) {
             totalWM += wm; minWM = Math.min(minWM, wm); maxWM = Math.max(maxWM, wm);
             const as_ = res.boss.abyssalCorruption || 0;
             totalAS += as_; minAS = Math.min(minAS, as_); maxAS = Math.max(maxAS, as_);
+            const fer = res.fightEndedRound || 15;
+            totalFER += fer; minFER = Math.min(minFER, fer); maxFER = Math.max(maxFER, fer);
             res.units.forEach(u => {
             if (!stats[u.name]) stats[u.name] = {
                     acts:0, lost:0,
@@ -2699,6 +2780,7 @@ function sim(multi) {
         let html = `<div style="margin-bottom:14px;padding:12px 16px;background:var(--card);border:1px solid #334155;border-radius:8px;font-size:13px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
             <div>👁️ <strong>Watcher Mark (end of fight)</strong><br>Avg: ${fmtR(totalWM/N, minWM, maxWM)}%</div>
             <div>👑 <strong>Abyssal Corruption stacks (end of fight)</strong><br>Avg: ${fmtR(totalAS/N, minAS, maxAS)}</div>
+            <div>💀 <strong>Fight ended (round)</strong><br>Avg: ${fmtR(totalFER/N, minFER, maxFER, 1)} ${minFER === maxFER && maxFER === 15 ? '<small style="color:#64748b">(boss never killed)</small>' : ''}</div>
         </div>`;
         html += `<h3>AVERAGES + RANGES (${N} FIGHTS)</h3>`;
         html += `<p><b>Boss Holy Damage Stacks:</b> avg <span style="color:var(--accent)">${(totalHD/N).toFixed(2)}</span> stacks (+${(totalHD/N*12.5).toFixed(1)}% HD) &nbsp;|&nbsp; range <small style="color:#64748b">[${minHD} – ${maxHD} stacks / +${(minHD*12.5).toFixed(1)}% – +${(maxHD*12.5).toFixed(1)}% HD]</small></p>`;
@@ -3780,7 +3862,7 @@ function fireDGNActive(dgn, isBoss, r) {
     const corrMult   = 1 + 0.24 * (boss.abyssalCorruption || 0);
     const critMult   = 1.5 * cdCapped * 2 * corrMult;
     const gkMult     = dc.gk ? 2.0 : 1.0;
-    const defMult    = (dc.defier && bossHPTier === 'above70') ? 1.3 : 1.0;
+    const defMult    = (dc.defier && getLiveHPPct() > 70) ? 1.3 : 1.0;
     const templeMult = 1 + dc.temple / 100;
     const shrinkMult = boss.shrink ? 1.4 : 1.0;
     const allDmgMult = 1 + allDmgBuff + dc.alldmg / 100;
@@ -3796,7 +3878,7 @@ function fireDGNActive(dgn, isBoss, r) {
         * (1 + holyBuff * 0.7)
         * allDmgMult * gkMult * defMult * templeMult * shrinkMult;
     const mainCrit = Math.random() < critBuff;
-    const mainHit  = mainCrit ? baseMain * critMult : baseMain;
+    const mainHit  = (mainCrit ? baseMain * critMult : baseMain) * getMaimMult();
 
     let totalDmg = mainHit;
     let srcMain = mainHit, srcUndying = 0, srcLostHP = 0, srcLethal = 0, srcBS = 0, srcAddl = 0;
@@ -3818,24 +3900,24 @@ function fireDGNActive(dgn, isBoss, r) {
 
     const preLFBase = totalDmg;
 
-    // Lethal Fightback: 18% of all prior × modMult (always fires)
-    srcLethal = preLFBase * 0.18 * modMult;
+    // Lethal Fightback: 18% of all prior × modMult × maim (always fires)
+    srcLethal = preLFBase * 0.18 * modMult * getMaimMult();
     totalDmg += srcLethal;
     hitLog.push(`Lethal Fightback (18%): ${Math.round(srcLethal).toLocaleString()}`);
 
-    // Balanced Strike: fires if main hit did NOT crit
+    // Balanced Strike: fires if main hit did NOT crit — use live HP% at this moment
     if (!mainCrit) {
-        const bsPct = bossHPTier === 'below50' ? 1.95 : 0.45;
-        srcBS = preLFBase * bsPct * modMult;
+        const bsPct = getLiveHPPct() < 50 ? 1.95 : 0.45;
+        srcBS = preLFBase * bsPct * modMult * getMaimMult();
         totalDmg += srcBS;
-        hitLog.push(`Balanced Strike (${(bsPct*100).toFixed(0)}%, no crit): ${Math.round(srcBS).toLocaleString()}`);
+        hitLog.push(`Balanced Strike (${(bsPct*100).toFixed(0)}%, no crit, live HP%): ${Math.round(srcBS).toLocaleString()}`);
     } else {
         hitLog.push(`Balanced Strike: skipped (main hit crit)`);
     }
 
     // Additional Multiplier: 80% proc if not sealed
     if (dgn.cc.seal <= 0 && Math.random() < 0.80) {
-        srcAddl = (preLFBase + srcLethal + srcBS) * 0.10 * modMult;
+        srcAddl = (preLFBase + srcLethal + srcBS) * 0.10 * modMult * getMaimMult();
         totalDmg += srcAddl;
         hitLog.push(`Additional Multiplier (80% proc, 10%): ${Math.round(srcAddl).toLocaleString()}`);
     }
@@ -3888,7 +3970,7 @@ function fireDGNBasic(dgn, r) {
     const corrMult   = 1 + 0.24 * (boss.abyssalCorruption || 0);
     const critMult   = 1.5 * cdCapped * 2 * corrMult;
     const gkMult     = dc.gk ? 2.0 : 1.0;
-    const defMult    = (dc.defier && bossHPTier === 'above70') ? 1.3 : 1.0;
+    const defMult    = (dc.defier && getLiveHPPct() > 70) ? 1.3 : 1.0;
     const templeMult = 1 + dc.temple / 100;
     const shrinkMult = boss.shrink ? 1.4 : 1.0;
     const allDmgMult = 1 + allDmgBuff + dc.alldmg / 100;
@@ -3903,25 +3985,25 @@ function fireDGNBasic(dgn, r) {
         * (1 + holyBuff * 0.7)
         * allDmgMult * gkMult * defMult * templeMult * shrinkMult;
     const mainCrit = Math.random() < critBuff;
-    const mainHit  = mainCrit ? baseMain * critMult : baseMain;
+    const mainHit  = (mainCrit ? baseMain * critMult : baseMain) * getMaimMult();
 
     let totalDmg = mainHit, preLF = mainHit;
     let srcLethal = 0, srcBS = 0, srcAddl = 0;
 
     // Lethal Fightback
-    srcLethal = preLF * 0.18 * modMult;
+    srcLethal = preLF * 0.18 * modMult * getMaimMult();
     totalDmg += srcLethal;
 
-    // Balanced Strike if no crit
+    // Balanced Strike if no crit — use live HP% at this moment
     if (!mainCrit) {
-        const bsPct = bossHPTier === 'below50' ? 1.95 : 0.45;
-        srcBS = preLF * bsPct * modMult;
+        const bsPct = getLiveHPPct() < 50 ? 1.95 : 0.45;
+        srcBS = preLF * bsPct * modMult * getMaimMult();
         totalDmg += srcBS;
     }
 
     // Additional Multiplier
     if (dgn.cc.seal <= 0 && Math.random() < 0.80) {
-        srcAddl = (preLF + srcLethal + srcBS) * 0.10 * modMult;
+        srcAddl = (preLF + srcLethal + srcBS) * 0.10 * modMult * getMaimMult();
         totalDmg += srcAddl;
     }
 
@@ -3955,12 +4037,12 @@ function triggerDGNDoubleNature(dgn, r) {
     const allDmgBuff = getBuffTotal(dgn, 'allDmg');
     const allDmgMult = 1 + allDmgBuff + dc.alldmg / 100;
     const gkMult     = dc.gk ? 2.0 : 1.0;
-    const defMult    = (dc.defier && bossHPTier === 'above70') ? 1.3 : 1.0;
+    const defMult    = (dc.defier && getLiveHPPct() > 70) ? 1.3 : 1.0;
     const templeMult = 1 + dc.temple / 100;
     const shrinkMult = boss.shrink ? 1.4 : 1.0;
     const modMult    = allDmgMult * gkMult * defMult * templeMult * shrinkMult;
 
-    const counter = dc.atk * (1 + atkBuff) * 10 * modMult; // 1000% ATK
+    const counter = dc.atk * (1 + atkBuff) * 10 * modMult * getMaimMult(); // 1000% ATK
     dgn.totalEstDmg = (dgn.totalEstDmg || 0) + counter;
     if (dgn.dmgPerRound) dgn.dmgPerRound[r-1] = (dgn.dmgPerRound[r-1] || 0) + counter;
 
