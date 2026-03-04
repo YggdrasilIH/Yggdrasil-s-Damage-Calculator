@@ -1,70 +1,157 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Curse of Decay: Full Restoration & HD Tracking</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Star Expedition: Bosch Visualizer</title>
     <style>
         :root { --bg: #0b0e14; --card: #1a1f2e; --accent: #38bdf8; --text: #cbd5e1; --border: #334155; }
-        body { font-family: 'Consolas', monospace; background: var(--bg); color: var(--text); padding: 20px; font-size: 12px; }
-        .grid { display: flex; flex-direction: row; gap: 12px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 6px; }
-        .grid .hero-card-wrapper { flex: 0 0 260px; min-width: 220px; }
-        .card { background: var(--card); border: 1px solid var(--border); padding: 12px; border-radius: 4px; }
-        .card h3 { margin: 0 0 8px 0; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom:4px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         
-        /* Graphical Elements */
-        #battle-arena {
-            width: 100%;
-            max-width: 860px;
-            height: 250px;
-            background: linear-gradient(to bottom, #000, #1a1a2e);
-            border: 2px solid #444;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            position: relative;
-            overflow: hidden;
-        }
-        #boss-hp-container {
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 80%;
-            height: 20px;
-            background: #333;
-            border: 1px solid #ff4444;
-        }
-        #boss-hp-bar {
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, #ff0000, #990000);
-            transition: width 0.3s ease;
-        }
+        /* The Battle Arena */
+        #arena-container { width: 100%; max-width: 800px; background: #000; border: 2px solid var(--border); border-radius: 8px; position: relative; margin-bottom: 20px; overflow: hidden; }
+        canvas { display: block; background: linear-gradient(to bottom, #000 0%, #1a1a2e 100%); }
+        
+        /* Health Bar Overlay */
+        #boss-ui { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 70%; text-align: center; }
+        #hp-background { background: #333; height: 18px; border: 1px solid #ff4444; border-radius: 9px; overflow: hidden; }
+        #hp-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #ff0000, #990000); transition: width 0.2s; }
+        #hp-text { color: white; font-size: 12px; font-weight: bold; margin-top: 5px; text-shadow: 1px 1px 2px black; }
 
-        input, select { background: #000; color: #fff; border: 1px solid var(--border); padding: 4px; width: 100%; margin: 4px 0; box-sizing:border-box; }
-        button { padding: 15px; font-weight: bold; cursor: pointer; border: 1px solid var(--accent); background: transparent; color: var(--accent); margin-top: 10px; width: 100%; }
-        button:hover { background: var(--accent); color: #000; }
-        #output { background: #000; border: 1px solid var(--border); padding: 15px; height: 400px; overflow-y: auto; line-height: 1.5; margin-top: 20px; }
+        /* Controls */
+        .controls { background: var(--card); padding: 20px; border-radius: 8px; border: 1px solid var(--border); width: 100%; max-width: 760px; text-align: center; }
+        button { background: #ef4444; color: white; border: none; padding: 12px 30px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #dc2626; transform: scale(1.05); }
+        
+        #log { width: 100%; max-width: 800px; height: 150px; background: #050505; border: 1px solid var(--border); margin-top: 15px; padding: 10px; font-family: monospace; font-size: 12px; overflow-y: auto; color: #22c55e; }
     </style>
 </head>
 <body>
 
-<div style="max-width:860px; margin-bottom:12px;">
-    <h1 style="color:var(--accent);">Star Expedition Simulator: Bosch Edition</h1>
-</div>
+    <h2 style="color:var(--accent); margin-bottom:10px;">BOSCH EXPEDITION VISUALIZER</h2>
 
-<div id="battle-arena">
-    <div id="boss-hp-container">
-        <div id="boss-hp-bar"></div>
-        <div id="hp-text" style="position:absolute; width:100%; text-align:center; top:0; font-weight:bold; color:white; font-size:10px;">BOSS HP: 100%</div>
+    <div id="arena-container">
+        <div id="boss-ui">
+            <div id="hp-background"><div id="hp-fill"></div></div>
+            <div id="hp-text">BOSS HP: 100%</div>
+        </div>
+        <canvas id="battleCanvas" width="800" height="300"></canvas>
     </div>
-    <canvas id="visualizer" width="860" height="250"></canvas>
-</div>
 
-<div style="max-width:860px; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-    <button onclick="startVisualBattle()">⚔️ START BATTLE</button>
-    <button onclick="resetSim()">🔄 RESET</button>
-</div>
+    <div class="controls">
+        <button id="startBtn" onclick="runSimulation()">⚔️ EXECUTE SIMULATION</button>
+        <p style="font-size: 11px; color: #64748b; margin-top: 10px;">Visualizing simulated attack iterations...</p>
+    </div>
 
-<div id="output"></div>
+    <div id="log">Click the button to start the sequence...</div>
 
 <script>
+    const canvas = document.getElementById('battleCanvas');
+    const ctx = canvas.getContext('2d');
+    const hpFill = document.getElementById('hp-fill');
+    const hpText = document.getElementById('hp-text');
+    const log = document.getElementById('log');
+
+    // Visual State
+    let heroX = 150;
+    let bossX = 600;
+    let currentHP = 100;
+
+    function drawStickFigure(x, y, color, isBoss = false) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+
+        // Head
+        ctx.beginPath();
+        ctx.arc(x, y - 60, isBoss ? 25 : 18, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Body
+        ctx.beginPath();
+        ctx.moveTo(x, y - 42); ctx.lineTo(x, y + 10);
+        // Arms
+        ctx.moveTo(x, y - 30); ctx.lineTo(x - (isBoss ? 30 : 20), y - 10);
+        ctx.moveTo(x, y - 30); ctx.lineTo(x + (isBoss ? 30 : 20), y - 10);
+        // Legs
+        ctx.moveTo(x, y + 10); ctx.lineTo(x - 15, y + 40);
+        ctx.moveTo(x, y + 10); ctx.lineTo(x + 15, y + 40);
+        ctx.stroke();
+    }
+
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Ground line
+        ctx.strokeStyle = '#334155';
+        ctx.beginPath(); ctx.moveTo(0, 240); ctx.lineTo(800, 240); ctx.stroke();
+
+        // Draw Figures
+        drawStickFigure(heroX, 200, '#38bdf8'); // Hero
+        drawStickFigure(bossX, 200, '#ef4444', true); // Boss
+    }
+
+    function animateAttack(damageReceived, callback) {
+        let startX = heroX;
+        let targetX = bossX - 60;
+        let progress = 0;
+
+        function step() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            render();
+
+            if (progress < 1) {
+                // Moving forward
+                heroX = startX + (targetX - startX) * progress;
+                progress += 0.15;
+                requestAnimationFrame(step);
+            } else {
+                // Impact
+                currentHP -= damageReceived;
+                if (currentHP < 0) currentHP = 0;
+                
+                // Update UI
+                hpFill.style.width = currentHP + '%';
+                hpText.innerText = `BOSS HP: ${Math.max(0, currentHP.toFixed(1))}%`;
+                
+                // Screen Shake
+                canvas.style.transform = `translateX(${Math.random() * 10 - 5}px)`;
+                setTimeout(() => {
+                    canvas.style.transform = 'translateX(0)';
+                    heroX = startX; // Reset position
+                    render();
+                    callback();
+                }, 50);
+            }
+        }
+        step();
+    }
+
+    // THIS IS THE MAIN SIMULATION LOOP (Connected to your "Logic")
+    async function runSimulation() {
+        const startBtn = document.getElementById('startBtn');
+        startBtn.disabled = true;
+        log.innerHTML = "Initializing Battle Sequence...<br>";
+        currentHP = 100;
+        hpFill.style.width = '100%';
+        
+        // Mimicking your 15-round simulation logic
+        for (let i = 1; i <= 15; i++) {
+            // Your logic would happen here:
+            let simDamage = (Math.random() * 6) + 1; // Random damage for this example
+            
+            log.innerHTML += `Round ${i}: Team attacks! Boss HP drops by ${simDamage.toFixed(1)}%<br>`;
+            log.scrollTop = log.scrollHeight;
+
+            // Wait for animation to finish before next round
+            await new Promise(resolve => animateAttack(simDamage, resolve));
+        }
+
+        log.innerHTML += "<strong>BATTLE CONCLUDED.</strong>";
+        startBtn.disabled = false;
+    }
+
+    // Initial draw
+    render();
+</script>
+</body>
+</html>
