@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -1331,7 +1332,7 @@ function runOne(ov = null) {
         });
     }
 
-    boss = { abyssalCorruption: 0, bleed: [], spdDebuff: 0, spiritMirrorRound: 0, atkDebuff: 0, atkDebuffRounds: 0, armorDebuff: 0, armorDebuffRounds: 0, lethalIncense: false, lethalIncenseRounds: 0, veilOfMist: false, veilOfMistRounds: 0, healReduction: 0, healReductionRounds: 0, lfaAtkSteal: 0, heroAtkSteal: 0, shrink: false, shrinkRounds: 0, burn: 0, watcherMark: 0 };
+    boss = { abyssalCorruption: 0, bleed: [], spdDebuff: 0, spiritMirrorRound: 0, atkDebuff: 0, atkDebuffRounds: 0, armorDebuff: 0, armorDebuffRounds: 0, lethalIncense: false, lethalIncenseRounds: 0, veilOfMist: false, veilOfMistRounds: 0, healReduction: 0, healReductionRounds: 0, lfaAtkSteal: 0, heroAtkSteal: [], shrink: false, shrinkRounds: 0, burn: 0, watcherMark: 0 };
     let pet = { energy: 0 };
 
     for (let s = 0; s < 3; s++) {
@@ -1702,15 +1703,9 @@ function runOne(ov = null) {
                     trackStat(u, "damageDealt", 2400);
                     log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM DREAMLAND DOMINION] 2400% ATK to frontline`, "#f0abfc");
                     let dmDur = 4;
-                    frontline.forEach(a => {
-                        a.buffs.dr.push({ value: -0.15, rounds: dmDur, source: "DD Frontline DR debuff" });
-                        a.buffs.ci.push({ value: -0.15, rounds: dmDur, source: "DD Frontline CI debuff" });
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${a.name} DR -15%, CI -15% (${dmDur}r)`, "#f0abfc");
-                    });
-                    units.filter(a => !a.isFr).forEach(a => {
-                        a.buffs.dr.push({ value: -0.15, rounds: dmDur, source: "DD Backline DR debuff (Deep sub)" });
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD DEEP SUB] ${a.name} DR -15% (${dmDur}r)`, "#f0abfc");
-                    });
+                    boss.drDebuff = (boss.drDebuff || 0) + 0.15; boss.drDebuffRounds = 3;
+                    boss.ciDebuff = (boss.ciDebuff || 0) + 0.15; boss.ciDebuffRounds = 3;
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] Boss DR -15%, CI -15% (3r)`, "#f0abfc");
                     function grantDreamMagic(target, type) {
                         if (type === "Wings"          && target.mirrorMagicWings)         { log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${target.name} already has Mirror Magic Wings — skip`, "#f0abfc"); return; }
                         if (type === "Magnification"  && target.mirrorMagicMagnification) { log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${target.name} already has Mirror Magic Magnification — skip`, "#f0abfc"); return; }
@@ -2012,13 +2007,9 @@ function runOne(ov = null) {
                         let frontline2 = units.filter(a => a.isFr);
                         trackStat(u, "damageDealt", 2400);
                         let dmDur2 = 4;
-                        frontline2.forEach(a => {
-                            a.buffs.dr.push({ value: -0.15, rounds: dmDur2, source: "DD(BB) Frontline DR debuff" });
-                            a.buffs.ci.push({ value: -0.15, rounds: dmDur2, source: "DD(BB) Frontline CI debuff" });
-                        });
-                        units.filter(a => !a.isFr).forEach(a => {
-                            a.buffs.dr.push({ value: -0.15, rounds: dmDur2, source: "DD(BB) Backline DR debuff" });
-                        });
+                        boss.drDebuff = (boss.drDebuff || 0) + 0.15; boss.drDebuffRounds = 3;
+                        boss.ciDebuff = (boss.ciDebuff || 0) + 0.15; boss.ciDebuffRounds = 3;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD(BB)] Boss DR -15%, CI -15% (3r)`, "#f0abfc");
                         let hs2 = units.reduce((a,b)=>(a.spd>b.spd?a:b));
                         let ha2 = units.find(u2=>u2.isM)||units[0];
                         let s1h2 = units.find(a=>a.lbrmSlot1)||units[0];
@@ -2269,9 +2260,10 @@ function runOne(ov = null) {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ ${u.name} +2 Calamity (now ${u.calamity}) & +2 Curse (now ${u.curse})`, "#ef4444");
                 trigCal(u);
 
-                // Boss steals 8% ATK from each hero hit (cumulative)
-                boss.heroAtkSteal = (boss.heroAtkSteal || 0) + 0.08;
-                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [ATK STEAL] Boss steals 8% ATK from ${u.name} (total stolen: +${(boss.heroAtkSteal*100).toFixed(0)}%)`, "#ef4444");
+                // Boss steals 8% ATK from each hero hit (lasts 3 rounds)
+                boss.heroAtkSteal.push({ value: 0.08, rounds: 3 });
+                let heroAtkStealTotal = boss.heroAtkSteal.reduce((s,b) => s+b.value, 0);
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;☠️ [ATK STEAL] Boss steals 8% ATK from ${u.name} (total active stolen: +${(heroAtkStealTotal*100).toFixed(0)}%, 3 rounds)`, "#ef4444");
 
                 u.energy += 10;
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚡ ${u.name} hit by boss active: +10 Energy (direct)`, "#38bdf8");
@@ -2391,24 +2383,26 @@ function runOne(ov = null) {
 
             // ── SCISSORS: replicate boss ATK & HD to self + same-line allies only ──
             if (u.art === "Scissors") {
-                let totalBossATK = (boss.atkBuff || 0) + (boss.heroAtkSteal || 0);
-                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ [SCISSORS] Boss total ATK: +${(totalBossATK*100).toFixed(0)}% (self-buff ${((boss.atkBuff||0)*100).toFixed(0)}% + hero ATK stolen ${((boss.heroAtkSteal||0)*100).toFixed(0)}%) → 30% replicated to self + same-line allies`, "#38bdf8");
+                let permAtkBuff = boss.atkBuff || 0;
+                let stealStacks = boss.heroAtkSteal || [];
+                let stealTotal  = stealStacks.reduce((s,b) => s+b.value, 0);
+                let totalBossATK = permAtkBuff + stealTotal;
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ [SCISSORS] Boss total ATK: +${(totalBossATK*100).toFixed(0)}% (self-buff ${(permAtkBuff*100).toFixed(0)}% + hero ATK stolen ${(stealTotal*100).toFixed(0)}%) → 30% replicated to self + same-line allies`, "#38bdf8");
                 // Only buff self + allies on the same line (frontline or backline)
                 let scissorsTargets = units.filter(a => a.isFr === u.isFr);
                 scissorsTargets.forEach(a => {
-                    if (totalBossATK > 0) {
-                        let replicatedATK = totalBossATK * 0.30;
-                        if (checkC(a, "Scissors ATK repl.")) {
-                            addBuff(a, "atk", replicatedATK, 15, "Scissors (boss ATK repl.)");
-                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ ${a.name}: +${(replicatedATK*100).toFixed(1)}% ATK (30% of +${(totalBossATK*100).toFixed(0)}%)`, "#38bdf8");
-                        }
+                    if (permAtkBuff > 0) {
+                        let replicatedPermATK = permAtkBuff * 0.30;
+                        tryBuff(a, "atk", replicatedPermATK, 999, "Scissors (boss ATK repl.)");
                     }
+                    // Each steal stack replicated individually with its own remaining rounds
+                    stealStacks.forEach(stk => {
+                        let replicatedStealATK = stk.value * 0.30;
+                        tryBuff(a, "atk", replicatedStealATK, stk.rounds, "Scissors (boss ATK steal repl.)");
+                    });
                     if (bossHDStacks > 0) {
                         let replicatedHD = bossHDStacks * 0.125 * 0.30;
-                        if (checkC(a, "Scissors HD repl.")) {
-                            addBuff(a, "hd", replicatedHD, 15, "Scissors (boss HD repl.)");
-                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✂️ ${a.name}: +${(replicatedHD*100).toFixed(1)}% HD (30% of boss ${(bossHDStacks*12.5).toFixed(1)}% HD)`, "#38bdf8");
-                        }
+                        tryBuff(a, "hd", replicatedHD, 999, "Scissors (boss HD repl.)");
                     }
                 });
             }
@@ -2476,8 +2470,8 @@ function runOne(ov = null) {
         units.forEach(u => {
             // Sample DR and ADR rounds 6-15 only (avoids Island 9 decay skew)
             if (r >= 6) {
-                let snapDR  = getBuffTotal(u, "dr");
-                let snapADR = getBuffTotal(u, "allDmgReduction");
+                let snapDR  = u.buffs.dr.reduce((s,b) => b.value > 0 ? s + b.value : s, 0);
+                let snapADR = u.buffs.allDmgReduction.reduce((s,b) => b.value > 0 ? s + b.value : s, 0);
                 u.minDR  = Math.min(u.minDR,  snapDR);  u.maxDR  = Math.max(u.maxDR,  snapDR);
                 u.minADR = Math.min(u.minADR, snapADR); u.maxADR = Math.max(u.maxADR, snapADR);
                 u.drTotal += snapDR; u.drSamples++;
@@ -2502,7 +2496,7 @@ function runOne(ov = null) {
         {
             const activeDebuffs = [];
             if ((boss.atkDebuff || 0) > 0) activeDebuffs.push("atk");
-            if ((boss.heroAtkSteal || 0) > 0) activeDebuffs.push("heroAtkSteal");
+            if (boss.heroAtkSteal && boss.heroAtkSteal.length > 0) activeDebuffs.push("heroAtkSteal");
             if ((boss.lfaAtkSteal || 0) > 0) activeDebuffs.push("lfaAtkSteal");
             if ((boss.armorDebuff || 0) > 0) activeDebuffs.push("armor");
             if ((boss.drDebuff || 0) > 0) activeDebuffs.push("dr");
@@ -2524,7 +2518,7 @@ function runOne(ov = null) {
                 log(`&nbsp;&nbsp;&nbsp;💀 [BOSS CLEANSE] Removes ${toRemove.length} debuff(s): ${toRemove.join(", ")}`, "#ef4444");
                 toRemove.forEach(d => {
                     if (d === "atk")           { boss.atkDebuff = 0; boss.atkDebuffRounds = 0; }
-                    if (d === "heroAtkSteal")   { boss.heroAtkSteal = 0; }
+                    if (d === "heroAtkSteal")   { boss.heroAtkSteal = []; }
                     if (d === "lfaAtkSteal")    { boss.lfaAtkSteal = 0; }
                     if (d === "armor")      { boss.armorDebuff = 0; boss.armorDebuffRounds = 0; }
                     if (d === "dr")         { boss.drDebuff = 0; boss.drDebuffRounds = 0; }
@@ -2558,7 +2552,17 @@ function runOne(ov = null) {
         if (boss.allDmgReductionDebuffRounds > 0) { boss.allDmgReductionDebuffRounds--; if (boss.allDmgReductionDebuffRounds <= 0) { boss.allDmgReductionDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM] Boss AllDmgReduction debuff expired`, "#64748b"); } }
         if (boss.allDmgDealtDebuffRounds > 0) { boss.allDmgDealtDebuffRounds--; if (boss.allDmgDealtDebuffRounds <= 0) { boss.allDmgDealtDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌸 [BDSM] Boss AllDmgDealt debuff expired`, "#64748b"); } }
         if (boss.lfaAtkSteal > 0) { log(`&nbsp;&nbsp;&nbsp;👿 [LFA DKM] Boss ATK stolen: -${(boss.lfaAtkSteal*100).toFixed(0)}% (cumulative, permanent)`, "#c084fc"); }
-        if (boss.heroAtkSteal > 0) { log(`&nbsp;&nbsp;&nbsp;☠️ [CATASTROPHIC ROAR] Boss has stolen ${(boss.heroAtkSteal*100).toFixed(0)}% ATK from heroes (cumulative)`, "#ef4444"); }
+        // Tick down heroAtkSteal stacks (1-round duration each)
+        if (boss.heroAtkSteal && boss.heroAtkSteal.length > 0) {
+            boss.heroAtkSteal = boss.heroAtkSteal.map(b => ({ ...b, rounds: b.rounds - 1 })).filter(b => {
+                if (b.rounds <= 0) { log(`&nbsp;&nbsp;&nbsp;☠️ [ATK STEAL] Boss active ATK steal stack +${(b.value*100).toFixed(0)}% expired`, "#64748b"); return false; }
+                return true;
+            });
+            if (boss.heroAtkSteal.length > 0) {
+                let remaining = boss.heroAtkSteal.reduce((s,b) => s+b.value, 0);
+                log(`&nbsp;&nbsp;&nbsp;☠️ [ATK STEAL] Boss active ATK steal remaining: +${(remaining*100).toFixed(0)}% (${boss.heroAtkSteal.length} stack(s))`, "#ef4444");
+            }
+        }
         if (boss.atkDebuffRounds > 0) { boss.atkDebuffRounds--; if (boss.atkDebuffRounds <= 0) { boss.atkDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV] Boss ATK debuff expired`, "#64748b"); } }
         if (boss.armorDebuffRounds > 0) { boss.armorDebuffRounds--; if (boss.armorDebuffRounds <= 0) { boss.armorDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV] Boss Armor debuff expired`, "#64748b"); } }
         if (boss.spdDebuffRounds > 0) { boss.spdDebuffRounds--; if (boss.spdDebuffRounds <= 0) { boss.spdDebuff = 0; log(`&nbsp;&nbsp;&nbsp;🌀 [STV] Boss SPD debuff expired`, "#64748b"); } }
