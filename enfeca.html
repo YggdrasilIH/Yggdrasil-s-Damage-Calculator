@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -117,6 +118,27 @@
 </div>
 
 <div class="grid" id="hero-inputs"></div>
+
+<!-- ═══ GLOBAL DAMAGE CALCULATOR PANEL ═══ -->
+<div id="globalDmgCalc" style="max-width:860px;margin-bottom:10px;padding:10px 14px;background:var(--card);border:1px solid #334155;border-radius:8px;">
+    <div style="color:#facc15;font-size:12px;font-weight:bold;margin-bottom:8px;">⚔️ Damage Calculator — <span id="dcHeroLabel" style="color:#94a3b8;font-weight:normal;">Hero 1</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;">
+        <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">ATK</label><input type="number" id="dc_atk" value="750000000" style="width:100%"></div>
+        <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Skill DMG % (SD)</label><input type="number" id="dc_skill" value="1500" style="width:100%"></div>
+        <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Precision %</label><input type="number" id="dc_prec" value="150" style="width:100%"></div>
+        <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Holy DMG % (HD)</label><input type="number" id="dc_holy" value="230" style="width:100%"></div>
+        <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">All DMG %</label><input type="number" id="dc_alldmg" value="140" style="width:100%"></div>
+        <div><label style="font-size:10px;color:#facc15;display:block;margin-bottom:2px;">Crit %</label><input type="number" id="dc_crit" value="35" style="width:100%"></div>
+        <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Crit DMG %</label><input type="number" id="dc_cd" value="150" style="width:100%"></div>
+        <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Temple DMG %</label><input type="number" id="dc_temple" value="160" style="width:100%"></div>
+        <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Maim % <small style="color:#64748b">(vs low HP)</small></label><input type="number" id="maimPct" value="30" min="0" max="200" style="width:100%"></div>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:8px;">
+        <label style="font-size:11px;"><input type="checkbox" id="dc_defier" checked> Defier</label>
+        <label style="font-size:11px;"><input type="checkbox" id="dc_gk" checked> Giant Killer</label>
+    </div>
+</div>
+
 <div id="teamBonusDisplay" style="max-width:860px;margin-bottom:10px;padding:6px 14px;background:#0b0e14;border:1px solid #1e293b;border-radius:6px;font-size:11px;color:#94a3b8;display:flex;gap:16px;flex-wrap:wrap;"></div>
 
 <!-- ═══ PUPIL (collapsible) ═══ -->
@@ -146,9 +168,9 @@
         <div style="margin-bottom:12px;border:1px solid #1e293b;border-radius:6px;overflow:hidden;">
             <div onclick="toggleSection('sharedStatsBody','sharedStatsArrow')" style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;cursor:pointer;user-select:none;background:#0f172a;">
                 <span style="color:#a78bfa;font-weight:bold;font-size:12px;">📊 Shared Stats</span>
-                <span id="sharedStatsArrow" style="color:#64748b;font-size:11px;display:inline-block;">▼</span>
+                <span id="sharedStatsArrow" style="color:#64748b;font-size:11px;display:inline-block;transform:rotate(-90deg)">▼</span>
             </div>
-            <div id="sharedStatsBody" style="padding:8px 10px;">
+            <div id="sharedStatsBody" style="padding:8px 10px;display:none;">
                 <div style="color:#64748b;font-size:10px;font-style:italic;margin-bottom:8px;">All stats other than those on sheet — applies to every hero</div>
 
                 <!-- Train -->
@@ -223,7 +245,7 @@
                 <span id="bossHPDisplay" style="color:#38bdf8;font-weight:bold;font-size:12px;">—</span>
                 <span id="bossMaxHPDisplay" style="color:#64748b;font-size:11px;">—</span>
             </div>
-            <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="isl6"> Island 6 (Boss loses Darkness Protection)</label>
+            <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="isl6" checked> Island 6 (Boss loses Darkness Protection)</label>
             <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="isl8" checked> Island 8 (+3% allDmg per ally active)</label>
             <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="isl9" checked> Island 9 (allDmgReduction decay + HD ramp)</label>
             <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="isl10" checked> Island 10 (+25% allDmg all at round start)</label>
@@ -544,7 +566,7 @@ function buildCardHTML(i, d) {
                   <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Dodge %</label>
                   <input type="number" id="dg${i}" value="0" min="0" max="100" placeholder="Dodge%" style="width:100%" oninput="updateCardSummary(${i})">
               </div>
-              <div style="flex:1">
+              <div style="flex:1" id="hcritDiv${i}">
                   <label style="font-size:10px;color:#facc15;display:block;margin-bottom:2px;">Crit %</label>
                   <input type="number" id="hcrit${i}" value="${getHeroCritDefault(d.h)}" min="0" max="100" step="0.1" placeholder="Crit%" style="width:100%;border-color:#facc1555">
               </div>
@@ -593,24 +615,6 @@ function buildCardHTML(i, d) {
                   <option value="none">None</option>
                   <option value="Core Liberation">Core Liberation</option>
               </select>
-          </div>
-          <div id="dmgCalc${i}" style="display:${i===0?'block':'none'};margin-top:10px;padding-top:10px;border-top:1px solid #334155;">
-            <div style="color:#facc15;font-size:11px;font-weight:bold;margin-bottom:6px;">⚔️ Damage Calculator</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">ATK</label><input type="number" id="dc_atk" value="750000000" style="width:100%"></div>
-              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Skill DMG % (SD)</label><input type="number" id="dc_skill" value="1500" style="width:100%"></div>
-              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Precision %</label><input type="number" id="dc_prec" value="150" style="width:100%"></div>
-              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Holy DMG % (HD)</label><input type="number" id="dc_holy" value="230" style="width:100%"></div>
-              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">All DMG %</label><input type="number" id="dc_alldmg" value="140" style="width:100%"></div>
-              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Crit %</label><input type="number" id="dc_crit" value="35" style="width:100%"></div>
-              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Crit DMG %</label><input type="number" id="dc_cd" value="150" style="width:100%"></div>
-              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Temple DMG %</label><input type="number" id="dc_temple" value="160" style="width:100%"></div>
-              <div><label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Maim % <small style="color:#64748b">(bonus vs low HP)</small></label><input type="number" id="maimPct" value="30" min="0" max="200" style="width:100%"></div>
-            </div>
-            <div style="display:flex;gap:12px;margin-top:6px;">
-              <label style="font-size:11px;"><input type="checkbox" id="dc_defier" checked> Defier</label>
-              <label style="font-size:11px;"><input type="checkbox" id="dc_gk" checked> Giant Killer</label>
-            </div>
           </div>
         </div>
       </div>
@@ -1454,10 +1458,12 @@ function renderBuildsList() {
 
 function updateDmgCalcVisibility() {
     const mIdx = parseInt(document.querySelector('input[name="max"]:checked')?.value ?? 0);
+    // Show/hide hcrit on each card — hide on active hero (dc_crit is used there)
     for (let i = 0; i < 6; i++) {
-        const el = document.getElementById(`dmgCalc${i}`);
-        if (el) el.style.display = (i === mIdx) ? 'block' : 'none';
+        const hcritDiv = document.getElementById(`hcritDiv${i}`);
+        if (hcritDiv) hcritDiv.style.display = (i === mIdx) ? 'none' : '';
     }
+    updateDCLabel();
     // Also expand the card if it's collapsed
     const wrapper = document.getElementById(`wrapper${mIdx}`);
     if (wrapper && wrapper.classList.contains('is-collapsed')) toggleCard(mIdx);
@@ -1602,6 +1608,10 @@ function runOne(ov = null) {
             actsByRound: new Array(15).fill(0),
             baseCrit: (() => {
                 const ci = (ov&&ov.heroes) ? ov.heroes[i].cardIdx : i;
+                const mIdx = parseInt(document.querySelector('input[name="max"]:checked')?.value ?? 0);
+                if (ci === mIdx) {
+                    return (parseFloat(document.getElementById('dc_crit')?.value) || 0) / 100;
+                }
                 return (parseFloat(document.getElementById(`hcrit${ci}`)?.value) || 0) / 100;
             })(),
             critDebuff: 0,
@@ -1609,7 +1619,7 @@ function runOne(ov = null) {
         });
     }
 
-    boss = { abyssalCorruption: 0, bleed: [], spdDebuff: 0, spiritMirrorRound: 0, atkDebuff: 0, atkDebuffRounds: 0, armorDebuff: 0, armorDebuffRounds: 0, lethalIncense: false, lethalIncenseRounds: 0, veilOfMist: false, veilOfMistRounds: 0, healReduction: 0, healReductionRounds: 0, lfaAtkSteal: 0, heroAtkSteal: [], shrink: false, shrinkRounds: 0, burn: 0, watcherMark: 0, energy: 0, darkProt: !is6, voidBarriers: is6 ? 0 : 5 };
+    boss = { abyssalCorruption: 0, bleed: [], spdDebuff: 0, spiritMirrorRound: 0, atkDebuff: 0, atkDebuffRounds: 0, armorDebuff: 0, armorDebuffRounds: 0, lethalIncense: false, lethalIncenseRounds: 0, veilOfMist: false, veilOfMistRounds: 0, healReduction: 0, healReductionRounds: 0, lfaAtkSteal: 0, heroAtkSteal: [], shrink: false, shrinkRounds: 0, burn: 0, watcherMark: 0, energy: 0, darkProt: !is6, voidBarriers: is6 ? 0 : 4 };
     let pet = { energy: 0 };
 
     for (let s = 0; s < 3; s++) {
@@ -3076,14 +3086,14 @@ function runOne(ov = null) {
             if (boss.darkProt) {
                 // Barriers survived the round — boss gains +50% Holy Damage (permanent)
                 boss.holyDmg = (boss.holyDmg || 0) + 0.50;
-                log(`&nbsp;&nbsp;&nbsp;🌑 [DARKNESS PROT] Barriers intact (${boss.voidBarriers}/5) → Boss +50% Holy Damage (permanent, now ${((boss.holyDmg||0)*100).toFixed(0)}%)`, "#a78bfa");
+                log(`&nbsp;&nbsp;&nbsp;🌑 [DARKNESS PROT] Barriers intact (${boss.voidBarriers}/4) → Boss +50% Holy Damage (permanent, now ${((boss.holyDmg||0)*100).toFixed(0)}%)`, "#a78bfa");
             } else {
                 log(`&nbsp;&nbsp;&nbsp;🌑 [DARKNESS PROT] Was broken this round — no Holy Damage bonus`, "#4ade80");
             }
             // Reset barriers for next round
             boss.darkProt = true;
-            boss.voidBarriers = 5;
-            log(`&nbsp;&nbsp;&nbsp;🌑 [DARKNESS PROT] Barriers reset to 5 for next round`, "#a78bfa");
+            boss.voidBarriers = 4;
+            log(`&nbsp;&nbsp;&nbsp;🌑 [DARKNESS PROT] Barriers reset to 4 for next round`, "#a78bfa");
         }
 
         log(`&nbsp;&nbsp;&nbsp;👁️ PUPIL DODGE RESET (Max ATK hero dodge resets to base)`, "#e879f9");
@@ -3453,9 +3463,8 @@ function runOptimizer() {
     const prog = document.getElementById('optProgress');
     const out  = document.getElementById('optOutput');
 
-    const dcPanel = document.getElementById('dmgCalcPanel');
-    if (!dcPanel && !parseFloat(document.getElementById('dc_atk')?.value)) {
-        alert('Please fill in the ATK value in the Max ATK hero\'s Damage Calculator before running the optimizer.');
+    if (!parseFloat(document.getElementById('dc_atk')?.value)) {
+        alert('Please fill in the ATK value in the Damage Calculator before running the optimizer.');
         return;
     }
 
