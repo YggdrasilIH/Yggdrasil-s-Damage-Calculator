@@ -879,7 +879,7 @@ function updateBossHPDisplay() {
     const lvl = parseInt(document.getElementById('bossLevel')?.value) || 100;
     const pct = Math.min(100, Math.max(1, parseFloat(document.getElementById('bossCurrentHPPct')?.value) || 100));
     const _HP1 = 5.7912e18;
-    const maxHP = _HP1 * Math.pow(1.239386, 100 - lvl);
+    const maxHP = _HP1 * Math.pow(1.2378805, 100 - lvl);
     const curHP = maxHP * (pct / 100);
     const elCur = document.getElementById('bossHPDisplay');
     const elMax = document.getElementById('bossMaxHPDisplay');
