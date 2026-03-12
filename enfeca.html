@@ -517,6 +517,16 @@ function updateCardSummary(i) {
     const dodge = document.getElementById(`dg${i}`)?.value  || '0';
     const dr    = document.getElementById(`dr${i}`)?.value  || '0';
     const adr   = document.getElementById(`adr${i}`)?.value || '0';
+
+    // ELY and HW cannot equip life stars — hide and uncheck them
+    const noLifestar = (hero === 'ELY' || hero === 'HW');
+    ['spec','pupil','nova','bloom'].forEach(ls => {
+        const cb = document.getElementById(`${ls}${i}`);
+        const lbl = cb?.closest('label');
+        if (cb && noLifestar) { cb.checked = false; }
+        if (lbl) lbl.style.display = noLifestar ? 'none' : '';
+    });
+
     const spec  = document.getElementById(`spec${i}`)?.checked;
     const pupil = document.getElementById(`pupil${i}`)?.checked;
     const nova  = document.getElementById(`nova${i}`)?.checked;
@@ -3379,7 +3389,7 @@ function runOne(ov = null) {
                 } else {
                     units.filter(a => a.dreamMagicProtection || a.mirrorMagicProtection).forEach(a => {
                         a.beeSugarCoat = true;
-                        tryBuff(a, "ci", 0.50, 999, "Bee Sugar-coat CI");
+                        refreshBuff(a, "ci", 0.50, 999, "Bee Sugar-coat CI");
                         log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 3] ${a.name} (Protection) Bee Sugar-coat +50% CI`, "#f0abfc");
                     });
                 }
@@ -4171,7 +4181,7 @@ function runOne(ov = null) {
         log(`⚔️ ═══════════════════════════════════`, "#a78bfa");
     }
 
-    return { units, hd: bossHDStacks, boss, shrinkMissed: shrinkMissedRound, fightEndedRound, bossEndHP: bossLiveHP, bossEndEnergy: boss.energy, threeBossTotalDmg, is3BossMode };
+    return { units, hd: bossHDStacks, boss, shrinkMissed: shrinkMissedRound, fightEndedRound, bossEndHP: bossLiveHP, threeBossTotalDmg, is3BossMode };
 }
 
 function sim(multi) {
@@ -4199,7 +4209,6 @@ function sim(multi) {
         let totalAS = 0, minAS = Infinity, maxAS = -Infinity;
         let totalFER = 0, minFER = Infinity, maxFER = -Infinity;
         let totalEndHP = 0, minEndHP = Infinity, maxEndHP = -Infinity;
-        let totalEndEnergy = 0, minEndEnergy = Infinity, maxEndEnergy = -Infinity;
         // 3-boss mode batch tracking
         let total3BossDmg = 0, min3BossDmg = Infinity, max3BossDmg = -Infinity;
         const progEl = document.getElementById('simProgress');
@@ -4222,8 +4231,6 @@ function sim(multi) {
             totalFER += fer; minFER = Math.min(minFER, fer); maxFER = Math.max(maxFER, fer);
             const endHP = res.bossEndHP || 0;
             totalEndHP += endHP; minEndHP = Math.min(minEndHP, endHP); maxEndHP = Math.max(maxEndHP, endHP);
-            const endEnergy = res.bossEndEnergy || 0;
-            totalEndEnergy += endEnergy; minEndEnergy = Math.min(minEndEnergy, endEnergy); maxEndEnergy = Math.max(maxEndEnergy, endEnergy);
             // 3-boss mode tracking — read totalEstDmg from the isM hero (LFA or DGN)
             if (res.is3BossMode) {
                 const mHero = res.units.find(u => u.isM);
@@ -4469,7 +4476,6 @@ function sim(multi) {
                     <small style="color:#64748b">[${minEndHP.toExponential(2)} – ${maxEndHP.toExponential(2)}]</small><br>
                     <small style="color:#64748b">${bossMaxHP > 0 ? ((totalEndHP/N/bossMaxHP)*100).toFixed(1)+'% of max avg' : ''}</small>
                 </div>
-                <div>⚡ <strong>Boss energy (end of fight)</strong><br>Avg: ${fmtR(totalEndEnergy/N, minEndEnergy, maxEndEnergy, 0)}</div>
             </div>`;
             html += `<h3>AVERAGES + RANGES (${N} FIGHTS)</h3>`;
             html += `<p><b>Boss Holy Damage Stacks:</b> avg <span style="color:var(--accent)">${(totalHD/N).toFixed(2)}</span> stacks (+${(totalHD/N*12.5).toFixed(1)}% HD) &nbsp;|&nbsp; range <small style="color:#64748b">[${minHD} – ${maxHD} stacks / +${(minHD*12.5).toFixed(1)}% – +${(maxHD*12.5).toFixed(1)}% HD]</small></p>`;
