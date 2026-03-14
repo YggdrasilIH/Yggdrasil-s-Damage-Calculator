@@ -205,6 +205,9 @@
                 <label style="font-size:11px;color:#cbd5e1;display:flex;align-items:center;gap:4px;"><span style="color:#94a3b8;min-width:60px;">Crit</span><input type="number" id="ss_pet_crit" value="0" min="0" max="9999" step="0.1" style="width:50px;background:#0b0e14;border:1px solid #334155;border-radius:4px;color:#e2e8f0;padding:2px 4px;font-size:11px;" oninput="updateAllCardCI()"><span style="color:#64748b;font-size:10px;">%</span></label>
                 <label style="font-size:11px;color:#cbd5e1;display:flex;align-items:center;gap:4px;"><span style="color:#94a3b8;min-width:60px;">Holy DMG</span><input type="number" id="ss_pet_hd" value="0" min="0" max="9999" step="0.1" style="width:50px;background:#0b0e14;border:1px solid #334155;border-radius:4px;color:#e2e8f0;padding:2px 4px;font-size:11px;" oninput="updateAllCardCI()"><span style="color:#64748b;font-size:10px;">%</span></label>
             </div>
+            <div style="margin-top:5px;">
+                <label style="font-size:11px;color:#f472b6;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="ss_pet_lv241"> 🔥 Level 241+ (Phoenix burst also grants +30% Crit to 4 hit heroes, 3r)</label>
+            </div>
         </div>
 
         <!-- Starspawn -->
@@ -314,7 +317,25 @@
     <button onclick="sim(false)" style="padding:12px;font-size:13px;">📋 Simulate (Full Log)</button>
     <span id="simProgress" style="display:none;color:#94a3b8;font-size:12px;margin-left:8px">Simulating...</span>
     <button onclick="sim(true)" style="padding:12px;font-size:13px;">📊 Statistical Batch (1000)</button>
+    <button onclick="openTopHits()" style="padding:12px;font-size:13px;background:linear-gradient(135deg,#b45309,#d97706);border:none;color:#fff;border-radius:6px;cursor:pointer;font-weight:bold;">🏆 Top Hits</button>
     <button onclick="openDeadzoneCalc()" style="padding:12px;font-size:13px;background:linear-gradient(135deg,#065f46,#047857);border:none;color:#fff;border-radius:6px;cursor:pointer;font-weight:bold;grid-column:1/-1;">🎯 Deadzone Skip Calculator</button>
+</div>
+
+<!-- Top Hits Modal -->
+<div id="topHitsModal" style="display:none;position:fixed;inset:0;background:#000a;z-index:1000;overflow:auto;" onclick="if(event.target===this)this.style.display='none';">
+  <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;max-width:600px;margin:60px auto;padding:24px;" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2 style="margin:0;color:#f8fafc;font-size:16px;">🏆 Top Hits Finder</h2>
+      <button onclick="document.getElementById('topHitsModal').style.display='none'" style="background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+      <label style="color:#94a3b8;font-size:13px;">Fights to simulate:</label>
+      <input type="number" id="topHitsN" value="500" min="10" max="10000" step="10" style="width:100px;padding:6px 10px;background:#1e293b;border:1px solid #334155;border-radius:5px;color:#f8fafc;font-size:13px;">
+      <button onclick="runTopHits()" id="topHitsBtn" style="padding:8px 18px;background:linear-gradient(135deg,#b45309,#d97706);border:none;color:#fff;border-radius:5px;cursor:pointer;font-weight:bold;font-size:13px;">▶ Run</button>
+    </div>
+    <div id="topHitsProgress" style="display:none;color:#94a3b8;font-size:12px;margin-bottom:12px;">Running...</div>
+    <div id="topHitsResults"></div>
+  </div>
 </div>
 
 <div style="border:1px solid #4f46e5;border-radius:8px;background:#0f0f1a;overflow:hidden;margin-bottom:10px;max-width:860px;">
@@ -601,7 +622,7 @@ function buildCardHTML(i, d) {
         </div>
         <div class="card-vert-label" id="card-vert${i}" onclick="toggleCard(${i})"></div>
         <div class="card-body" id="card-body${i}">
-          <select id="h${i}" onchange="updateDCLabel();updateCardCI(${i});refreshLowHPDropdowns();updateCardSummary(${i});updateCoreOfOriginRow(${i});setHeroCritDefault(${i})" style="margin-top:6px">${HEROES.map(h=>`<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
+          <select id="h${i}" onchange="updateDCLabel();updateCardCI(${i});refreshLowHPDropdowns();updateCardSummary(${i});updateCoreOfOriginRow(${i});updateNirvanaRow(${i});setHeroCritDefault(${i})" style="margin-top:6px">${HEROES.map(h=>`<option value="${h}" ${h===d.h?'selected':''}>${h}</option>`).join('')}</select>
           <select id="a${i}" onchange="updateCardCI(${i});updateCardSummary(${i})">${ARTS.map(a=>`<option value="${a}" ${a===d.a?'selected':''}>${a}</option>`).join('')}</select>
           <div style="display:flex;gap:5px;margin-top:4px;">
               <div style="flex:1">
@@ -661,6 +682,9 @@ function buildCardHTML(i, d) {
             <div id="enablesBody${i}" style="display:none;margin-top:4px;padding:5px 7px;background:#0f172a;border:1px solid #1e293b;border-radius:5px;">
               ${buildEnablesHTML(i)}
             </div>
+          </div>
+          <div id="nirvanaRow${i}" style="display:none;margin-top:6px;padding:5px 7px;background:#0f1e2e;border:1px solid #38bdf855;border-radius:5px;">
+              <label style="font-size:11px;color:#7dd3fc;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="nirvana${i}"> 🌸 Nirvana (12-stack transition, guaranteed ATK+25% &amp; CI+60%)</label>
           </div>
           <div id="coreOfOriginRow${i}" style="display:none;margin-top:6px;padding:5px 7px;background:#1e0a2e;border:1px solid #7c3aed55;border-radius:5px;">
               <label style="font-size:11px;color:#c084fc;font-weight:600;">⬡ Core of Origin</label>
@@ -901,6 +925,7 @@ window.addEventListener('load', () => {
     }
     updateTeamBonusDisplay();
     for (let i = 0; i < 6; i++) updateCoreOfOriginRow(i);
+    for (let i = 0; i < 6; i++) updateNirvanaRow(i);
 });
 
 let units = [], boss = {}, silent = false, bossHDStacks = 0, bossHPTier = "above70";
@@ -972,6 +997,17 @@ function heroEnergyGain(u, amount, source) {
         return;
     }
     u.energy += amount;
+}
+
+// Grant energy to heroes after a boss attack in 3-boss mode.
+// hitMap: Map of hero → boolean (true if any hit on that hero crit)
+function grantBossHitEnergy(hitMap, bossName) {
+    hitMap.forEach((anyCrit, hero) => {
+        const gain = anyCrit ? 20 : 10;
+        heroEnergyGain(hero, gain, `${bossName} hit`);
+        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚡ [BOSS HIT ENERGY] ${hero.name} +${gain} energy (${anyCrit ? 'crit' : 'no crit'}) → ${hero.energy}`, "#64748b");
+        if (hero.name === "BDSM") checkBDSMThreshold(hero);
+    });
 }
 
 function checkC(u, type, amount="") {
@@ -1692,6 +1728,7 @@ function makeThreeBoss(name, maxHP) {
         critDebuff: 0, critDebuffRounds: 0,
         spiritMirrorRound: 0,
         swjFocusStacks: 0,       // SWJ Void Infusion focus stacks
+        drBuff: 0,               // IEA Structure Inversion DR buff (increases effective DR)
         // Williams fields
         bloodSoakedFlower: 0,    // Blood-soaked Flower stack count
         parasiticRoseTarget: null, // hero obj that has Parasitic Rose from Williams
@@ -1749,8 +1786,8 @@ function countHeroDebuffs(u) {
 }
 
 // Authority Manipulation: flip 1 random eligible buff on a random hero that has one
-// Eligible types: atk, crit, hd, dr, armor (NOT allDmg/allDmgReduction per user)
-const AUTH_MANIP_TYPES = ['atk','crit','hd','dr','armor'];
+// Eligible types: atk, crit, hd, dr, armor, cd, spd, ci
+const AUTH_MANIP_TYPES = ['atk','crit','hd','dr','armor','cd','spd','ci'];
 function applyAuthorityManipulation(sourceLabel) {
     // Build list of heroes with at least one positive buff in eligible types
     const eligible = [];
@@ -1850,6 +1887,9 @@ function runThreeBossAttack(bossObj, roundNum) {
                 units.forEach(u => applyStarStreamCC(u, 'pass 2'));
             }
 
+            // Boss hit energy: all 6 heroes hit, 30% crit chance
+            { const _hitMap = new Map(); units.forEach(u => _hitMap.set(u, Math.random() < 0.20)); grantBossHitEnergy(_hitMap, 'SWJ'); }
+
         } else {
             // ── BASIC ATTACK: Astral Touch ────────────────────────────────
             log(`&nbsp;&nbsp;&nbsp;🌑 [SWJ ASTRAL TOUCH] Energy=${bossObj.energy} < 100 — Basic attack`, "#fb923c");
@@ -1888,6 +1928,8 @@ function runThreeBossAttack(bossObj, roundNum) {
                     }
                 }
             });
+            // Boss hit energy: 2 heroes hit, 30% crit chance each
+            { const _hitMap = new Map([[lowestHP, Math.random() < 0.20], [highestATK, Math.random() < 0.20]]); grantBossHitEnergy(_hitMap, 'SWJ'); }
         }
         return;
     }
@@ -1911,9 +1953,10 @@ function runThreeBossAttack(bossObj, roundNum) {
                 // ── WATERFALL OF FLOWERS ──────────────────────────────────
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌊 [WATERFALL OF FLOWERS] ≥8 stacks! Consumes all ${wBSF} BSF → 8 hits × 2000% ATK to 3 random heroes each`, "#f87171");
                 bossObj.bloodSoakedFlower = 0;
-                // Track hits per hero for the repeat-hit bonus
+                // Track hits per hero for the repeat-hit bonus, and crits for energy
                 const hitCount = {};
-                units.forEach(u => { hitCount[u.name] = 0; });
+                const _wfCritMap = new Map();
+                units.forEach(u => { hitCount[u.name] = 0; _wfCritMap.set(u, false); });
                 for (let hit = 1; hit <= 8; hit++) {
                     // Pick 3 random heroes independently per hit
                     const shuffled = [...units].sort(() => Math.random() - 0.5);
@@ -1921,9 +1964,12 @@ function runThreeBossAttack(bossObj, roundNum) {
                     targets.forEach(t => {
                         hitCount[t.name]++;
                         const repeatBonus = hitCount[t.name] > 1 ? (hitCount[t.name]-1) * 1200 : 0;
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌊 Hit ${hit} → ${t.name}: 2000% ATK${repeatBonus > 0 ? ` + ${repeatBonus}% repeat bonus` : ''}`, "#f87171");
+                        const _wfCrit = Math.random() < 0.20;
+                        if (_wfCrit) _wfCritMap.set(t, true);
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌊 Hit ${hit} → ${t.name}: 2000% ATK${repeatBonus > 0 ? ` + ${repeatBonus}% repeat bonus` : ''}${_wfCrit ? ' (CRIT)' : ''}`, "#f87171");
                     });
                 }
+                grantBossHitEnergy(_wfCritMap, 'Williams');
                 // 40% chance Parasitic Rose on highest-energy hero
                 const highE = units.reduce((a, b) => b.energy > a.energy ? b : a);
                 if (Math.random() < 0.40) {
@@ -1942,13 +1988,16 @@ function runThreeBossAttack(bossObj, roundNum) {
                 // Prioritize Silenced heroes, else random
                 const silenced = units.filter(u => u.cc.silence > 0);
                 const hitCount = {};
+                const _bloomCritMap = new Map();
                 units.forEach(u => { hitCount[u.name] = 0; });
                 for (let hit = 1; hit <= totalHits; hit++) {
                     const pool = silenced.length > 0 ? silenced : units;
                     const t = pool[Math.floor(Math.random() * pool.length)];
                     hitCount[t.name]++;
                     const repeatBonus = hitCount[t.name] > 1 ? (hitCount[t.name]-1) * 1000 : 0;
-                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 Hit ${hit} → ${t.name}: 2000% ATK${repeatBonus > 0 ? ` + ${repeatBonus}% repeat bonus` : ''}${t.cc.silence > 0 ? ' (Silenced target)' : ''}`, "#f87171");
+                    const _bloomCrit = Math.random() < 0.20;
+                    if (!_bloomCritMap.has(t) || _bloomCrit) _bloomCritMap.set(t, _bloomCrit || (_bloomCritMap.get(t) || false));
+                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 Hit ${hit} → ${t.name}: 2000% ATK${repeatBonus > 0 ? ` + ${repeatBonus}% repeat bonus` : ''}${t.cc.silence > 0 ? ' (Silenced target)' : ''}${_bloomCrit ? ' (CRIT)' : ''}`, "#f87171");
                     // Root of Confusion on-hit flip
                     const u = t;
                     // Root of Confusion: Specter passive on-hit flip (80% chance, requires Specter wearer)
@@ -1965,6 +2014,7 @@ function runThreeBossAttack(bossObj, roundNum) {
                         }
                     }
                 }
+                grantBossHitEnergy(_bloomCritMap, 'Williams');
                 // 40% chance Parasitic Rose (only on Waterfall — base active does not have it)
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [BLOOM] Normal active — no Parasitic Rose (only Waterfall has it)`, "#94a3b8");
             }
@@ -1975,6 +2025,8 @@ function runThreeBossAttack(bossObj, roundNum) {
             // Target 2 heroes with most energy
             const sorted = [...units].sort((a, b) => b.energy - a.energy);
             const targets = sorted.slice(0, Math.min(2, units.length));
+            // Boss hit energy: grant before silence/drain (30% crit chance)
+            { const _vowMap = new Map(); targets.forEach(t => _vowMap.set(t, Math.random() < 0.20)); grantBossHitEnergy(_vowMap, 'Williams'); }
             targets.forEach(t => {
                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🗡️ [VOW OF BLOOD] 800% ATK → ${t.name} (energy: ${t.energy})`, "#f87171");
                 // 50% chance Silence-Gag Order for 2r, reduced by hero CI
@@ -2041,8 +2093,11 @@ function runThreeBossAttack(bossObj, roundNum) {
 
             // Step 1: 540% ATK × 2 to all heroes + Authority Manipulation 1 time
             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚡ [LAW] Step 1: 540% ATK × 2 to all heroes`, "#fbbf24");
+            const _ieaActCritMap = new Map();
             units.forEach(u => {
-                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;💀 ${u.name} hit (540% ATK ×2)`, "#fbbf24");
+                const _ieaCrit = Math.random() < 0.20;
+                _ieaActCritMap.set(u, _ieaCrit);
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;💀 ${u.name} hit (540% ATK ×2)${_ieaCrit ? ' (CRIT)' : ''}`, "#fbbf24");
                 // Root of Confusion: Specter passive on-hit flip (80% chance, requires Specter wearer)
                 if ((bossObj.rootOfConfusion || 0) > 0 && units.some(s => s.hasS)) {
                     const _attrTypes = ['atk','armor','dr','crit','hd','cd','ci','spd'].filter(t => u.buffs[t] && u.buffs[t].some(b => b.value < 0));
@@ -2058,6 +2113,7 @@ function runThreeBossAttack(bossObj, roundNum) {
                 }
             });
             applyAuthorityManipulation("IEA Active");
+            grantBossHitEnergy(_ieaActCritMap, 'IEA');
 
             // Step 2: extra 400% ATK to all hit (all heroes), scaling +400% per debuff
             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚡ [LAW] Step 2: extra 400% ATK + 400% per debuff on each hero`, "#fbbf24");
@@ -2071,6 +2127,7 @@ function runThreeBossAttack(bossObj, roundNum) {
             // ── BASIC: Collapse Befalling ──────────────────────────────────
             log(`&nbsp;&nbsp;&nbsp;⚡ [IEA COLLAPSE BEFALLING] Energy=${bossObj.energy} < 100 — Basic attack`, "#fbbf24");
             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;💥 [COLLAPSE] 540% ATK to all heroes`, "#fbbf24");
+            { const _ieaBasicCritMap = new Map(); units.forEach(u => _ieaBasicCritMap.set(u, Math.random() < 0.20));
             units.forEach(u => {
                 applyDataDestruction(u, "IEA Basic");
                 // Root of Confusion: Specter passive on-hit flip (80% chance, requires Specter wearer)
@@ -2087,6 +2144,7 @@ function runThreeBossAttack(bossObj, roundNum) {
                     }
                 }
             });
+            grantBossHitEnergy(_ieaBasicCritMap, 'IEA'); }
         }
 
         // ── PASSIVE: Cataclysm Reshaping (EoR) ────────────────────────────
@@ -2174,6 +2232,7 @@ function runOne(ov = null) {
             cc: { silence:0, fear:0, seal:0, rockLock:0, coldChill:0 },
             imm: "none", // placeholder, overridden below
             upgradedPurify: (ov && ov.heroes) ? (ov.heroes[i].upgradedPurify || false) : (document.getElementById(`upgPurify${i}`)?.checked || false),
+            hasNirvana: (ov && ov.heroes) ? (ov.heroes[i].hasNirvana || false) : (document.getElementById(`nirvana${i}`)?.checked || false),
             purifyType: (ov && ov.heroes) ? (ov.heroes[i].purifyType || 'control') : (() => { const r = document.querySelector(`input[name="enable_t2_${i}"]:checked`); const v = r ? parseInt(r.value) : 1; return v===0?'mark':v===2?'attr':'control'; })(),
             art: art,
             spd: heroSpd,
@@ -2386,7 +2445,7 @@ function runOne(ov = null) {
         const _teamATK = units.reduce((sum, x) => sum + (x.name === 'ELY' || x.name === 'HW' ? 0.015 : (x.name ? 0.02 : 0)), 0);
         u.buffs.ci.push({ value: _teamCI, rounds: 999, source: "Team CI Bonus" });
         u.buffs.dr.push({ value: _teamDR, rounds: 999, source: "Team DR Bonus" });
-        u.buffs.atk.push({ value: _teamATK, rounds: 999, source: "Team ATK Bonus" });
+        u.teamATKBonus = _teamATK; // baked into base ATK — cannot be buffed/debuffed away
         let teamTotal = u.baseCI + getBuffTotal(u, "ci");
         log(`&nbsp;&nbsp;&nbsp;💠 [TEAM BONUS] ${u.name} +${(_teamCI*100).toFixed(0)}% CI, +${(_teamDR*100).toFixed(1)}% DR, +${(_teamATK*100).toFixed(1)}% ATK (permanent) | Eff. CI now: ${(teamTotal*100).toFixed(1)}%`, "#facc15");
 
@@ -2455,18 +2514,34 @@ function runOne(ov = null) {
     }
 
     let shrinkMissedRound = false;
+
+    // Helper for IEA Cataclysm Reshaping: get transferable attribute reductions from a boss
+    const getBossAttrReductions = b => {
+        const list = [];
+        if ((b.atkDebuff      || 0) > 0) list.push({ type: 'atk',           get: () => b.atkDebuff,      clear: () => { b.atkDebuff = 0;      b.atkDebuffRounds   = 0; } });
+        if ((b.drDebuff       || 0) > 0) list.push({ type: 'dr',            get: () => b.drDebuff,       clear: () => { b.drDebuff  = 0;      b.drDebuffRounds    = 0; } });
+        if ((b.ciDebuff       || 0) > 0) list.push({ type: 'ci',            get: () => b.ciDebuff,       clear: () => { b.ciDebuff  = 0;      b.ciDebuffRounds    = 0; } });
+        if ((b.armorDebuff    || 0) > 0) list.push({ type: 'armor',         get: () => b.armorDebuff,    clear: () => { b.armorDebuff = 0;    b.armorDebuffRounds = 0; } });
+        if ((b.critDebuff     || 0) > 0) list.push({ type: 'crit',          get: () => b.critDebuff,     clear: () => { b.critDebuff = 0;     b.critDebuffRounds  = 0; } });
+        if ((b.spdDebuff      || 0) > 0) list.push({ type: 'spd',           get: () => b.spdDebuff,      clear: () => { b.spdDebuff  = 0; } });
+        if ((b.healReduction  || 0) > 0) list.push({ type: 'healReduction', get: () => b.healReduction,  clear: () => { b.healReduction = 0;  b.healReductionRounds = 0; } });
+        return list;
+    };
+
     for (let r = 1; r <= 15; r++) {
         log(`ROUND ${r}`, "#ff4757");
 
         // ── Pet activation ────────────────────────────────────────────────────
         if (pet.energy >= 100) {
             pet.energy = 0;
-            log(`&nbsp;&nbsp;&nbsp;🐾 [PET ACTIVATE] Energy ≥100 — burst! Gives +88% burn bonus dmg to 4 heroes (3r)`, "#a78bfa");
+            const petLv241 = document.getElementById('ss_pet_lv241')?.checked;
+            log(`&nbsp;&nbsp;&nbsp;🐾 [PET ACTIVATE] Energy ≥100 — burst! Gives +88% burn bonus dmg to 4 heroes (3r)${petLv241?' + +30% Crit (Lv241+)':''}`, "#a78bfa");
             // Pick 4 random heroes
             const shuffled = [...units].sort(() => Math.random() - 0.5);
             shuffled.slice(0, 4).forEach(h => {
                 addBuff(h, "burnBonus", 0.88, 3, "Pet Burn Bonus");
-                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🐾 ${h.name} +88% burn bonus dmg (3r)`, "#a78bfa");
+                if (petLv241) addBuff(h, "crit", 0.30, 3, "Pet Lv241+ Crit");
+                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🐾 ${h.name} +88% burn bonus dmg${petLv241?' +30% crit':''} (3r)`, "#a78bfa");
             });
         }
 
@@ -2749,6 +2824,8 @@ function runOne(ov = null) {
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${target.name} → Dream Magic Magnification (+12%allDmg, ${dmDur}r)`, "#f0abfc");
                         }
                         if (type === "Protection") {
+                            // Clear Protection from any previous holder — only one hero holds it at a time
+                            units.forEach(x => { x.dreamMagicProtection = false; });
                             target.dreamMagicProtection = true;
                             log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [DD] ${target.name} → Dream Magic Protection (Shield 3000% ATK, ${dmDur}r)`, "#f0abfc");
                         }
@@ -2786,9 +2863,8 @@ function runOne(ov = null) {
                         // Find first boss whose range contains a priority position
                         for (const tryPos of priorityOrder) {
                             const match = posRanges.find(b => b.range[0] <= tryPos && tryPos <= b.range[1]);
-                            if (match && !primaryBoss._resolved) {
+                            if (match) {
                                 primaryBoss = match.boss;
-                                primaryBoss._resolved = true;
                                 // Same-line bosses (excluding primary) = splash targets
                                 splashBosses = posRanges
                                     .filter(b => b.line === match.line && b.boss !== match.boss)
@@ -2797,8 +2873,6 @@ function runOne(ov = null) {
                                 break;
                             }
                         }
-                        // Clean up temp flag
-                        if (primaryBoss._resolved) delete primaryBoss._resolved;
                         // Sync primary boss to global boss pointer so formulas (watcherMark etc.) use it
                         boss = primaryBoss;
                         if (boss === bosses[0]) boss.energy = bosses[0].energy; // Williams already synced
@@ -2850,6 +2924,8 @@ function runOne(ov = null) {
                     // ── Damage Calculator ─────────────────────────────────────
                     const dc = getDmgCalcInputs();
                     if (dc) {
+                        // Team ATK bonus bakes into base ATK (permanent, not a removable buff)
+                        const baseATK     = dc.atk * (1 + (u.teamATKBonus || 0));
                         // ATK steal already applied to buff array above — atkBuff picks it up here
                         const atkBuff     = getBuffTotal(u, "atk");
                         const allDmgBuff  = getBuffTotal(u, "allDmg");
@@ -2888,8 +2964,8 @@ function runOne(ov = null) {
                             }
                             const _statusMult = 1 + _statusBonus;
 
-                            const _effectiveDR  = is3BossMode ? Math.max(0, THREE_BOSS_DR  - (targetBoss.drDebuff  || 0) - (u.drOffset  || 0)) : 0;
-                            const _effectiveADR = is3BossMode ? Math.max(0, THREE_BOSS_ADR - (targetBoss.adrDebuff || 0) - (u.adrOffset || 0)) : 0;
+                            const _effectiveDR  = is3BossMode ? Math.min(0.75, Math.max(0, THREE_BOSS_DR  - (targetBoss.drDebuff  || 0) - (u.drOffset  || 0) + (targetBoss.drBuff || 0))) : Math.min(0.75, Math.max(0, 0.20 - (boss.drDebuff  || 0) - (u.drOffset  || 0)));
+                            const _effectiveADR = is3BossMode ? Math.min(0.75, Math.max(0, THREE_BOSS_ADR - (targetBoss.adrDebuff || 0) - (u.adrOffset || 0))) : Math.min(0.75, Math.max(0, 0.20 - (boss.adrDebuff || 0) - (u.adrOffset || 0)));
                             const _drMult  = 1 - _effectiveDR;
                             const _adrMult = 1 - _effectiveADR;
 
@@ -2898,7 +2974,7 @@ function runOne(ov = null) {
                                 log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🔬 [HIT DIAG] target=${targetBoss.name||'boss'} watcher=×${_watcherMarkMult.toFixed(2)} shrink=×${_shrinkMult.toFixed(1)} corr=×${_corrMult.toFixed(2)} status=×${_statusMult.toFixed(3)} burn=${targetBoss.burn||0} bleed=${(targetBoss.bleed||[]).length} corruption=${targetBoss.abyssalCorruption||0} | DR=${(_effectiveDR*100).toFixed(1)}% ADR=${(_effectiveADR*100).toFixed(1)}% (drDebuff=${((targetBoss.drDebuff||0)*100).toFixed(0)}% adrDebuff=${((targetBoss.adrDebuff||0)*100).toFixed(0)}% heroOffset DR=${((u.drOffset||0)*100).toFixed(0)}%/ADR=${((u.adrOffset||0)*100).toFixed(0)}%)`, '#94a3b8');
                             }
 
-                            const base = dc.atk
+                            const base = baseATK
                                 * (1 + atkBuff)
                                 * (multPct + (dc.skill + (u._excessEnergy || 0)) / 100)
                                 * (1 + precCapped * 0.3)
@@ -2914,7 +2990,7 @@ function runOne(ov = null) {
                         // modMult re-checked live (Defier + Maim dynamic) — uses primary boss shrink
                         function getModMult() {
                             const _shrinkMult = boss.shrink ? 1.4 : 1.0;
-                            const _effADR = is3BossMode ? Math.max(0, THREE_BOSS_ADR - (boss.adrDebuff || 0) - (u.adrOffset || 0)) : 0;
+                            const _effADR = is3BossMode ? Math.min(0.75, Math.max(0, THREE_BOSS_ADR - (boss.adrDebuff || 0) - (u.adrOffset || 0))) : Math.min(0.75, Math.max(0, 0.20 - (boss.adrDebuff || 0) - (u.adrOffset || 0)));
                             return allDmgMult * gkMult * ((dc.defier && getLiveHPPct() > 70) ? 1.3 : 1.0) * templeMult * _shrinkMult * getMaimMult() * (1 - _effADR);
                         }
 
@@ -2924,12 +3000,14 @@ function runOne(ov = null) {
                             let secTotal = 0;
                             let secLethal = 0, secBS = 0, secAddl = 0;
                             const _shrinkMult = targetBoss.shrink ? 1.4 : 1.0;
-                            const _effADR = is3BossMode ? Math.max(0, THREE_BOSS_ADR - (targetBoss.adrDebuff || 0) - (u.adrOffset || 0)) : 0;
+                            const _effADR = is3BossMode ? Math.min(0.75, Math.max(0, THREE_BOSS_ADR - (targetBoss.adrDebuff || 0) - (u.adrOffset || 0))) : Math.min(0.75, Math.max(0, 0.20 - (boss.adrDebuff || 0) - (u.adrOffset || 0)));
                             const modM = allDmgMult * gkMult * ((dc.defier && getLiveHPPct() > 70) ? 1.3 : 1.0) * templeMult * _shrinkMult * getMaimMult() * (1 - _effADR);
 
                             // Balanced Strike: fires if any hit in this package did NOT crit
+                            let bsMultOnLethal = 1;
                             if (hitAnyCritMiss) {
                                 const bsPct = getLiveHPPct() < 50 ? 1.95 : 0.45;
+                                bsMultOnLethal = 1 + bsPct;
                                 secBS = priorDmg * bsPct * modM;
                                 secTotal += secBS;
                                 dealDmgToBoss(secBS, is3BossMode, targetBoss);
@@ -3065,7 +3143,7 @@ function runOne(ov = null) {
 
                         const _effectiveSkill = dc.skill + antlersSkill + (u._excessEnergy || 0);
                         // Print DMG CALC summary first, then hits, then total
-                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK:${dc.atk.toLocaleString()} | ATKbuff:+${(atkBuff*100).toFixed(0)}% | Skill:+${_effectiveSkill.toFixed(0)}%${antlersSkill===300?" (incl +300 Antlers)":antlersSkill===50?" (incl +50 Antiwarrior)":(u._excessEnergy||0)>0?` (incl +${u._excessEnergy} excess nrg)`:""}  | Prec:${dc.prec.toFixed(0)}% | Holy:${(holyBuff*100).toFixed(0)}% | AllDmg:+${(allDmgMult*100-100).toFixed(0)}% | Maim:×${getMaimMult().toFixed(3)} | Crit:${(critBuff*100).toFixed(1)}%@${(cdCapped*100).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Defier(dynamic) Temple:×${templeMult.toFixed(2)}${antiwarriorMult>1?' | Antiwarrior:×1.90':''}${boss.shrink?' | Shrink:×1.40':''}`, '#facc15');
+                        log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC] ATK:${baseATK.toLocaleString()}${u.teamATKBonus ? ` (base ${dc.atk.toLocaleString()} ×${(1+(u.teamATKBonus||0)).toFixed(3)} team bonus)` : ''} | ATKbuff:+${(atkBuff*100).toFixed(0)}% | Skill:+${_effectiveSkill.toFixed(0)}%${antlersSkill===300?" (incl +300 Antlers)":antlersSkill===50?" (incl +50 Antiwarrior)":(u._excessEnergy||0)>0?` (incl +${u._excessEnergy} excess nrg)`:""}  | Prec:${dc.prec.toFixed(0)}% | Holy:${(holyBuff*100).toFixed(0)}% | AllDmg:+${(allDmgMult*100-100).toFixed(0)}% | Maim:×${getMaimMult().toFixed(3)} | Crit:${(critBuff*100).toFixed(1)}%@${(cdCapped*100).toFixed(0)}%CD | GK:${dc.gk?'✓':'✗'} Defier(dynamic) Temple:×${templeMult.toFixed(2)}${antiwarriorMult>1?' | Antiwarrior:×1.90':''}${boss.shrink?' | Shrink:×1.40':''}`, '#facc15');
                         hitLog.forEach(h => log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;⚔️ ${h}`, '#facc15'));
                         deferredLog.forEach(([msg, color]) => log(msg, color));
                         log(`&nbsp;&nbsp;&nbsp;⚔️ [DMG CALC TOTAL] ${Math.round(totalDmg).toLocaleString()} damage this active${bossDeadMidActive?' | 💀 BOSS KILLED (Round '+r+')':''}`, '#facc15');
@@ -3367,31 +3445,55 @@ function runOne(ov = null) {
             }
 
             // LBRM 6-stack transition (fires at 6 stacks, once per round)
-            if (u.name === "LBRM" && u.trans >= 6 && !u.lbrmTransUsed) {
-                u.trans -= 6;
+            if (u.name === "LBRM" && u.trans >= (u.hasNirvana ? 12 : 6) && !u.lbrmTransUsed) {
+                u.trans -= (u.hasNirvana ? 12 : 6);
                 u.lbrmTransUsed = true;
-                log(`&nbsp;&nbsp;&nbsp;📎 [LBRM] 6-Stack Transition`, "#f0abfc");
+                log(`&nbsp;&nbsp;&nbsp;📎 [LBRM] ${u.hasNirvana ? '12' : '6'}-Stack Transition${u.hasNirvana ? ' (Nirvana)' : ''}`, "#f0abfc");
                 trackStat(u, "damageDealt", 3000);
                 log(`&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANSITION] 30% Max HP dmg to frontline (capped 3000%)`, "#f0abfc");
-                const transEffect = Math.floor(Math.random() * 3);
-                if (transEffect === 0) {
+
+                if (u.hasNirvana) {
+                    // Nirvana: 100% chance to fire both Wings ATK (25%) and Protection Bee Sugar-coat (60% CI)
                     units.filter(a => a.dreamMagicWings || a.mirrorMagicWings).forEach(a => {
-                        tryBuff(a, "atk", 0.20, 2, "LBRM Trans Wings ATK");
+                        tryBuff(a, "atk", 0.25, 2, "LBRM Trans Wings ATK");
                         a.ccRemovalBonus = Math.min(2, (a.ccRemovalBonus || 0) + 1);
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 1] ${a.name} (Wings) +20% ATK 2r, +1 CC removal attempt (total: ${a.ccRemovalBonus})`, "#f0abfc");
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM NIRVANA TRANS 1] ${a.name} (Wings) +25% ATK 2r, +1 CC removal`, "#f0abfc");
                     });
-                } else if (transEffect === 1) {
-                    units.filter(a => a.dreamMagicMagnification || a.mirrorMagicMagnification).forEach(a => {
-                        addBuff(a, "allDmgReduction", 0.10, 2, "LBRM Trans Magnification DR");
-                        trackStat(a, "healingDone", 33);
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 2] ${a.name} (Magnification) +10% allDmgReduction 2r, +33% HP`, "#f0abfc");
+                    units.filter(a => a.name !== 'LBRM' && (a.dreamMagicProtection || a.mirrorMagicProtection)).forEach(a => {
+                        if (a.beeSugarCoat) {
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM NIRVANA TRANS 3] ${a.name} already has Bee Sugar-coat — skip`, "#94a3b8");
+                            return;
+                        }
+                        a.beeSugarCoat = true;
+                        addBuff(a, "ci", 0.60, 999, "Bee Sugar-coat CI");
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM NIRVANA TRANS 3] ${a.name} (Protection) Bee Sugar-coat +60% CI (Nirvana)`, "#f0abfc");
                     });
                 } else {
-                    units.filter(a => a.dreamMagicProtection || a.mirrorMagicProtection).forEach(a => {
-                        a.beeSugarCoat = true;
-                        refreshBuff(a, "ci", 0.50, 999, "Bee Sugar-coat CI");
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 3] ${a.name} (Protection) Bee Sugar-coat +50% CI`, "#f0abfc");
-                    });
+                    // Normal: 33% chance for one of three effects
+                    const transEffect = Math.floor(Math.random() * 3);
+                    if (transEffect === 0) {
+                        units.filter(a => a.dreamMagicWings || a.mirrorMagicWings).forEach(a => {
+                            tryBuff(a, "atk", 0.20, 2, "LBRM Trans Wings ATK");
+                            a.ccRemovalBonus = Math.min(2, (a.ccRemovalBonus || 0) + 1);
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 1] ${a.name} (Wings) +20% ATK 2r, +1 CC removal attempt (total: ${a.ccRemovalBonus})`, "#f0abfc");
+                        });
+                    } else if (transEffect === 1) {
+                        units.filter(a => a.dreamMagicMagnification || a.mirrorMagicMagnification).forEach(a => {
+                            addBuff(a, "allDmgReduction", 0.10, 2, "LBRM Trans Magnification DR");
+                            trackStat(a, "healingDone", 33);
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 2] ${a.name} (Magnification) +10% allDmgReduction 2r, +33% HP`, "#f0abfc");
+                        });
+                    } else {
+                        units.filter(a => a.name !== 'LBRM' && (a.dreamMagicProtection || a.mirrorMagicProtection)).forEach(a => {
+                            if (a.beeSugarCoat) {
+                                log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 3] ${a.name} already has Bee Sugar-coat — skip`, "#94a3b8");
+                                return;
+                            }
+                            a.beeSugarCoat = true;
+                            addBuff(a, "ci", 0.50, 999, "Bee Sugar-coat CI");
+                            log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌸 [LBRM TRANS 3] ${a.name} (Protection) Bee Sugar-coat +50% CI`, "#f0abfc");
+                        });
+                    }
                 }
                 units.forEach(a => tryBuff(a, "armor", 0.35, 2, "LBRM Glowed Glory"));
                 const lbrmMaxAtk = units.find(a => a.isM) || units[0];
@@ -3909,28 +4011,56 @@ function runOne(ov = null) {
                 }
             }
 
-            // IEA Cataclysm Reshaping: remove 1 Attribute Reduction from 2 random allies (Williams/SWJ),
-            // then grant self Structure Inversion ×2 (convert 1 IEA Attribute Reduction → buff, twice)
+            // IEA Cataclysm Reshaping: transfers up to 2 Attribute Reductions from Williams and SWJ to self,
+            // then grants self Structure Inversion ×6 (convert 1 owned Attr Reduction → Attr Buff each)
             const iea = bosses[2];
             if (iea) {
-                log(`&nbsp;&nbsp;&nbsp;🌀 [IEA CATACLYSM RESHAPING] EoR: remove 1 Attribute Reduction from 2 random allies`, "#fbbf24");
-                const ieaAllies = [bosses[0], bosses[1]]; // Williams, SWJ
-                const shuffledAllies = [...ieaAllies].sort(() => Math.random() - 0.5);
-                shuffledAllies.slice(0, 2).forEach(ally => {
-                    // Remove 1 Attribute Reduction from ally (bosses don't track hero-style buffs,
-                    // but they can have atkDebuff etc. — simplified: log it)
-                    log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [CATACLYSM] ${ally.name}: 1 Attribute Reduction removed (if any)`, "#fbbf24");
+                log(`&nbsp;&nbsp;&nbsp;🌀 [IEA CATACLYSM RESHAPING] EoR: transfer up to 2 Attr Reductions from Williams &amp; SWJ → IEA, then Structure Inversion ×6`, "#fbbf24");
+
+                // Always take from Williams and SWJ only — IEA does not need to put reductions on herself
+                const pickedAllies = [bosses[0], bosses[1]];
+
+                pickedAllies.forEach(ally => {
+                    const reductions = getBossAttrReductions(ally);
+                    if (reductions.length === 0) {
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [CATACLYSM] ${ally.name}: no Attribute Reductions to transfer`, "#94a3b8");
+                        return;
+                    }
+                    // Transfer up to 2
+                    const toTransfer = reductions.sort(() => Math.random() - 0.5).slice(0, 2);
+                    toTransfer.forEach(r => {
+                        const val = r.get();
+                        iea.ieaAttrReductions.push({ type: r.type, value: val });
+                        r.clear();
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [CATACLYSM] ${ally.name} ${r.type.toUpperCase()} reduction (${typeof val === 'number' ? (val*100).toFixed(0)+'%' : val}) transferred to IEA`, "#fbbf24");
+                    });
                 });
-                // Structure Inversion ×2 on IEA: convert 1 IEA Attribute Reduction → buff, twice
-                // IEA's tracked reductions are in ieaAttrReductions array
-                for (let i = 0; i < 2; i++) {
-                    const reductions = iea.ieaAttrReductions || [];
-                    if (reductions.length > 0) {
-                        const idx = Math.floor(Math.random() * reductions.length);
-                        const converted = reductions.splice(idx, 1)[0];
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [STRUCTURE INVERSION] IEA ${converted.type} Reduction → converted to Attribute Buff`, "#fbbf24");
+
+                // Structure Inversion ×6: convert 6 of IEA's own reductions → buffs
+                // DR buff equal to transferred value applied to IEA; all others cosmetic
+                for (let i = 0; i < 6; i++) {
+                    if (iea.ieaAttrReductions.length === 0) {
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [STRUCTURE INVERSION ${i+1}] IEA has no reductions to invert`, "#94a3b8");
+                        break;
+                    }
+                    const pick = iea.ieaAttrReductions[Math.floor(Math.random() * iea.ieaAttrReductions.length)];
+                    const idx = iea.ieaAttrReductions.indexOf(pick);
+                    iea.ieaAttrReductions.splice(idx, 1);
+
+                    // Clear the same debuff type from IEA's own boss object
+                    if      (pick.type === 'dr')            { iea.drDebuff = 0;         iea.drDebuffRounds = 0; }
+                    else if (pick.type === 'atk')           { iea.atkDebuff = 0;        iea.atkDebuffRounds = 0; }
+                    else if (pick.type === 'armor')         { iea.armorDebuff = 0;      iea.armorDebuffRounds = 0; }
+                    else if (pick.type === 'ci')            { iea.ciDebuff = 0;         iea.ciDebuffRounds = 0; }
+                    else if (pick.type === 'crit')          { iea.critDebuff = 0;       iea.critDebuffRounds = 0; }
+                    else if (pick.type === 'spd')           { iea.spdDebuff = 0;        iea.spdDebuffRounds = 0; }
+                    else if (pick.type === 'healReduction') { iea.healReduction = 0;    iea.healReductionRounds = 0; }
+
+                    if (pick.type === 'dr') {
+                        iea.drBuff = (iea.drBuff || 0) + pick.value;
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [STRUCTURE INVERSION ${i+1}] DR reduction inverted → +${(pick.value*100).toFixed(0)}% DR buff to IEA (now ${((iea.drBuff||0)*100).toFixed(0)}%) + IEA DR debuff cleared`, "#fbbf24");
                     } else {
-                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [STRUCTURE INVERSION] IEA has no Attribute Reductions to convert`, "#94a3b8");
+                        log(`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;🌀 [STRUCTURE INVERSION ${i+1}] ${pick.type.toUpperCase()} reduction inverted → ${pick.type.toUpperCase()} buff to IEA (cosmetic) + IEA ${pick.type.toUpperCase()} debuff cleared`, "#fbbf24");
                     }
                 }
             }
@@ -4184,6 +4314,77 @@ function runOne(ov = null) {
     return { units, hd: bossHDStacks, boss, shrinkMissed: shrinkMissedRound, fightEndedRound, bossEndHP: bossLiveHP, threeBossTotalDmg, is3BossMode };
 }
 
+function openTopHits() {
+    document.getElementById('topHitsModal').style.display = 'block';
+    document.getElementById('topHitsResults').innerHTML = '';
+    document.getElementById('topHitsProgress').style.display = 'none';
+}
+
+function runTopHits() {
+    const N = Math.max(10, Math.min(10000, parseInt(document.getElementById('topHitsN').value) || 500));
+    const btn = document.getElementById('topHitsBtn');
+    const prog = document.getElementById('topHitsProgress');
+    const resultsEl = document.getElementById('topHitsResults');
+    btn.disabled = true;
+    prog.style.display = 'block';
+    prog.textContent = `Running fight 0 / ${N}…`;
+    resultsEl.innerHTML = '';
+
+    // Top 10 stored as array of {dmg, fight#}
+    const top10 = [];
+    let i = 0;
+    const CHUNK = 50;
+
+    function runChunk() {
+        const end = Math.min(i + CHUNK, N);
+        silent = true; // suppress logging
+        for (; i < end; i++) {
+            const res = runOne();
+            const is3 = res.is3BossMode;
+            let dmg = 0;
+            if (is3) {
+                dmg = res.threeBossTotalDmg || 0;
+            } else {
+                const mHero = res.units.find(u => u.isM);
+                dmg = mHero ? (mHero.totalEstDmg || 0) : 0;
+            }
+            top10.push({ dmg, fight: i + 1 });
+            top10.sort((a, b) => b.dmg - a.dmg);
+            if (top10.length > 10) top10.pop();
+        }
+        silent = false;
+        prog.textContent = `Running fight ${i} / ${N}…`;
+        if (i < N) {
+            requestAnimationFrame(runChunk);
+        } else {
+            btn.disabled = false;
+            prog.style.display = 'none';
+            // Render results
+            const is3 = top10.length > 0;
+            let html = `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <tr style="color:#94a3b8;border-bottom:1px solid #334155;">
+                    <th style="padding:6px 10px;text-align:left;">Rank</th>
+                    <th style="padding:6px 10px;text-align:left;">Fight #</th>
+                    <th style="padding:6px 10px;text-align:right;">Damage</th>
+                </tr>`;
+            const medals = ['🥇','🥈','🥉'];
+            top10.forEach((entry, idx) => {
+                const rank = medals[idx] || `#${idx+1}`;
+                const highlight = idx === 0 ? 'color:#fbbf24;font-weight:bold;' : idx < 3 ? 'color:#f8fafc;' : 'color:#94a3b8;';
+                html += `<tr style="border-bottom:1px solid #1e293b;">
+                    <td style="padding:6px 10px;${highlight}">${rank}</td>
+                    <td style="padding:6px 10px;${highlight}">Fight ${entry.fight}</td>
+                    <td style="padding:6px 10px;text-align:right;${highlight}">${entry.dmg.toExponential(4)}</td>
+                </tr>`;
+            });
+            html += `</table>`;
+            html += `<div style="margin-top:12px;color:#64748b;font-size:11px;">Top 10 from ${N} fights. Click any fight number to replay it with full log.</div>`;
+            resultsEl.innerHTML = html;
+        }
+    }
+    requestAnimationFrame(runChunk);
+}
+
 function sim(multi) {
     const out = document.getElementById('output'); out.innerHTML = ""; silent = multi;
     if (!multi) {
@@ -4219,7 +4420,22 @@ function sim(multi) {
         function runBatchChunk() {
             const end = Math.min(i + CHUNK, N);
             for (; i < end; i++) {
-            let res = runOne();
+            let res;
+            try { res = runOne(); } catch(e) {
+                const errMsg = `❌ Run ${i+1} CRASHED: ${e.message} @ ${e.stack ? e.stack.split('\n').slice(1,3).join(' | ') : '(no stack)'}`;
+                const out2 = document.getElementById('output');
+                if (out2) out2.innerHTML = `<div style="color:#f87171;font-family:monospace;white-space:pre-wrap;padding:12px">${errMsg}</div>` + (out2.innerHTML || '');
+                if (progEl) { progEl.style.display = 'block'; progEl.textContent = `Stopped at run ${i+1} — see error above`; }
+                if (batchBtn) batchBtn.disabled = false;
+                return;
+            }
+            if (!res || !res.units) {
+                const out2 = document.getElementById('output');
+                if (out2) out2.innerHTML = `<div style="color:#f87171;font-family:monospace;padding:12px">❌ Run ${i+1}: runOne() returned invalid result: ${JSON.stringify(res)}</div>` + (out2.innerHTML || '');
+                if (progEl) { progEl.style.display = 'block'; progEl.textContent = `Stopped at run ${i+1} — invalid result`; }
+                if (batchBtn) batchBtn.disabled = false;
+                return;
+            }
             totalHD += res.hd;
             minHD = Math.min(minHD, res.hd);
             maxHD = Math.max(maxHD, res.hd);
@@ -5943,6 +6159,17 @@ function updateCoreOfOriginRow(i) {
     }
 }
 
+function updateNirvanaRow(i) {
+    const hero = document.getElementById(`h${i}`)?.value || '';
+    const row  = document.getElementById(`nirvanaRow${i}`);
+    if (!row) return;
+    row.style.display = (hero === 'LBRM') ? 'block' : 'none';
+    if (hero !== 'LBRM') {
+        const cb = document.getElementById(`nirvana${i}`);
+        if (cb) cb.checked = false;
+    }
+}
+
 function onCoreChange(i) {
     const sel = document.getElementById(`core${i}`);
     if (sel.value !== 'none') {
@@ -5976,6 +6203,7 @@ function updateCardCI(i) {
 
     updateTeamBonusDisplay();
     for (let i = 0; i < 6; i++) updateCoreOfOriginRow(i);
+    for (let i = 0; i < 6; i++) updateNirvanaRow(i);
     for (let j = 0; j < 6; j++) {
         if (j === i) continue;
         const ej = getEffectiveCI(j);
